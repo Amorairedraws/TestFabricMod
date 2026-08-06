@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
 import net.minecraft.util.Formatting;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
@@ -22,6 +23,15 @@ public class ItemStackMixin {
 			EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
 			// Only show glint when ready to level up
 			cir.setReturnValue(data.readyToLevelUp);
+		}
+	}
+
+	@Inject(method = "getEnchantments", at = @At("HEAD"), cancellable = true)
+	private void suppressBrokenEnchantments(CallbackInfoReturnable<ItemEnchantmentsComponent> cir) {
+		ItemStack stack = (ItemStack) (Object) this;
+		if (stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+			EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+			if (data != null && data.broken) cir.setReturnValue(ItemEnchantmentsComponent.DEFAULT);
 		}
 	}
 

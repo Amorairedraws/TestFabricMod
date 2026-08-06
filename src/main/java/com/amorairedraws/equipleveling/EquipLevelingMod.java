@@ -56,8 +56,9 @@ public class EquipLevelingMod implements ModInitializer {
 					|| !EquipmentComponent.isTracked(player.getStackInHand(hand))) return ActionResult.PASS;
 			if (player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer) {
 				SimpleInventory input = new SimpleInventory(1);
-				// Keep the same stack instance: the handler mutates the item in the player's
-				// inventory rather than a detached copy that would lose the upgrade.
+				// Initialize lazily, but before the handler generates offers. The same
+				// stack object is retained so component mutations persist in inventory.
+				EquipmentComponent.getOrCreate(player.getStackInHand(hand));
 				input.setStack(0, player.getStackInHand(hand));
 				serverPlayer.openHandledScreen(new SimpleNamedScreenHandlerFactory(
 					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input),
