@@ -45,6 +45,7 @@ When a piece of equipment's vanilla durability reaches zero:
 - `broken` is set to true
 - The item does not disappear — it remains in the player's inventory
 - All enchantment effects are suppressed
+- All Tool effectivity is suppressed, tools, weapon and armor provide no use while broken
 - XP accrual is halted
 - The item name gains a red `[BROKEN]` prefix
 - The item renderer applies a strong red tint to the item sprite via Mixin, making it visually distinct at a glance
