@@ -14,6 +14,9 @@ import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 
 public class EquipmentEnchantingScreenHandler extends ScreenHandler {
+
+	/** Registered by the common initializer; kept here as the single handler type. */
+	public static ScreenHandlerType<EquipmentEnchantingScreenHandler> TYPE;
 	
 	public static final int WIDTH = 176;
 	public static final int HEIGHT = 166;
@@ -29,7 +32,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	}
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory) {
-		super(null, syncId);
+		super(TYPE, syncId);
 		this.inventory = inventory;
 
 		this.addSlot(new Slot(inventory, 0, 15, 47));

@@ -15,6 +15,11 @@ import com.amorairedraws.equipleveling.event.ArmorXpHandler;
 import com.amorairedraws.equipleveling.event.DeathEventHandler;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import com.amorairedraws.equipleveling.loot.EquipmentLootModifier;
+import com.amorairedraws.equipleveling.screen.EquipmentEnchantingScreenHandler;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.screen.ScreenHandlerType;
+import net.minecraft.util.Identifier;
 
 public class EquipLevelingMod implements ModInitializer {
 	public static final String MOD_ID = "equip_leveling";
@@ -27,8 +32,13 @@ public class EquipLevelingMod implements ModInitializer {
 		// Load config
 		EquipLevelingConfig.load();
 		
-		// Register custom component
+		// Register custom component and the real handler type used by both server
+		// and client.  Passing null to ScreenHandler's constructor prevents the
+		// handler from being opened by vanilla networking.
 		EquipmentComponent.register();
+		EquipmentEnchantingScreenHandler.TYPE = Registry.register(Registries.SCREEN_HANDLER,
+			Identifier.of(MOD_ID, "equipment_enchanting"),
+			new ScreenHandlerType<>(EquipmentEnchantingScreenHandler::new, net.minecraft.resource.featuretoggle.FeatureFlags.VANILLA_FEATURES));
 		
 		// Register event listeners
 		registerEventListeners();

@@ -43,8 +43,29 @@ public final class EquipmentComponent {
     public static void markBrokenIfNecessary(ItemStack stack) {
         if (EquipLevelingConfig.isBrokenMechanicEnabled() && stack.isDamageable()
                 && stack.getDamage() >= stack.getMaxDamage() && isTracked(stack)) {
-            getOrCreate(stack).broken = true;
+            EquipmentData data = getOrCreate(stack);
+            data.broken = true;
+            stack.set(EQUIPMENT_TYPE, data);
         }
+    }
+
+    /** Repairs an equipment stack with a material at an anvil. Returns false when
+     * the item is not one of ours or the supplied material is not accepted. */
+    public static boolean repair(ItemStack stack, int restoredDamage) {
+        if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE) || !stack.isDamageable()) return false;
+        EquipmentData data = stack.get(EQUIPMENT_TYPE);
+        if (!data.broken && stack.getDamage() <= 0) return false;
+        stack.setDamage(Math.max(0, stack.getDamage() - Math.max(1, restoredDamage)));
+        data.broken = false;
+        data.refresh();
+        stack.set(EQUIPMENT_TYPE, data);
+        return true;
+    }
+
+    public static int repairCost(ItemStack stack) {
+        EquipmentData data = stack.get(EQUIPMENT_TYPE);
+        return data == null ? 0 : EquipLevelingConfig.getAnvilBaseCost()
+                + data.level * EquipLevelingConfig.getAnvilPerLevelCost();
     }
 
     public static final class EquipmentData {
