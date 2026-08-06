@@ -14,6 +14,7 @@ import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 import com.amorairedraws.equipleveling.util.XpCalculator;
+import com.amorairedraws.equipleveling.event.XpDisplay;
 
 public class EquipmentXpEvents {
 
@@ -39,6 +40,9 @@ public class EquipmentXpEvents {
 			if (category != null && (category.equals("sword") || category.equals("axe"))) {
 				int xp = XpCalculator.calculateEntityKillXp(living);
 				EquipmentComponent.addXp(heldItem, xp);
+				// The callback is also invoked client-side by Fabric; use it for the
+				// local presentation while progression remains server-authoritative.
+				if (world.isClient()) XpDisplay.show(living.getEyePos(), xp);
 			}
 			
 			return ActionResult.PASS;
@@ -65,6 +69,9 @@ public class EquipmentXpEvents {
 				
 				if (xp > 0) {
 					EquipmentComponent.addXp(heldItem, xp);
+					if (world.isClient()) {
+						XpDisplay.show(net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
+					}
 				}
 			}
 			

@@ -1,16 +1,20 @@
 package com.amorairedraws.equipleveling.client.render;
 
-/**
- * Client registration hook for broken item rendering.
- *
- * Fabric 0.141 moved item tint registration out of ColorProviderRegistry; the
- * component/tooltip remain authoritative and the model tint is supplied by the
- * client renderer integration when an item model supports tint index zero.
- */
+import com.amorairedraws.equipleveling.component.EquipmentComponent;
+import net.fabricmc.fabric.api.client.rendering.v1.DrawItemStackOverlayCallback;
+
+/** Makes broken equipment immediately identifiable in inventory and hotbars.
+ * The overlay is intentionally registered through Fabric's supported client
+ * hook rather than an obsolete ColorProvider API (which cannot tint arbitrary
+ * item models in 1.21.11). */
 public final class BrokenItemRenderer {
     public void register() {
-        // Intentionally empty: 1.21.11 has no item ColorProviderRegistry. A
-        // dedicated renderer/mixin can consume the broken component without
-        // registering an obsolete global provider.
+        DrawItemStackOverlayCallback.EVENT.register((context, textRenderer, stack, x, y) -> {
+            if (!stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return;
+            EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+            if (data != null && data.broken) {
+                context.fill(x, y, x + 16, y + 16, 0x66FF0000);
+            }
+        });
     }
 }

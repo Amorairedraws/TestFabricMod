@@ -9,6 +9,8 @@ import com.amorairedraws.equipleveling.client.screen.EquipmentEnchantingScreen;
 
 import com.amorairedraws.equipleveling.client.tooltip.EquipmentTooltipRenderer;
 import com.amorairedraws.equipleveling.client.render.BrokenItemRenderer;
+import com.amorairedraws.equipleveling.client.render.FloatingXpRenderer;
+import com.amorairedraws.equipleveling.event.XpDisplay;
 
 public class EquipLevelingClient implements ClientModInitializer {
 
@@ -21,5 +23,7 @@ public class EquipLevelingClient implements ClientModInitializer {
 		
 		// Register item renderer modifications
 		new BrokenItemRenderer().register();
+		FloatingXpRenderer.register();
+		XpDisplay.install(FloatingXpRenderer::show);
 	}
 }

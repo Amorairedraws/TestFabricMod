@@ -51,9 +51,11 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 					lines.add(insertIndex++, Text.literal("★ [Empty]").formatted(Formatting.GOLD));
 				} else {
 					String enchName = slot.enchantmentId.replace("minecraft:", "");
-					lines.add(insertIndex++, 
-						Text.literal(String.format("★ %s %d", 
-							enchName, slot.enchantmentLevel)).formatted(Formatting.GOLD));
+					Formatting color = "minecraft:mending".equals(slot.enchantmentId) ? Formatting.AQUA : Formatting.GOLD;
+					String prefix = "minecraft:mending".equals(slot.enchantmentId) ? "♦ " : "★ ";
+					lines.add(insertIndex++,
+						Text.literal(String.format("%s%s %d", prefix,
+							enchName, slot.enchantmentLevel)).formatted(color));
 				}
 			}
 		}

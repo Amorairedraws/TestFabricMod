@@ -36,6 +36,9 @@ public final class EquipmentComponent {
         if (data == null) {
             data = EquipmentData.create(EquipmentCategory.getCategory(stack));
             stack.set(EQUIPMENT_TYPE, data);
+        } else {
+            data.refresh();
+            stack.set(EQUIPMENT_TYPE, data);
         }
         return data;
     }
@@ -125,6 +128,15 @@ public final class EquipmentComponent {
         public void refresh() {
             xpRequired = Math.max(1, xpRequired);
             readyToLevelUp = xp >= xpRequired;
+            // Mending is derived from the four standard slots, never from the
+            // material or from vanilla enchantment data.
+            if (getFilledSlots() == 4 && !mending) {
+                mending = true;
+                if (bonusSlots.stream().noneMatch(s -> "minecraft:mending".equals(s.enchantmentId))) {
+                    bonusSlots.add(0, new EquipmentSlot("minecraft:mending", 1));
+                }
+            }
+            while (bonusSlots.size() > 3) bonusSlots.remove(bonusSlots.size() - 1);
             updateMaxed();
         }
         public void levelUp(String category) {
