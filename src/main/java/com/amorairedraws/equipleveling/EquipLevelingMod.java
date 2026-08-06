@@ -20,6 +20,13 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.util.Identifier;
+import net.minecraft.text.Text;
+import net.minecraft.block.Blocks;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.SimpleInventory;
+import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
+import net.minecraft.util.ActionResult;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
 public class EquipLevelingMod implements ModInitializer {
 	public static final String MOD_ID = "equip_leveling";
@@ -40,6 +47,22 @@ public class EquipLevelingMod implements ModInitializer {
 			Identifier.of(MOD_ID, "equipment_enchanting"),
 			new ScreenHandlerType<>(EquipmentEnchantingScreenHandler::new, net.minecraft.resource.featuretoggle.FeatureFlags.VANILLA_FEATURES));
 		
+		// The vanilla table is deliberately reused: no resource pack or custom
+		// block is needed. Only qualifying equipment opens our handler.
+		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
+			if (world.isClient() || hit.getBlockPos() == null
+					|| world.getBlockState(hit.getBlockPos()).getBlock() != Blocks.ENCHANTING_TABLE
+					|| !EquipmentComponent.isTracked(player.getStackInHand(hand))) return ActionResult.PASS;
+			if (player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer) {
+				SimpleInventory input = new SimpleInventory(1);
+				input.setStack(0, player.getStackInHand(hand).copyWithCount(1));
+				serverPlayer.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input),
+					Text.translatable("equip_leveling.title")));
+			}
+			return ActionResult.SUCCESS;
+		});
+
 		// Register event listeners
 		registerEventListeners();
 

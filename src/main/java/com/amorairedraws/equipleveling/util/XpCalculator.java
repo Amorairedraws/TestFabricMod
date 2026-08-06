@@ -13,8 +13,9 @@ public class XpCalculator {
 	// Entity kill XP based on max health
 	public static int calculateEntityKillXp(LivingEntity entity) {
 		float maxHealth = entity.getMaxHealth();
-		int xp = Math.max(5, (int) (maxHealth * 2));
-		return Math.max(xp, EquipLevelingConfig.getXpDisplayThreshold());
+		// The display threshold controls presentation, never progression. Weak
+		// entities must still grant their real (small) amount of XP.
+		return Math.max(1, (int) Math.ceil(maxHealth * 2.0));
 	}
 
 	// Ore XP calculation
