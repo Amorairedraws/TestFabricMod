@@ -16,13 +16,18 @@ public abstract class FishingBobberEntityMixin {
     private void equipLeveling$awardReelXp(CallbackInfoReturnable<Integer> callback) {
         if (callback.getReturnValue() <= 0) return;
         FishingBobberEntity bobber = (FishingBobberEntity) (Object) this;
-        if (bobber.getOwner() instanceof PlayerEntity player && !player.getEntityWorld().isClient()) {
+        if (bobber.getOwner() instanceof PlayerEntity player) {
             var rod = player.getMainHandStack();
             if (!"fishing_rod".equals(EquipmentCategory.getCategory(rod))) {
                 rod = player.getOffHandStack();
             }
             if ("fishing_rod".equals(EquipmentCategory.getCategory(rod))) {
-                EquipmentComponent.addXp(rod, callback.getReturnValue() * 10);
+                int xp = callback.getReturnValue() * 10;
+                if (player.getEntityWorld().isClient()) {
+                    com.amorairedraws.equipleveling.event.XpDisplay.show(bobber.getEntityPos(), xp);
+                } else {
+                    EquipmentComponent.addXp(rod, xp);
+                }
             }
         }
     }

@@ -35,7 +35,7 @@ public abstract class AnvilScreenHandlerMixin {
     @Inject(method = "canTakeOutput", at = @At("HEAD"), cancellable = true)
     private void equipLeveling$removeTooExpensiveLimit(PlayerEntity player, boolean present, CallbackInfoReturnable<Boolean> cir) {
         AnvilScreenHandler handler = (AnvilScreenHandler)(Object)this;
-        if (EquipmentComponent.isTracked(handler.getSlot(0).getStack())
+        if (present && EquipmentComponent.isTracked(handler.getSlot(0).getStack())
                 && !handler.getSlot(2).getStack().isEmpty()) cir.setReturnValue(true);
     }
 

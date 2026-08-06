@@ -107,8 +107,23 @@ public class EquipLevelingConfig {
 			keepEquipOnDeath = json.has("keepEquipOnDeath") ? json.get("keepEquipOnDeath").getAsBoolean() : false;
 			enableBrokenMechanic = json.has("enableBrokenMechanic") ? json.get("enableBrokenMechanic").getAsBoolean() : true;
 			
+			// Treat hand-edited config files as untrusted input.  Invalid values
+			// should never make XP requirements, costs, or weighted offers unusable.
+			xpMultiplier = Double.isFinite(xpMultiplier) ? Math.max(1.0, Math.min(10.0, xpMultiplier)) : 1.2;
+			xpDisplayThreshold = Math.max(0, xpDisplayThreshold);
+			durabilityRestorePercent = Math.max(0, Math.min(100, durabilityRestorePercent));
+			legendaryUpgradeProbability = Double.isFinite(legendaryUpgradeProbability)
+					? Math.max(0, Math.min(1, legendaryUpgradeProbability)) : 0.05;
+			upgradeWeight = Double.isFinite(upgradeWeight) ? Math.max(0, upgradeWeight) : 0.6;
+			newSlotWeight = Double.isFinite(newSlotWeight) ? Math.max(0, newSlotWeight) : 0.4;
+			anvilBaseCost = Math.max(0, anvilBaseCost);
+			anvilPerLevelCost = Math.max(0, anvilPerLevelCost);
+			for (int i = 0; i < rerollCosts.length; i++) rerollCosts[i] = Math.max(0, rerollCosts[i]);
+			if (materialTiers == null || materialTiers.length == 0) {
+				materialTiers = new String[]{"wood", "stone", "iron", "diamond", "netherite"};
+			}
 			LOGGER.info("Config loaded successfully");
-		} catch (IOException e) {
+		} catch (IOException | RuntimeException e) {
 			LOGGER.error("Failed to load config from file", e);
 		}
 	}
