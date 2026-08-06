@@ -1,0 +1,11 @@
+{
+  "equip_leveling.title": "Equip Leveling",
+  "equip_leveling.config.title": "Equip Leveling Configuration",
+  "equip_leveling.tooltip.level": "Level %d",
+  "equip_leveling.tooltip.maxed": "MAX LEVEL",
+  "equip_leveling.tooltip.xp": "%d/%d XP",
+  "equip_leveling.tooltip.broken": "Broken — repair at an Anvil",
+  "equip_leveling.tooltip.standard_slots": "Standard Slots",
+  "equip_leveling.tooltip.bonus_slots": "Bonus Slots",
+  "equip_leveling.enchanting.reroll": "Reroll"
+}

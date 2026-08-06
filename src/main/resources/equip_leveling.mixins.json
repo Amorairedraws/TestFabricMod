@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.amorairedraws.equipleveling.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ItemStackMixin",
+    "AnvilScreenHandlerMixin",
+    "GrindstoneScreenHandlerMixin",
+    "ItemRendererMixin"
+  ],
+  "client": [
+    "ItemStackClientMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

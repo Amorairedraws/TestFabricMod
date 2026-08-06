@@ -1,0 +1,217 @@
+package com.amorairedraws.equipleveling.config;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+
+import net.fabricmc.loader.api.FabricLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class EquipLevelingConfig {
+	private static final Logger LOGGER = LoggerFactory.getLogger("equip_leveling/config");
+	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("equip_leveling");
+	private static final Path CONFIG_FILE = CONFIG_DIR.resolve("config.json");
+
+	// Default values
+	private static Map<String, Integer> baseXp = new HashMap<>();
+	private static double xpMultiplier = 1.2;
+	private static int xpDisplayThreshold = 10;
+	private static int durabilityRestorePercent = 25;
+	private static int[] rerollCosts = {1, 2, 3, 4, 5};
+	private static double legendaryUpgradeProbability = 0.05;
+	private static String[] materialTiers = {"wood", "stone", "iron", "diamond", "netherite"};
+	private static double upgradeWeight = 0.6;
+	private static double newSlotWeight = 0.4;
+	private static int anvilBaseCost = 1;
+	private static int anvilPerLevelCost = 1;
+	private static boolean keepEquipOnDeath = false;
+	private static boolean enableBrokenMechanic = true;
+
+	static {
+		// Initialize base XP values
+		baseXp.put("sword", 100);
+		baseXp.put("axe", 120);
+		baseXp.put("pickaxe", 80);
+		baseXp.put("shovel", 70);
+		baseXp.put("hoe", 60);
+		baseXp.put("fishing_rod", 90);
+		baseXp.put("helmet", 80);
+		baseXp.put("chestplate", 100);
+		baseXp.put("leggings", 100);
+		baseXp.put("boots", 80);
+		baseXp.put("default", 100);
+	}
+
+	public static void load() {
+		try {
+			Files.createDirectories(CONFIG_DIR);
+			if (Files.exists(CONFIG_FILE)) {
+				loadFromFile();
+			} else {
+				save();
+			}
+		} catch (IOException e) {
+			LOGGER.error("Failed to load config", e);
+		}
+	}
+
+	private static void loadFromFile() {
+		try (FileReader reader = new FileReader(CONFIG_FILE.toFile())) {
+			JsonObject json = GSON.fromJson(reader, JsonObject.class);
+			
+			// Load base XP values
+			if (json.has("baseXp")) {
+				JsonObject xpObj = json.getAsJsonObject("baseXp");
+				xpObj.entrySet().forEach(entry -> 
+					baseXp.put(entry.getKey(), entry.getValue().getAsInt())
+				);
+			}
+
+			xpMultiplier = json.has("xpMultiplier") ? json.get("xpMultiplier").getAsDouble() : 1.2;
+			xpDisplayThreshold = json.has("xpDisplayThreshold") ? json.get("xpDisplayThreshold").getAsInt() : 10;
+			durabilityRestorePercent = json.has("durabilityRestorePercent") ? json.get("durabilityRestorePercent").getAsInt() : 25;
+			
+			if (json.has("rerollCosts")) {
+				rerollCosts = GSON.fromJson(json.get("rerollCosts"), int[].class);
+			}
+			
+			legendaryUpgradeProbability = json.has("legendaryUpgradeProbability") ? json.get("legendaryUpgradeProbability").getAsDouble() : 0.05;
+			
+			if (json.has("materialTiers")) {
+				materialTiers = GSON.fromJson(json.get("materialTiers"), String[].class);
+			}
+			
+			upgradeWeight = json.has("upgradeWeight") ? json.get("upgradeWeight").getAsDouble() : 0.6;
+			newSlotWeight = json.has("newSlotWeight") ? json.get("newSlotWeight").getAsDouble() : 0.4;
+			anvilBaseCost = json.has("anvilBaseCost") ? json.get("anvilBaseCost").getAsInt() : 1;
+			anvilPerLevelCost = json.has("anvilPerLevelCost") ? json.get("anvilPerLevelCost").getAsInt() : 1;
+			keepEquipOnDeath = json.has("keepEquipOnDeath") ? json.get("keepEquipOnDeath").getAsBoolean() : false;
+			enableBrokenMechanic = json.has("enableBrokenMechanic") ? json.get("enableBrokenMechanic").getAsBoolean() : true;
+			
+			LOGGER.info("Config loaded successfully");
+		} catch (IOException e) {
+			LOGGER.error("Failed to load config from file", e);
+		}
+	}
+
+	public static void save() {
+		try {
+			Files.createDirectories(CONFIG_DIR);
+			JsonObject json = new JsonObject();
+			
+			JsonObject xpObj = new JsonObject();
+			baseXp.forEach((key, value) -> xpObj.addProperty(key, value));
+			json.add("baseXp", xpObj);
+			
+			json.addProperty("xpMultiplier", xpMultiplier);
+			json.addProperty("xpDisplayThreshold", xpDisplayThreshold);
+			json.addProperty("durabilityRestorePercent", durabilityRestorePercent);
+			json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
+			json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
+			json.add("materialTiers", GSON.toJsonTree(materialTiers));
+			json.addProperty("upgradeWeight", upgradeWeight);
+			json.addProperty("newSlotWeight", newSlotWeight);
+			json.addProperty("anvilBaseCost", anvilBaseCost);
+			json.addProperty("anvilPerLevelCost", anvilPerLevelCost);
+			json.addProperty("keepEquipOnDeath", keepEquipOnDeath);
+			json.addProperty("enableBrokenMechanic", enableBrokenMechanic);
+			
+			try (FileWriter writer = new FileWriter(CONFIG_FILE.toFile())) {
+				GSON.toJson(json, writer);
+			}
+			LOGGER.info("Config saved successfully");
+		} catch (IOException e) {
+			LOGGER.error("Failed to save config", e);
+		}
+	}
+
+	// Getters
+	public static int getBaseXpForCategory(String category) {
+		return baseXp.getOrDefault(category, baseXp.get("default"));
+	}
+
+	public static double getXpMultiplier() {
+		return xpMultiplier;
+	}
+
+	public static int getXpDisplayThreshold() {
+		return xpDisplayThreshold;
+	}
+
+	public static int getDurabilityRestorePercent() {
+		return durabilityRestorePercent;
+	}
+
+	public static int[] getRerollCosts() {
+		return rerollCosts;
+	}
+
+	public static double getLegendaryUpgradeProbability() {
+		return legendaryUpgradeProbability;
+	}
+
+	public static String[] getMaterialTiers() {
+		return materialTiers;
+	}
+
+	public static double getUpgradeWeight() {
+		return upgradeWeight;
+	}
+
+	public static double getNewSlotWeight() {
+		return newSlotWeight;
+	}
+
+	public static int getAnvilBaseCost() {
+		return anvilBaseCost;
+	}
+
+	public static int getAnvilPerLevelCost() {
+		return anvilPerLevelCost;
+	}
+
+	public static boolean isKeepEquipOnDeath() {
+		return keepEquipOnDeath;
+	}
+
+	public static boolean isBrokenMechanicEnabled() {
+		return enableBrokenMechanic;
+	}
+
+	// Setters
+	public static void setBaseXpForCategory(String category, int xp) {
+		baseXp.put(category, xp);
+		save();
+	}
+
+	public static void setXpMultiplier(double multiplier) {
+		xpMultiplier = multiplier;
+		save();
+	}
+
+	public static void setXpDisplayThreshold(int threshold) {
+		xpDisplayThreshold = threshold;
+		save();
+	}
+
+	public static void setKeepEquipOnDeath(boolean keep) {
+		keepEquipOnDeath = keep;
+		save();
+	}
+
+	public static void setBrokenMechanicEnabled(boolean enabled) {
+		enableBrokenMechanic = enabled;
+		save();
+	}
+}
