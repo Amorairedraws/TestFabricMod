@@ -3,6 +3,8 @@ package com.amorairedraws.equipleveling.client.tooltip;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
+import net.minecraft.item.Item.TooltipContext;
+import net.minecraft.item.tooltip.TooltipType;
 import net.minecraft.util.Formatting;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
@@ -17,7 +19,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 	}
 
 	@Override
-	public void getTooltip(ItemStack stack, Context context, List<Text> lines) {
+	public void getTooltip(ItemStack stack, TooltipContext context, TooltipType type, List<Text> lines) {
 		if (!EquipmentCategory.isEquipment(stack) || !stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
 			return;
 		}
@@ -34,7 +36,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		if (data.maxed) {
 			lines.add(insertIndex++, Text.literal("§6MAX LEVEL"));
 		} else {
-			lines.add(insertIndex++, Text.literal(String.format("Level %d", data.level)).withStyle(Formatting.YELLOW));
+			lines.add(insertIndex++, Text.literal(String.format("Level %d", data.level)).formatted(Formatting.YELLOW));
 		}
 
 		// Standard slots
@@ -46,19 +48,19 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			lines.add(insertIndex++, Text.literal(""));
 			for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
 				if (slot.isEmpty()) {
-					lines.add(insertIndex++, Text.literal("★ [Empty]").withStyle(Formatting.GOLD));
+					lines.add(insertIndex++, Text.literal("★ [Empty]").formatted(Formatting.GOLD));
 				} else {
 					String enchName = slot.enchantmentId.replace("minecraft:", "");
 					lines.add(insertIndex++, 
 						Text.literal(String.format("★ %s %d", 
-							enchName, slot.enchantmentLevel)).withStyle(Formatting.GOLD));
+							enchName, slot.enchantmentLevel)).formatted(Formatting.GOLD));
 				}
 			}
 		}
 
 		// Broken state
 		if (data.broken) {
-			lines.add(insertIndex, Text.literal("Broken — repair at an Anvil").withStyle(Formatting.RED));
+			lines.add(insertIndex, Text.literal("Broken — repair at an Anvil").formatted(Formatting.RED));
 		}
 	}
 
@@ -84,17 +86,17 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 	private void renderSlots(List<Text> lines, int startIndex, List<EquipmentComponent.EquipmentSlot> slots, 
 							 String slotType) {
 		if (slots.isEmpty()) {
-			lines.add(startIndex, Text.literal(slotType + " Slots: None").withStyle(Formatting.GRAY));
+			lines.add(startIndex, Text.literal(slotType + " Slots: None").formatted(Formatting.GRAY));
 		} else {
-			lines.add(startIndex, Text.literal(slotType + " Slots:").withStyle(Formatting.GRAY));
+			lines.add(startIndex, Text.literal(slotType + " Slots:").formatted(Formatting.GRAY));
 			for (int i = 0; i < slots.size(); i++) {
 				EquipmentComponent.EquipmentSlot slot = slots.get(i);
 				if (slot.isEmpty()) {
-					lines.add(startIndex + i + 1, Text.literal("  [Empty]").withStyle(Formatting.DARK_GRAY));
+					lines.add(startIndex + i + 1, Text.literal("  [Empty]").formatted(Formatting.DARK_GRAY));
 				} else {
 					String enchName = slot.enchantmentId.replace("minecraft:", "");
 					lines.add(startIndex + i + 1,
-						Text.literal(String.format("  %s %d", enchName, slot.enchantmentLevel)).withStyle(Formatting.WHITE));
+						Text.literal(String.format("  %s %d", enchName, slot.enchantmentLevel)).formatted(Formatting.WHITE));
 				}
 			}
 		}

@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version '1.6.+'
+	id 'fabric-loom' version '1.6.12'
 	id 'maven-publish'
 }
 
@@ -11,6 +11,7 @@ version = project.mod_version
 group = project.maven_group
 
 repositories {
+	maven { name = "Terraformers"; url = "https://maven.terraformersmc.com/releases/" }
 	maven {
 		name = "Modrinth"
 		url = "https://api.modrinth.com/maven"

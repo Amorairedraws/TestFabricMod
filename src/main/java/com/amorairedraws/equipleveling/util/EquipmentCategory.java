@@ -10,10 +10,10 @@ public class EquipmentCategory {
 		if (stack.isEmpty()) return null;
 
 		// Check armor
-		if (stack.isIn(ItemTags.HELMETS)) return "helmet";
-		if (stack.isIn(ItemTags.CHESTPLATES)) return "chestplate";
-		if (stack.isIn(ItemTags.LEGGINGS)) return "leggings";
-		if (stack.isIn(ItemTags.BOOTS)) return "boots";
+		if (stack.isIn(ItemTags.HEAD_ARMOR)) return "helmet";
+		if (stack.isIn(ItemTags.CHEST_ARMOR)) return "chestplate";
+		if (stack.isIn(ItemTags.LEG_ARMOR)) return "leggings";
+		if (stack.isIn(ItemTags.FOOT_ARMOR)) return "boots";
 
 		// Check swords and axes
 		if (stack.isIn(ItemTags.SWORDS)) return "sword";

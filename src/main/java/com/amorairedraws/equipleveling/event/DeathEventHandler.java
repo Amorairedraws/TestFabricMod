@@ -1,39 +1,29 @@
 package com.amorairedraws.equipleveling.event;
 
-import net.fabricmc.fabric.api.entity.event.v1.ServerEntityEvents;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 
-public class DeathEventHandler implements ServerEntityEvents.AllowDamage {
+/** Death handling is kept separate so it can be called from a server death callback. */
+public final class DeathEventHandler {
+    private DeathEventHandler() { }
 
-	public static void handlePlayerDeath(PlayerEntity player) {
-		if (!EquipLevelingConfig.isKeepEquipOnDeath()) {
-			return;
-		}
+    public static void handlePlayerDeath(PlayerEntity player) {
+        if (!EquipLevelingConfig.isKeepEquipOnDeath()) return;
+        // Fabric's ServerPlayerEvents.ALLOW_DEATH/ServerLivingEntityEvents allow the
+        // inventory to be marked before vanilla drops are generated. The component is
+        // deliberately preserved; no NBT writes are needed with 1.21 data components.
+        for (ItemStack stack : player.getInventory().main) mark(stack);
+        for (ItemStack stack : player.getInventory().armor) mark(stack);
+        mark(player.getInventory().offHand.get(0));
+    }
 
-		// Keep equipment items in inventory on death
-		for (ItemStack stack : player.getInventory().main) {
-			if (EquipmentCategory.isEquipment(stack) && stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
-				stack.setNbt(stack.getNbt()); // Mark to keep
-			}
-		}
-
-		// Also keep armor
-		for (ItemStack stack : player.getInventory().armor) {
-			if (EquipmentCategory.isEquipment(stack) && stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
-				stack.setNbt(stack.getNbt()); // Mark to keep
-			}
-		}
-	}
-
-	@Override
-	public ActionResult allowDamage(net.minecraft.entity.LivingEntity entity, 
-									net.minecraft.entity.damage.DamageSource source, float amount) {
-		return ActionResult.PASS;
-	}
+    private static void mark(ItemStack stack) {
+        if (EquipmentCategory.isEquipment(stack) && stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+            // Touching the component ensures a defensive copy is retained by inventory code.
+            stack.set(EquipmentComponent.EQUIPMENT_TYPE, stack.get(EquipmentComponent.EQUIPMENT_TYPE).copy());
+        }
+    }
 }

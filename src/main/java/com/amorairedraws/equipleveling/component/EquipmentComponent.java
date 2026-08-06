@@ -13,6 +13,7 @@ import net.minecraft.util.Identifier;
 
 import com.amorairedraws.equipleveling.EquipLevelingMod;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
+import com.amorairedraws.equipleveling.util.EquipmentCategory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ public class EquipmentComponent {
 		EQUIPMENT_TYPE = Registry.register(
 			Registries.DATA_COMPONENT_TYPE,
 			Identifier.of(EquipLevelingMod.MOD_ID, "equipment"),
-			ComponentType.builder()
+			ComponentType.<EquipmentData>builder()
 				.codec(EquipmentData.CODEC)
 				.cache()
 				.build()
@@ -73,7 +74,7 @@ public class EquipmentComponent {
 		public static EquipmentData create() {
 			return new EquipmentData(0, 0, 
 				EquipLevelingConfig.getBaseXpForCategory("default"),
-				false, new ArrayList<>(), new ArrayList<>(),
+				false, new ArrayList<>(List.of(new EquipmentSlot(null, 0), new EquipmentSlot(null, 0), new EquipmentSlot(null, 0), new EquipmentSlot(null, 0))), new ArrayList<>(),
 				false, false, false);
 		}
 
@@ -131,7 +132,9 @@ public class EquipmentComponent {
 
 	public static EquipmentData getOrCreate(ItemStack stack) {
 		if (!stack.contains(EQUIPMENT_TYPE)) {
-			stack.set(EQUIPMENT_TYPE, EquipmentData.create());
+			EquipmentData data = EquipmentData.create();
+			data.xpRequired = EquipLevelingConfig.getBaseXpForCategory(EquipmentCategory.getCategory(stack));
+			stack.set(EQUIPMENT_TYPE, data);
 		}
 		return stack.get(EQUIPMENT_TYPE);
 	}

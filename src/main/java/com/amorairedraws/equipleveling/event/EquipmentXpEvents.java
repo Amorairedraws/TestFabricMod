@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ActionResult;
@@ -19,14 +20,14 @@ public class EquipmentXpEvents {
 	public static class EntityKillXpHandler implements AttackEntityCallback {
 		@Override
 		public ActionResult interact(PlayerEntity player, World world, net.minecraft.util.Hand hand, 
-									 LivingEntity entity, net.minecraft.util.hit.EntityHitResult hitResult) {
-			if (world.isClient || entity.getHealth() <= 0) return ActionResult.PASS;
+									 Entity entity, net.minecraft.util.hit.EntityHitResult hitResult) {
+			if (world.isClient || !(entity instanceof LivingEntity living) || living.getHealth() <= 0) return ActionResult.PASS;
 
 			ItemStack heldItem = player.getStackInHand(hand);
 			String category = EquipmentCategory.getCategory(heldItem);
 			
 			if (category != null && (category.equals("sword") || category.equals("axe"))) {
-				int xp = XpCalculator.calculateEntityKillXp(entity);
+				int xp = XpCalculator.calculateEntityKillXp(living);
 				EquipmentComponent.getOrCreate(heldItem).addXp(xp);
 			}
 			
@@ -37,7 +38,7 @@ public class EquipmentXpEvents {
 	public static class BlockBreakXpHandler implements PlayerBlockBreakEvents.Before {
 		@Override
 		public boolean beforeBlockBreak(World world, PlayerEntity player, net.minecraft.util.math.BlockPos pos,
-										net.minecraft.block.BlockState state, net.minecraft.entity.LivingEntity breakingEntity) {
+										net.minecraft.block.BlockState state, net.minecraft.block.entity.BlockEntity breakingEntity) {
 			if (world.isClient) return true;
 
 			ItemStack heldItem = player.getMainHandStack();

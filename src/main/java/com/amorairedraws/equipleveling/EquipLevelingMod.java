@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.event.EquipmentXpEvents;
+import com.amorairedraws.equipleveling.event.ArmorXpHandler;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import com.amorairedraws.equipleveling.loot.EquipmentLootModifier;
 
 public class EquipLevelingMod implements ModInitializer {
@@ -31,7 +33,6 @@ public class EquipLevelingMod implements ModInitializer {
 		registerEventListeners();
 		
 		// Register loot modifiers
-		LootTableEvents.MODIFY.register(new EquipmentLootModifier());
 		
 		LOGGER.info("Equip Leveling initialized successfully!");
 	}
@@ -41,5 +42,6 @@ public class EquipLevelingMod implements ModInitializer {
 		AttackEntityCallback.EVENT.register(new EquipmentXpEvents.EntityKillXpHandler());
 		PlayerBlockBreakEvents.BEFORE.register(new EquipmentXpEvents.BlockBreakXpHandler());
 		ServerTickEvents.END_SERVER_TICK.register(new EquipmentXpEvents.DamageXpHandler());
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> ArmorXpHandler.allowDamage(entity, source, amount));
 	}
 }

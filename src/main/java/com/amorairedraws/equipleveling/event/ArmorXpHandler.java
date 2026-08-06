@@ -11,12 +11,11 @@ import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 import com.amorairedraws.equipleveling.util.XpCalculator;
 
-public class ArmorXpHandler implements ServerLivingEntityEvents.AllowDamage {
+public class ArmorXpHandler {
 
-	@Override
-	public ActionResult allowDamage(LivingEntity entity, DamageSource source, float amount) {
+	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
 		if (!(entity instanceof PlayerEntity player)) {
-			return ActionResult.PASS;
+			return true;
 		}
 
 		// Award XP to armor pieces
@@ -32,6 +31,6 @@ public class ArmorXpHandler implements ServerLivingEntityEvents.AllowDamage {
 			}
 		}
 
-		return ActionResult.PASS;
+		return true;
 	}
 }
