@@ -1,6 +1,6 @@
 # Equip Leveling
 
-A comprehensive equipment leveling system for Minecraft Java Edition 1.21.1+. This Fabric mod adds a dynamic progression system where weapons, tools, and armor gain experience and can be enhanced through an enchanting interface.
+A comprehensive equipment leveling system for Minecraft Java Edition 1.21.11. This Fabric mod adds a dynamic progression system where weapons, tools, and armor gain experience and can be enhanced through an enchanting interface.
 
 ## Features
 
