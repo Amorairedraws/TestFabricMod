@@ -1,14 +1,12 @@
 plugins {
-	id 'fabric-loom' version '1.6.12'
+	id 'fabric-loom' version '1.14-SNAPSHOT'
 	id 'maven-publish'
 }
 
-sourceCompatibility = JavaVersion.VERSION_21
-targetCompatibility = JavaVersion.VERSION_21
 
-archivesBaseName = project.archives_base_name
 version = project.mod_version
 group = project.maven_group
+base { archivesName = project.archives_base_name }
 
 repositories {
 	maven { name = "Terraformers"; url = "https://maven.terraformersmc.com/releases/" }
@@ -45,12 +43,14 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 	withSourcesJar()
 }
 
 jar {
 	from("LICENSE") {
-		rename { "${it}_${project.archivesBaseName}"}
+		rename { "${it}_${project.archives_base_name}"}
 	}
 }
 

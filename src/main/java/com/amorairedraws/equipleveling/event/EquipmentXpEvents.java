@@ -21,7 +21,7 @@ public class EquipmentXpEvents {
 		@Override
 		public ActionResult interact(PlayerEntity player, World world, net.minecraft.util.Hand hand, 
 									 Entity entity, net.minecraft.util.hit.EntityHitResult hitResult) {
-			if (world.isClient || !(entity instanceof LivingEntity living) || living.getHealth() <= 0) return ActionResult.PASS;
+			if (world.isClient() || !(entity instanceof LivingEntity living) || living.getHealth() <= 0) return ActionResult.PASS;
 
 			ItemStack heldItem = player.getStackInHand(hand);
 			String category = EquipmentCategory.getCategory(heldItem);
@@ -39,7 +39,7 @@ public class EquipmentXpEvents {
 		@Override
 		public boolean beforeBlockBreak(World world, PlayerEntity player, net.minecraft.util.math.BlockPos pos,
 										net.minecraft.block.BlockState state, net.minecraft.block.entity.BlockEntity breakingEntity) {
-			if (world.isClient) return true;
+			if (world.isClient()) return true;
 
 			ItemStack heldItem = player.getMainHandStack();
 			String category = EquipmentCategory.getCategory(heldItem);
