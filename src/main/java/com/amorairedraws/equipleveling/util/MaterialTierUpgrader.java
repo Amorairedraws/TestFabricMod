@@ -9,8 +9,15 @@ import net.minecraft.item.Items;
 public final class MaterialTierUpgrader {
     private MaterialTierUpgrader() {}
 
+    /** Returns whether this category has a real next item in the configured ladder. */
+    public static boolean canPromote(ItemStack old, String category, String[] ladder) {
+        if (old.isEmpty() || ladder == null || ladder.length < 2) return false;
+        int index = indexOf(ladder, material(old.getItem()));
+        return index >= 0 && index + 1 < ladder.length && itemFor(category, ladder[index + 1]) != null;
+    }
+
     public static ItemStack promote(ItemStack old, String category, String[] ladder) {
-        if (ladder == null || ladder.length < 2) return old;
+        if (!canPromote(old, category, ladder)) return old;
         String current = material(old.getItem());
         int index = indexOf(ladder, current);
         if (index < 0 || index + 1 >= ladder.length) return old;

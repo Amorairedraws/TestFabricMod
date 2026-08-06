@@ -16,7 +16,7 @@ public abstract class FishingBobberEntityMixin {
     private void equipLeveling$awardReelXp(CallbackInfoReturnable<Integer> callback) {
         if (callback.getReturnValue() <= 0) return;
         FishingBobberEntity bobber = (FishingBobberEntity) (Object) this;
-        if (bobber.getOwner() instanceof PlayerEntity player) {
+        if (bobber.getOwner() instanceof PlayerEntity player && !player.getEntityWorld().isClient()) {
             var rod = player.getMainHandStack();
             if (!"fishing_rod".equals(EquipmentCategory.getCategory(rod))) {
                 rod = player.getOffHandStack();

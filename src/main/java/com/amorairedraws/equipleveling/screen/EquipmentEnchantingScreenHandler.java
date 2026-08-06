@@ -79,16 +79,17 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		}
 
 		this.offers = new EquipmentEnchantingOffer[3];
+		this.offerLevels = new int[3];
 		
 		for (int i = 0; i < 3; i++) {
-			this.offers[i] = generateRandomOffer(data, player);
+			this.offers[i] = generateRandomOffer(data, player, itemStack);
 			if (this.offers[i] != null) {
 				this.offerLevels[i] = calculateOfferCost(data, i);
 			}
 		}
 	}
 
-	private EquipmentEnchantingOffer generateRandomOffer(EquipmentComponent.EquipmentData data, PlayerEntity player) {
+	private EquipmentEnchantingOffer generateRandomOffer(EquipmentComponent.EquipmentData data, PlayerEntity player, ItemStack itemStack) {
 		double upgradeWeight = Math.max(0, EquipLevelingConfig.getUpgradeWeight());
 		double newSlotWeight = Math.max(0, EquipLevelingConfig.getNewSlotWeight());
 		double legendaryWeight = Math.max(0, EquipLevelingConfig.getLegendaryUpgradeProbability());
@@ -111,8 +112,12 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			if (ids.isEmpty()) return null;
 			String id = ids.get(random.nextInt(ids.size())).toString();
 			return new EquipmentEnchantingOffer.NewEnchantment(id);
-		} else if (data.getFilledSlots() == 4 && rand < totalWeight) {
-			// Legendary upgrade is only offered after standard slots are complete.
+		} else if (data.getFilledSlots() == 4 && rand < totalWeight
+				&& MaterialTierUpgrader.canPromote(itemStack,
+						EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers())) {
+			// Legendary upgrade is only offered after standard slots are complete
+			// and a real next tier exists. The input can be in our private inventory,
+			// so use it rather than whichever item the player currently holds.
 			return new EquipmentEnchantingOffer.LegendaryUpgrade();
 		}
 		
