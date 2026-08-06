@@ -32,17 +32,18 @@ public class EquipmentXpEvents {
 		@Override
 		public ActionResult interact(PlayerEntity player, World world, net.minecraft.util.Hand hand, 
 									 Entity entity, net.minecraft.util.hit.EntityHitResult hitResult) {
-			if (world.isClient() || !(entity instanceof LivingEntity living) || living.getHealth() <= 0) return ActionResult.PASS;
+			if (!(entity instanceof LivingEntity living) || living.getHealth() <= 0) return ActionResult.PASS;
 
 			ItemStack heldItem = player.getStackInHand(hand);
 			String category = EquipmentCategory.getCategory(heldItem);
 			
 			if (category != null && (category.equals("sword") || category.equals("axe"))) {
 				int xp = XpCalculator.calculateEntityKillXp(living);
-				EquipmentComponent.addXp(heldItem, xp);
-				// The callback is also invoked client-side by Fabric; use it for the
-				// local presentation while progression remains server-authoritative.
-				if (world.isClient()) XpDisplay.show(living.getEyePos(), xp);
+				// This callback runs on both logical sides. Never mutate progression on
+				// the client; the AFTER_DEATH callback is the sole server reward path.
+				if (world.isClient()) {
+					XpDisplay.show(living.getEyePos(), xp);
+				}
 			}
 			
 			return ActionResult.PASS;
@@ -53,8 +54,6 @@ public class EquipmentXpEvents {
 		@Override
 		public boolean beforeBlockBreak(World world, PlayerEntity player, net.minecraft.util.math.BlockPos pos,
 										net.minecraft.block.BlockState state, net.minecraft.block.entity.BlockEntity breakingEntity) {
-			if (world.isClient()) return true;
-
 			ItemStack heldItem = player.getMainHandStack();
 			String category = EquipmentCategory.getCategory(heldItem);
 			
@@ -68,9 +67,10 @@ public class EquipmentXpEvents {
 				}
 				
 				if (xp > 0) {
-					EquipmentComponent.addXp(heldItem, xp);
 					if (world.isClient()) {
 						XpDisplay.show(net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
+					} else {
+						EquipmentComponent.addXp(heldItem, xp);
 					}
 				}
 			}

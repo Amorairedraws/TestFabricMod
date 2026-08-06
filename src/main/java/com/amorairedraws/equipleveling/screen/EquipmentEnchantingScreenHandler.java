@@ -8,6 +8,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.screen.slot.Slot;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.util.Identifier;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
@@ -103,6 +105,9 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			// Read the live registry so datapack/mod enchantments participate too.
 			var ids = new java.util.ArrayList<>(player.getEntityWorld().getRegistryManager()
 					.getOrThrow(net.minecraft.registry.RegistryKeys.ENCHANTMENT).getIds());
+			// Mending is reserved for the automatic completion bonus and must never
+			// consume one of the four earned slots.
+			ids.removeIf(id -> "minecraft:mending".equals(id.toString()));
 			if (ids.isEmpty()) return null;
 			String id = ids.get(random.nextInt(ids.size())).toString();
 			return new EquipmentEnchantingOffer.NewEnchantment(id);
@@ -230,9 +235,26 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			data.bonusSlots.add(0, mendingSlot);
 		}
 
+		// Keep the custom slot data authoritative, but also apply its effects as
+		// vanilla enchantments. This makes both vanilla and modded enchantments
+		// functional while ItemStackMixin controls their visual glint.
+		for (EquipmentComponent.EquipmentSlot slot : data.slots) syncEnchantment(itemStack, slot, player);
+		for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) syncEnchantment(itemStack, slot, player);
+
 		// Level up
 		data.levelUp(EquipmentCategory.getCategory(itemStack));
 		itemStack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
 		generateOffers(player);
+	}
+
+	private void syncEnchantment(ItemStack stack, EquipmentComponent.EquipmentSlot slot, PlayerEntity player) {
+		if (slot.isEmpty()) return;
+		try {
+			var registry = player.getEntityWorld().getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
+			registry.getEntry(Identifier.of(slot.enchantmentId)).ifPresent(entry -> stack.addEnchantment(entry, slot.enchantmentLevel));
+		} catch (RuntimeException ignored) {
+			// A datapack can remove an enchantment between offer generation and
+			// selection; retain the slot data rather than failing the screen.
+		}
 	}
 }

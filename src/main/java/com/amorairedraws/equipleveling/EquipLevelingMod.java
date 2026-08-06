@@ -109,6 +109,10 @@ public class EquipLevelingMod implements ModInitializer {
 	private void registerEventListeners() {
 		// XP accrual events
 		PlayerBlockBreakEvents.BEFORE.register(new EquipmentXpEvents.BlockBreakXpHandler());
+		// AttackEntityCallback is used only for the client-side floating label. The
+		// authoritative reward is granted from AFTER_DEATH below, once the kill is
+		// known to have succeeded.
+		AttackEntityCallback.EVENT.register(new EquipmentXpEvents.EntityKillXpHandler());
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			// Durability is applied after most Fabric action callbacks. Scan once per
 			// tick so zero-durability stacks reliably enter the persistent broken state.

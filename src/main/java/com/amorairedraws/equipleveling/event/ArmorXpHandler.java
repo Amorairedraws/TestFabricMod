@@ -12,7 +12,7 @@ import net.minecraft.item.ItemStack;
 public final class ArmorXpHandler {
     private ArmorXpHandler() {}
     public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
-        if (!(entity instanceof PlayerEntity player) || amount <= 0) return true;
+        if (!(entity instanceof PlayerEntity player) || amount <= 0 || player.getEntityWorld().isClient()) return true;
         int xp = Math.max(1, (int)Math.ceil(amount * 5));
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
                 EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
