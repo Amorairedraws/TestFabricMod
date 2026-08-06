@@ -75,13 +75,13 @@ Custom tooltip renderer using Fabric's tooltip rendering hook. Anchored at the t
 ---
 
 ### Enchanting Table
-Custom screen handler and screen class, visually identical to vanilla. No new art assets — uses vanilla texture atlas and font throughout.
+Custom screen handler and screen class, visually identical to vanilla. No new art assets — uses vanilla texture atlas and font throughout. Heavily inspired by the base enchanting table UI.
 
-**Behavior when a qualifying item is placed:**
+**Behavior when a qualifying item is placed in the item slot:**
 Generates 3 offers. Each offer is one of:
-- A new enchantment at level 1 for an empty standard slot (if any exist) (Mending is exempt)
+- A new enchantment at level 1 for an empty standard slot (if any exist) (can only offer enchantments that are compatible with that item) (Mending is exempt)
 - An upgrade (+1 level) to an existing standard or bonus slot enchantment (if any are below max level)
-- A legendary upgrade (material tier promotion) — rare, configurable probability
+- A legendary upgrade (material tier promotion) — rare, configurable probability, functionally doesn't count towards max level, as max level is reached when all enchantments are fully upgraded.
 
 Offer weights slightly favor upgrades to existing slots over new enchantments. Weights configurable.
 
@@ -103,9 +103,11 @@ All values configurable.
 - Item durability restored by a configurable percentage (default 25%)
 - If all 4 standard slots are now filled, Mending is automatically added as a bonus slot separate from the 2 loot based bonus slots (💎, cyan text) at the far top of the enchantment slots.
 - `readyToLevelUp` resets to false, XP resets to 0, level increments by 1
+- Does not withdraw the item from the item slot, follows normal inventory/item slot behavior
 
-**Legendary upgrade:** promotes item to next tier in the configured material ladder. Creates a new item of the next material, copies all component data across, restores full durability. Configurable probability. Only appears as an offer while higher tiers remain available.
+**Legendary upgrade:** promotes item to next tier in the configured material ladder, as defined in the config. Designed to work with modded materials. Creates a new item of the next material, copies all component data across, restores full durability. Configurable probability. Only appears as an offer while higher tiers remain available. Can appear in place of an enchantment at any level, including when slots remain unfilled.
 
+**When item is not ready to level up:** screen opens, offer area is empty and non-interactable — identical to placing an unenchantable item in vanilla's enchanting table.
 **When item is maxed:** screen opens, offer area is empty and non-interactable — identical to placing an unenchantable item in vanilla's enchanting table.
 
 ---
