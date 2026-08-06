@@ -104,6 +104,25 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	}
 
 	@Override
+	public boolean onButtonClick(PlayerEntity player, int id) {
+		if (id == 3) {
+			ItemStack stack = inventory.getStack(0);
+			if (stack.isEmpty() || !stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return false;
+			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+			int cost = EquipLevelingConfig.getRerollCosts()[Math.min(4, data.getFilledSlots())];
+			if (player.experienceLevel < cost || data.maxed) return false;
+			player.addExperienceLevels(-cost);
+			generateOffers(player);
+			return true;
+		}
+		if (id >= 0 && id < 3) {
+			selectOffer(id, player);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
 	public ItemStack quickMove(PlayerEntity player, int slot) {
 		return ItemStack.EMPTY;
 	}

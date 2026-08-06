@@ -15,6 +15,24 @@ public final class EquipmentEnchantingScreen extends HandledScreen<EquipmentEnch
     }
 
     @Override
+    protected void init() {
+        super.init();
+        int x = (width - backgroundWidth) / 2;
+        int y = (height - backgroundHeight) / 2;
+        // Button presses are sent through the vanilla screen-handler button packet,
+        // keeping offer selection and rerolls server-authoritative.
+        addDrawableChild(net.minecraft.client.gui.widget.ButtonWidget.builder(Text.literal("Reroll"),
+                b -> client.interactionManager.clickButton(handler.syncId, 3))
+                .dimensions(x + 64, y + 22, 48, 16).build());
+        for (int i = 0; i < 3; i++) {
+            final int offer = i;
+            addDrawableChild(net.minecraft.client.gui.widget.ButtonWidget.builder(Text.literal("Select"),
+                    b -> client.interactionManager.clickButton(handler.syncId, offer))
+                    .dimensions(x + 8, y + 61 + i * 20, 48, 16).build());
+        }
+    }
+
+    @Override
     protected void drawBackground(DrawContext context, float delta, int mouseX, int mouseY) {
         int x = (width - backgroundWidth) / 2;
         int y = (height - backgroundHeight) / 2;
