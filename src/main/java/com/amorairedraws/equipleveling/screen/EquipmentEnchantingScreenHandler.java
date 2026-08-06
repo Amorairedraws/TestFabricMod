@@ -115,6 +115,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			// contain enchantments that cannot operate on this item (including modded
 			// enchantments registered by datapacks).
 			ids.removeIf(id -> "minecraft:mending".equals(id.toString())
+					|| data.slots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
+					|| data.bonusSlots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
 					|| !enchantments.get(id).isAcceptableItem(itemStack));
 			if (ids.isEmpty()) return null;
 			String id = ids.get(random.nextInt(ids.size())).toString();

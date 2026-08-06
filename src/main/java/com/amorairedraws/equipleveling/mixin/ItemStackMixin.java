@@ -4,6 +4,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.block.BlockState;
@@ -24,6 +25,23 @@ public class ItemStackMixin {
 			EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
 			// Only show glint when ready to level up
 			cir.setReturnValue(data.readyToLevelUp);
+		}
+	}
+
+	/** Keep tracked equipment as an inventory stack when its last durability point is used.
+	 * Vanilla decrements the stack on break; setting damage to max and cancelling here
+	 * gives the component scanner a durable broken item to work with instead. */
+	@Inject(method = "damage(ILnet/minecraft/entity/LivingEntity;Lnet/minecraft/entity/EquipmentSlot;)V", at = @At("HEAD"), cancellable = true)
+	private void preserveBrokenEquipment(int amount, net.minecraft.entity.LivingEntity entity,
+			net.minecraft.entity.EquipmentSlot slot, CallbackInfo ci) {
+		ItemStack stack = (ItemStack) (Object) this;
+		if (!com.amorairedraws.equipleveling.config.EquipLevelingConfig.isBrokenMechanicEnabled()
+				|| !EquipmentComponent.isTracked(stack) || stack.contains(EquipmentComponent.EQUIPMENT_TYPE)
+				&& stack.get(EquipmentComponent.EQUIPMENT_TYPE).broken) return;
+		if (stack.isDamageable() && stack.getDamage() + amount >= stack.getMaxDamage()) {
+			stack.setDamage(stack.getMaxDamage());
+			EquipmentComponent.markBrokenIfNecessary(stack);
+			ci.cancel();
 		}
 	}
 
