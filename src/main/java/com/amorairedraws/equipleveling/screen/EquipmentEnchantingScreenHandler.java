@@ -226,14 +226,10 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			(EquipLevelingConfig.getDurabilityRestorePercent() / 100.0));
 		itemStack.setDamage(Math.max(0, itemStack.getDamage() - durableRestore));
 
-		// Check if all slots are filled
-		if (data.getFilledSlots() == 4 && !data.mending) {
-			data.mending = true;
-			EquipmentComponent.EquipmentSlot mendingSlot = new EquipmentComponent.EquipmentSlot(
-				"minecraft:mending", 1
-			);
-			data.bonusSlots.add(0, mendingSlot);
-		}
+		// Completing all four standard slots grants the separate mending
+		// completion effect. It is deliberately not inserted into bonusSlots:
+		// that list is reserved for the maximum of two loot slots.
+		if (data.getFilledSlots() == 4) data.mending = true;
 
 		// Keep the custom slot data authoritative, but also apply its effects as
 		// vanilla enchantments. This makes both vanilla and modded enchantments

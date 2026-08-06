@@ -105,7 +105,7 @@ public final class EquipmentComponent {
             this.readyToLevelUp = ready; this.broken = broken; this.maxed = maxed;
             while (this.slots.size() < 4) this.slots.add(new EquipmentSlot(null, 0));
             if (this.slots.size() > 4) this.slots = new ArrayList<>(this.slots.subList(0, 4));
-            if (this.bonusSlots.size() > 3) this.bonusSlots = new ArrayList<>(this.bonusSlots.subList(0, 3));
+            if (this.bonusSlots.size() > 2) this.bonusSlots = new ArrayList<>(this.bonusSlots.subList(0, 2));
         }
 
         public static EquipmentData create(String category) {
@@ -130,13 +130,11 @@ public final class EquipmentComponent {
             readyToLevelUp = xp >= xpRequired;
             // Mending is derived from the four standard slots, never from the
             // material or from vanilla enchantment data.
-            if (getFilledSlots() == 4 && !mending) {
-                mending = true;
-                if (bonusSlots.stream().noneMatch(s -> "minecraft:mending".equals(s.enchantmentId))) {
-                    bonusSlots.add(0, new EquipmentSlot("minecraft:mending", 1));
-                }
-            }
-            while (bonusSlots.size() > 3) bonusSlots.remove(bonusSlots.size() - 1);
+            // Mending is a derived completion flag, not one of the two loot
+            // bonus slots. Keeping it separate is important: loot may always
+            // contribute at most two bonus enchantments.
+            if (getFilledSlots() == 4) mending = true;
+            while (bonusSlots.size() > 2) bonusSlots.remove(bonusSlots.size() - 1);
             updateMaxed();
         }
         public void levelUp(String category) {

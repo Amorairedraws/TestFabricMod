@@ -43,6 +43,12 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		renderSlots(lines, insertIndex, data.slots, "Standard");
 		insertIndex += data.slots.size() + 1;
 
+		// Mending is the completion reward and is intentionally distinct from
+		// the two loot-derived bonus slots.
+		if (data.mending) {
+			lines.add(insertIndex++, Text.literal("\u2666 Mending 1").formatted(Formatting.AQUA));
+		}
+
 		// Bonus slots
 		if (!data.bonusSlots.isEmpty()) {
 			lines.add(insertIndex++, Text.literal(""));

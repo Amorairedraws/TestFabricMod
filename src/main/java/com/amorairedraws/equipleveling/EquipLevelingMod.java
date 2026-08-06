@@ -67,6 +67,22 @@ public class EquipLevelingMod implements ModInitializer {
 			return ActionResult.SUCCESS;
 		});
 
+		// Hoe tilling is a block-use action rather than a block break. Award it
+		// here; crop harvesting continues to use PlayerBlockBreakEvents.
+		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
+			if (world.getBlockState(hit.getBlockPos()).isIn(net.minecraft.registry.tag.BlockTags.DIRT)
+					&& "hoe".equals(com.amorairedraws.equipleveling.util.EquipmentCategory.getCategory(player.getStackInHand(hand)))) {
+				int xp = 3;
+				if (world.isClient()) {
+					com.amorairedraws.equipleveling.event.XpDisplay.show(
+							net.minecraft.util.math.Vec3d.ofCenter(hit.getBlockPos()), xp);
+				} else {
+					EquipmentComponent.addXp(player.getStackInHand(hand), xp);
+				}
+			}
+			return ActionResult.PASS;
+		});
+
 		// Copy only our leveled equipment across the vanilla player clone created
 		// after death. This is independent of the global keepInventory gamerule.
 		ServerPlayerEvents.COPY_FROM.register((oldPlayer, newPlayer, alive) -> {
