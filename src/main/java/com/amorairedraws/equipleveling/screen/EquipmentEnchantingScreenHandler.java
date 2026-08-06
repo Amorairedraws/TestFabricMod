@@ -23,18 +23,27 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	public static final int HEIGHT = 166;
 
 	private final Inventory inventory;
+	private final PlayerEntity sourcePlayer;
+	private final net.minecraft.util.Hand sourceHand;
 	private final net.minecraft.util.math.random.Random random = net.minecraft.util.math.random.Random.create();
 	
 	public EquipmentEnchantingOffer[] offers = new EquipmentEnchantingOffer[3];
 	public int[] offerLevels = new int[3];
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory) {
-		this(syncId, playerInventory, new SimpleInventory(1));
+		this(syncId, playerInventory, new SimpleInventory(1), playerInventory.player, null);
 	}
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory) {
+		this(syncId, playerInventory, inventory, playerInventory.player, null);
+	}
+
+	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory,
+			PlayerEntity sourcePlayer, net.minecraft.util.Hand sourceHand) {
 		super(TYPE, syncId);
 		this.inventory = inventory;
+		this.sourcePlayer = sourcePlayer;
+		this.sourceHand = sourceHand;
 
 		this.addSlot(new Slot(inventory, 0, 15, 47));
 
@@ -138,6 +147,17 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	@Override
 	public boolean canUse(PlayerEntity player) {
 		return this.inventory.canPlayerUse(player);
+	}
+
+	@Override
+	public void onClosed(PlayerEntity player) {
+		super.onClosed(player);
+		// Legendary promotion creates a new stack. Put that stack back in the
+		// hand that opened the table instead of silently losing the promotion.
+		if (sourcePlayer == player && sourceHand != null) {
+			ItemStack result = this.inventory.getStack(0);
+			if (!result.isEmpty()) sourcePlayer.setStackInHand(sourceHand, result);
+		}
 	}
 
 	public void reroll(PlayerEntity player) {

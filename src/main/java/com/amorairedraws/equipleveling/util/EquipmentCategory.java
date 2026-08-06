@@ -30,7 +30,7 @@ public class EquipmentCategory {
 		if (stack.isIn(tag("hoes")) || stack.isIn(ItemTags.HOES)) return "hoe";
 
 		// Check fishing rod
-		if (stack.getItem() == Items.FISHING_ROD) return "fishing_rod";
+		if (stack.isIn(tag("fishing_rods")) || stack.getItem() == Items.FISHING_ROD) return "fishing_rod";
 
 		// Check for modded equipment via tag
 		if (stack.isIn(net.minecraft.registry.tag.TagKey.of(

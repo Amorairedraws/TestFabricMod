@@ -28,6 +28,8 @@ public class EquipLevelingConfig {
 	private static double xpMultiplier = 1.2;
 	private static int xpDisplayThreshold = 10;
 	private static int durabilityRestorePercent = 25;
+	// Ore/action rewards are configurable independently of equipment material.
+	private static int coalXp = 15, ironXp = 40, goldXp = 80, rareOreXp = 150;
 	// Cost is indexed by the number of filled standard slots (0..4).
 	private static int[] rerollCosts = {5, 10, 15, 20, 25};
 	private static double legendaryUpgradeProbability = 0.05;
@@ -82,6 +84,10 @@ public class EquipLevelingConfig {
 			xpMultiplier = json.has("xpMultiplier") ? json.get("xpMultiplier").getAsDouble() : 1.2;
 			xpDisplayThreshold = json.has("xpDisplayThreshold") ? json.get("xpDisplayThreshold").getAsInt() : 10;
 			durabilityRestorePercent = json.has("durabilityRestorePercent") ? json.get("durabilityRestorePercent").getAsInt() : 25;
+			coalXp = json.has("coalXp") ? json.get("coalXp").getAsInt() : 15;
+			ironXp = json.has("ironXp") ? json.get("ironXp").getAsInt() : 40;
+			goldXp = json.has("goldXp") ? json.get("goldXp").getAsInt() : 80;
+			rareOreXp = json.has("rareOreXp") ? json.get("rareOreXp").getAsInt() : 150;
 			
 			if (json.has("rerollCosts")) {
 				int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
@@ -119,6 +125,10 @@ public class EquipLevelingConfig {
 			json.addProperty("xpMultiplier", xpMultiplier);
 			json.addProperty("xpDisplayThreshold", xpDisplayThreshold);
 			json.addProperty("durabilityRestorePercent", durabilityRestorePercent);
+			json.addProperty("coalXp", coalXp);
+			json.addProperty("ironXp", ironXp);
+			json.addProperty("goldXp", goldXp);
+			json.addProperty("rareOreXp", rareOreXp);
 			json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
 			json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
 			json.add("materialTiers", GSON.toJsonTree(materialTiers));
@@ -153,6 +163,15 @@ public class EquipLevelingConfig {
 
 	public static int getDurabilityRestorePercent() {
 		return durabilityRestorePercent;
+	}
+
+	public static int getCoalXp() { return coalXp; }
+	public static int getIronXp() { return ironXp; }
+	public static int getGoldXp() { return goldXp; }
+	public static int getRareOreXp() { return rareOreXp; }
+	public static void setOreXp(int coal, int iron, int gold, int rare) {
+		coalXp = Math.max(0, coal); ironXp = Math.max(0, iron);
+		goldXp = Math.max(0, gold); rareOreXp = Math.max(0, rare); save();
 	}
 
 	public static int[] getRerollCosts() {

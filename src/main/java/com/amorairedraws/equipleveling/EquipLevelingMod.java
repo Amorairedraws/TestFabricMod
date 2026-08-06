@@ -61,7 +61,7 @@ public class EquipLevelingMod implements ModInitializer {
 				EquipmentComponent.getOrCreate(player.getStackInHand(hand));
 				input.setStack(0, player.getStackInHand(hand));
 				serverPlayer.openHandledScreen(new SimpleNamedScreenHandlerFactory(
-					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input),
+					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input, p, hand),
 					Text.translatable("equip_leveling.title")));
 			}
 			return ActionResult.SUCCESS;

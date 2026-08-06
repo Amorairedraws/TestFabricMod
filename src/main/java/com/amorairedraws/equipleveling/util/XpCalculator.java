@@ -26,17 +26,17 @@ public class XpCalculator {
 		if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE ||
 			block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE ||
 			block == Blocks.ANCIENT_DEBRIS) {
-			return 150;
+			return EquipLevelingConfig.getRareOreXp();
 		}
 		
 		// Gold - medium-high XP
 		if (block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE) {
-			return 80;
+			return EquipLevelingConfig.getGoldXp();
 		}
 		
 		// Iron - medium XP
 		if (block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE) {
-			return 40;
+			return EquipLevelingConfig.getIronXp();
 		}
 		
 		// Copper, redstone, lapis - low-medium XP
@@ -48,7 +48,7 @@ public class XpCalculator {
 		
 		// Coal - low XP
 		if (block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE) {
-			return 15;
+			return EquipLevelingConfig.getCoalXp();
 		}
 		
 		return 0;
