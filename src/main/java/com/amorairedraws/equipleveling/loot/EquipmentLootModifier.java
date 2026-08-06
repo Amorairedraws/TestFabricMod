@@ -29,6 +29,7 @@ public final class EquipmentLootModifier {
             bonus.add(new EquipmentComponent.EquipmentSlot(id, entry.getIntValue()));
         }
         data.bonusSlots = bonus;
+        data.refresh();
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
         // 1.21 stores enchantments in a component; remove them through the typed API.
         stack.remove(DataComponentTypes.ENCHANTMENTS);

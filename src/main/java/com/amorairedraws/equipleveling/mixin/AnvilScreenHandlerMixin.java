@@ -8,10 +8,18 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Extends vanilla anvil rules without replacing the vanilla repair algorithm. */
 @Mixin(AnvilScreenHandler.class)
 public abstract class AnvilScreenHandlerMixin {
+    @Inject(method = "canTakeOutput", at = @At("HEAD"), cancellable = true)
+    private void equipLeveling$removeTooExpensiveLimit(PlayerEntity player, boolean present, CallbackInfoReturnable<Boolean> cir) {
+        AnvilScreenHandler handler = (AnvilScreenHandler)(Object)this;
+        if (EquipmentComponent.isTracked(handler.getSlot(0).getStack())
+                && !handler.getSlot(2).getStack().isEmpty()) cir.setReturnValue(true);
+    }
+
     @Inject(method = "updateResult", at = @At("HEAD"), cancellable = true)
     private void equipLeveling$blockEquipmentCombining(CallbackInfo ci) {
         AnvilScreenHandler handler = (AnvilScreenHandler)(Object)this;

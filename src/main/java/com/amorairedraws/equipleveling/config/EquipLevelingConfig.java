@@ -198,12 +198,13 @@ public class EquipLevelingConfig {
 	}
 
 	public static void setXpMultiplier(double multiplier) {
-		xpMultiplier = multiplier;
+		if (!Double.isFinite(multiplier)) return;
+		xpMultiplier = Math.max(1.0, Math.min(10.0, multiplier));
 		save();
 	}
 
 	public static void setXpDisplayThreshold(int threshold) {
-		xpDisplayThreshold = threshold;
+		xpDisplayThreshold = Math.max(0, threshold);
 		save();
 	}
 

@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.block.BlockState;
 import net.minecraft.text.Text;
 import net.minecraft.component.type.ItemEnchantmentsComponent;
 import net.minecraft.util.Formatting;
@@ -23,6 +24,26 @@ public class ItemStackMixin {
 			EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
 			// Only show glint when ready to level up
 			cir.setReturnValue(data.readyToLevelUp);
+		}
+	}
+
+	@Inject(method = "getMiningSpeedMultiplier", at = @At("HEAD"), cancellable = true)
+	private void suppressBrokenToolSpeed(BlockState state, CallbackInfoReturnable<Float> cir) {
+		ItemStack stack = (ItemStack) (Object) this;
+		if (stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+			if (data != null && data.broken) cir.setReturnValue(0.0f);
+		}
+	}
+
+	@Inject(method = "canMine", at = @At("HEAD"), cancellable = true)
+	private void suppressBrokenMining(BlockState state, net.minecraft.world.World world,
+			net.minecraft.util.math.BlockPos pos, net.minecraft.entity.player.PlayerEntity player,
+			CallbackInfoReturnable<Boolean> cir) {
+		ItemStack stack = (ItemStack) (Object) this;
+		if (stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+			if (data != null && data.broken) cir.setReturnValue(false);
 		}
 	}
 
