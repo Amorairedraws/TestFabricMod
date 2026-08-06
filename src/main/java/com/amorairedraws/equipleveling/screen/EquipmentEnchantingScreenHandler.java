@@ -47,7 +47,13 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		this.sourcePlayer = sourcePlayer;
 		this.sourceHand = sourceHand;
 
-		this.addSlot(new Slot(inventory, 0, 15, 47));
+		// The item is supplied by the hand that opened the table. It is a
+		// deliberately fixed slot: allowing the generic Slot implementation to
+		// take/place stacks would duplicate or lose the hand stack on close.
+		this.addSlot(new Slot(inventory, 0, 15, 47) {
+			@Override public boolean canInsert(ItemStack stack) { return false; }
+			@Override public boolean canTakeItems(PlayerEntity player) { return false; }
+		});
 
 		// Player inventory
 		for (int m = 0; m < 3; m++) {

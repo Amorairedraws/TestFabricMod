@@ -123,6 +123,20 @@ public class EquipLevelingMod implements ModInitializer {
 	}
 
 	private void registerEventListeners() {
+		// A broken stack must not be usable as a weapon or right-click tool. Mining
+		// is covered by ItemStackMixin.canMine; these callbacks cover entity attacks
+		// and item-use actions without changing vanilla durability behaviour.
+		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			var stack = player.getStackInHand(hand);
+			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+			return data != null && data.broken ? ActionResult.FAIL : ActionResult.PASS;
+		});
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register((player, world, hand) -> {
+			var stack = player.getStackInHand(hand);
+			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+			return data != null && data.broken ? ActionResult.FAIL : ActionResult.PASS;
+		});
+
 		// XP accrual events
 		PlayerBlockBreakEvents.BEFORE.register(new EquipmentXpEvents.BlockBreakXpHandler());
 		// AttackEntityCallback is used only for the client-side floating label. The
@@ -134,7 +148,12 @@ public class EquipLevelingMod implements ModInitializer {
 			// tick so zero-durability stacks reliably enter the persistent broken state.
 			for (var player : server.getPlayerManager().getPlayerList()) {
 				for (int i = 0; i < player.getInventory().size(); i++) {
-					EquipmentComponent.markBrokenIfNecessary(player.getInventory().getStack(i));
+					var stack = player.getInventory().getStack(i);
+					// Materialize the component for every qualifying stack, not only
+					// stacks that have already earned XP. This keeps the promised
+					// persistent data model consistent for crafted and modded gear.
+					if (EquipmentComponent.isTracked(stack)) EquipmentComponent.getOrCreate(stack);
+					EquipmentComponent.markBrokenIfNecessary(stack);
 				}
 			}
 		});
