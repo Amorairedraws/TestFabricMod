@@ -22,7 +22,7 @@ public class EquipmentXpEvents {
         ItemStack held = player.getMainHandStack();
         String category = EquipmentCategory.getCategory(held);
         if (("sword".equals(category) || "axe".equals(category))) {
-            EquipmentComponent.getOrCreate(held).addXp(XpCalculator.calculateEntityKillXp(entity));
+            EquipmentComponent.addXp(held, XpCalculator.calculateEntityKillXp(entity));
         }
     }
 
@@ -38,7 +38,7 @@ public class EquipmentXpEvents {
 			
 			if (category != null && (category.equals("sword") || category.equals("axe"))) {
 				int xp = XpCalculator.calculateEntityKillXp(living);
-				EquipmentComponent.getOrCreate(heldItem).addXp(xp);
+				EquipmentComponent.addXp(heldItem, xp);
 			}
 			
 			return ActionResult.PASS;
@@ -64,7 +64,7 @@ public class EquipmentXpEvents {
 				}
 				
 				if (xp > 0) {
-					EquipmentComponent.getOrCreate(heldItem).addXp(xp);
+					EquipmentComponent.addXp(heldItem, xp);
 				}
 			}
 			

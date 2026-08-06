@@ -40,6 +40,14 @@ public final class EquipmentComponent {
         return data;
     }
 
+    /** Adds progression XP and immediately writes the immutable data component back. */
+    public static void addXp(ItemStack stack, int amount) {
+        if (!isTracked(stack)) return;
+        EquipmentData data = getOrCreate(stack);
+        data.addXp(amount);
+        stack.set(EQUIPMENT_TYPE, data);
+    }
+
     public static void markBrokenIfNecessary(ItemStack stack) {
         if (EquipLevelingConfig.isBrokenMechanicEnabled() && stack.isDamageable()
                 && stack.getDamage() >= stack.getMaxDamage() && isTracked(stack)) {

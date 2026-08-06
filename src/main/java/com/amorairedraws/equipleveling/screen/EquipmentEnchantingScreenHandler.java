@@ -12,6 +12,7 @@ import net.minecraft.screen.slot.Slot;
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
+import com.amorairedraws.equipleveling.util.MaterialTierUpgrader;
 
 public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 
@@ -69,16 +70,19 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		this.offers = new EquipmentEnchantingOffer[3];
 		
 		for (int i = 0; i < 3; i++) {
-			this.offers[i] = generateRandomOffer(data);
+			this.offers[i] = generateRandomOffer(data, player);
 			if (this.offers[i] != null) {
 				this.offerLevels[i] = calculateOfferCost(data, i);
 			}
 		}
 	}
 
-	private EquipmentEnchantingOffer generateRandomOffer(EquipmentComponent.EquipmentData data) {
-		double rand = random.nextDouble();
-		double upgradeWeight = EquipLevelingConfig.getUpgradeWeight();
+	private EquipmentEnchantingOffer generateRandomOffer(EquipmentComponent.EquipmentData data, PlayerEntity player) {
+		double upgradeWeight = Math.max(0, EquipLevelingConfig.getUpgradeWeight());
+		double newSlotWeight = Math.max(0, EquipLevelingConfig.getNewSlotWeight());
+		double legendaryWeight = Math.max(0, EquipLevelingConfig.getLegendaryUpgradeProbability());
+		double totalWeight = upgradeWeight + newSlotWeight + legendaryWeight;
+		double rand = totalWeight <= 0 ? 0 : random.nextDouble() * totalWeight;
 		
 		java.util.List<EquipmentComponent.EquipmentSlot> upgradeable = new java.util.ArrayList<>();
 		data.slots.stream().filter(s -> !s.isEmpty() && s.enchantmentLevel < 5).forEach(upgradeable::add);
@@ -86,11 +90,15 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		if (rand < upgradeWeight && !upgradeable.isEmpty()) {
 			// Upgrade a real, non-empty standard or loot slot.
 			return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
-		} else if (data.getFilledSlots() < 4) {
-			// Add new enchantment
-			return new EquipmentEnchantingOffer.NewEnchantment();
-		} else if (random.nextDouble() < EquipLevelingConfig.getLegendaryUpgradeProbability()) {
-			// Legendary upgrade
+		} else if (rand < upgradeWeight + newSlotWeight && data.getFilledSlots() < 4) {
+			// Read the live registry so datapack/mod enchantments participate too.
+			var ids = new java.util.ArrayList<>(player.getEntityWorld().getRegistryManager()
+					.getOrThrow(net.minecraft.registry.RegistryKeys.ENCHANTMENT).getIds());
+			if (ids.isEmpty()) return null;
+			String id = ids.get(random.nextInt(ids.size())).toString();
+			return new EquipmentEnchantingOffer.NewEnchantment(id);
+		} else if (data.getFilledSlots() == 4 && rand < totalWeight) {
+			// Legendary upgrade is only offered after standard slots are complete.
 			return new EquipmentEnchantingOffer.LegendaryUpgrade();
 		}
 		
@@ -169,7 +177,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 				// Empty standard slots are retained as four fixed positions.  Appending
 				// here used to create a fifth slot and was silently truncated on save.
 				EquipmentComponent.EquipmentSlot slot = new EquipmentComponent.EquipmentSlot(
-					"minecraft:unbreaking", 1
+					newEnch.enchantmentId, newEnch.level
 				);
 				for (int i = 0; i < data.slots.size(); i++) {
 					if (data.slots.get(i).isEmpty()) { data.slots.set(i, slot); break; }
@@ -180,11 +188,12 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 				upgrade.slot.enchantmentLevel++;
 			}
 		} else if (offer instanceof EquipmentEnchantingOffer.LegendaryUpgrade) {
-			// Handle material tier upgrade
-			String[] tiers = EquipLevelingConfig.getMaterialTiers();
-			// The normal level increment below advances progression exactly once.
-			// Tier promotion is represented by the material replacement in the
-			// completed implementation; do not increment the level twice here.
+			// Promote the actual stack, retaining every custom and vanilla component.
+			ItemStack promoted = MaterialTierUpgrader.promote(itemStack,
+					EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers());
+			if (promoted == itemStack) return;
+			this.inventory.setStack(0, promoted);
+			itemStack = promoted;
 		}
 
 		// Restore durability

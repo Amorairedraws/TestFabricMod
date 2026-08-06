@@ -22,7 +22,7 @@ public abstract class FishingBobberEntityMixin {
                 rod = player.getOffHandStack();
             }
             if ("fishing_rod".equals(EquipmentCategory.getCategory(rod))) {
-                EquipmentComponent.getOrCreate(rod).addXp(callback.getReturnValue() * 10);
+                EquipmentComponent.addXp(rod, callback.getReturnValue() * 10);
             }
         }
     }
