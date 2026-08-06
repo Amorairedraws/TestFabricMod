@@ -5,6 +5,10 @@ import net.minecraft.item.Items;
 import net.minecraft.registry.tag.ItemTags;
 
 public class EquipmentCategory {
+    private static net.minecraft.registry.tag.TagKey<net.minecraft.item.Item> tag(String path) {
+        return net.minecraft.registry.tag.TagKey.of(net.minecraft.registry.Registries.ITEM.getKey(),
+                net.minecraft.util.Identifier.of("equip_leveling", path));
+    }
 	
 	public static String getCategory(ItemStack stack) {
 		if (stack.isEmpty()) return null;
@@ -15,14 +19,15 @@ public class EquipmentCategory {
 		if (stack.isIn(ItemTags.LEG_ARMOR)) return "leggings";
 		if (stack.isIn(ItemTags.FOOT_ARMOR)) return "boots";
 
-		// Check swords and axes
-		if (stack.isIn(ItemTags.SWORDS)) return "sword";
-		if (stack.isIn(ItemTags.AXES)) return "axe";
+		// Check the mod-owned category tags first.  They include vanilla tags and
+		// are extensible by datapacks, so modded equipment does not need Java code.
+		if (stack.isIn(tag("swords")) || stack.isIn(ItemTags.SWORDS)) return "sword";
+		if (stack.isIn(tag("axes")) || stack.isIn(ItemTags.AXES)) return "axe";
 
 		// Check tools
-		if (stack.isIn(ItemTags.PICKAXES)) return "pickaxe";
-		if (stack.isIn(ItemTags.SHOVELS)) return "shovel";
-		if (stack.isIn(ItemTags.HOES)) return "hoe";
+		if (stack.isIn(tag("pickaxes")) || stack.isIn(ItemTags.PICKAXES)) return "pickaxe";
+		if (stack.isIn(tag("shovels")) || stack.isIn(ItemTags.SHOVELS)) return "shovel";
+		if (stack.isIn(tag("hoes")) || stack.isIn(ItemTags.HOES)) return "hoe";
 
 		// Check fishing rod
 		if (stack.getItem() == Items.FISHING_ROD) return "fishing_rod";
