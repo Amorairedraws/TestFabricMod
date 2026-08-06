@@ -1,36 +1,26 @@
 package com.amorairedraws.equipleveling.event;
 
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import com.amorairedraws.equipleveling.component.EquipmentComponent;
+import com.amorairedraws.equipleveling.util.EquipmentCategory;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
 
-import com.amorairedraws.equipleveling.component.EquipmentComponent;
-import com.amorairedraws.equipleveling.util.EquipmentCategory;
-import com.amorairedraws.equipleveling.util.XpCalculator;
-
-public class ArmorXpHandler {
-
-	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
-		if (!(entity instanceof PlayerEntity player)) {
-			return true;
-		}
-
-		// Award XP to armor pieces
-		int xp = (int) (amount * 5); // Scale with damage amount
-		
-		for (int i = 0; i < 4; i++) {
-			ItemStack armorPiece = player.getEquippedStack(net.minecraft.entity.EquipmentSlot.values()[i]);
-			if (!armorPiece.isEmpty()) {
-				String category = EquipmentCategory.getCategory(armorPiece);
-				if (category != null && category.matches("helmet|chestplate|leggings|boots")) {
-					EquipmentComponent.getOrCreate(armorPiece).addXp(xp);
-				}
-			}
-		}
-
-		return true;
-	}
+/** Awards the same incoming hit XP to every worn armor piece. */
+public final class ArmorXpHandler {
+    private ArmorXpHandler() {}
+    public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+        if (!(entity instanceof PlayerEntity player) || amount <= 0) return true;
+        int xp = Math.max(1, (int)Math.ceil(amount * 5));
+        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
+                EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            ItemStack armor = player.getEquippedStack(slot);
+            if (!armor.isEmpty() && EquipmentCategory.isEquipment(armor)) {
+                EquipmentComponent.getOrCreate(armor).addXp(xp);
+            }
+        }
+        return true;
+    }
 }

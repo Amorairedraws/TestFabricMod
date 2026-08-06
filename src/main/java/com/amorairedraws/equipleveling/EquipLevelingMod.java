@@ -12,6 +12,7 @@ import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.event.EquipmentXpEvents;
 import com.amorairedraws.equipleveling.event.ArmorXpHandler;
+import com.amorairedraws.equipleveling.event.DeathEventHandler;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import com.amorairedraws.equipleveling.loot.EquipmentLootModifier;
 
@@ -32,14 +33,21 @@ public class EquipLevelingMod implements ModInitializer {
 		// Register event listeners
 		registerEventListeners();
 		
-		// Register loot modifiers
-		
+		// A kill callback is used rather than AttackEntityCallback: the latter fires
+		// before damage and cannot reliably determine whether the entity died.
+		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity instanceof net.minecraft.entity.player.PlayerEntity dead) {
+				DeathEventHandler.handlePlayerDeath(dead);
+			} else if (source.getAttacker() instanceof net.minecraft.entity.player.PlayerEntity player) {
+				EquipmentXpEvents.awardKillXp(player, entity);
+			}
+		});
+
 		LOGGER.info("Equip Leveling initialized successfully!");
 	}
 
 	private void registerEventListeners() {
 		// XP accrual events
-		AttackEntityCallback.EVENT.register(new EquipmentXpEvents.EntityKillXpHandler());
 		PlayerBlockBreakEvents.BEFORE.register(new EquipmentXpEvents.BlockBreakXpHandler());
 		ServerTickEvents.END_SERVER_TICK.register(new EquipmentXpEvents.DamageXpHandler());
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> ArmorXpHandler.allowDamage(entity, source, amount));

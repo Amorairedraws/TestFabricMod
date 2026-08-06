@@ -17,6 +17,16 @@ import com.amorairedraws.equipleveling.util.XpCalculator;
 
 public class EquipmentXpEvents {
 
+    /** Called after a living entity actually dies, so XP is never awarded for a hit. */
+    public static void awardKillXp(PlayerEntity player, LivingEntity entity) {
+        ItemStack held = player.getMainHandStack();
+        String category = EquipmentCategory.getCategory(held);
+        if (("sword".equals(category) || "axe".equals(category))) {
+            EquipmentComponent.getOrCreate(held).addXp(XpCalculator.calculateEntityKillXp(entity));
+        }
+    }
+
+
 	public static class EntityKillXpHandler implements AttackEntityCallback {
 		@Override
 		public ActionResult interact(PlayerEntity player, World world, net.minecraft.util.Hand hand, 
