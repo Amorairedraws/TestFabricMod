@@ -32,6 +32,17 @@ public class EquipLevelingMod implements ModInitializer {
 		
 		// Register event listeners
 		registerEventListeners();
+
+		// Post-process every vanilla and modded loot table, including tables that
+		// were not known at compile time.  This is the only reliable global hook
+		// for stripping enchanted books and converting enchanted equipment.
+		LootTableEvents.MODIFY_DROPS.register((entry, context, drops) -> {
+			for (int i = drops.size() - 1; i >= 0; i--) {
+				net.minecraft.item.ItemStack processed = EquipmentLootModifier.processLootItem(drops.get(i));
+				if (processed.isEmpty()) drops.remove(i);
+				else drops.set(i, processed);
+			}
+		});
 		
 		// A kill callback is used rather than AttackEntityCallback: the latter fires
 		// before damage and cannot reliably determine whether the entity died.
@@ -49,7 +60,15 @@ public class EquipLevelingMod implements ModInitializer {
 	private void registerEventListeners() {
 		// XP accrual events
 		PlayerBlockBreakEvents.BEFORE.register(new EquipmentXpEvents.BlockBreakXpHandler());
-		ServerTickEvents.END_SERVER_TICK.register(new EquipmentXpEvents.DamageXpHandler());
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			// Durability is applied after most Fabric action callbacks. Scan once per
+			// tick so zero-durability stacks reliably enter the persistent broken state.
+			for (var player : server.getPlayerManager().getPlayerList()) {
+				for (int i = 0; i < player.getInventory().size(); i++) {
+					EquipmentComponent.markBrokenIfNecessary(player.getInventory().getStack(i));
+				}
+			}
+		});
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> ArmorXpHandler.allowDamage(entity, source, amount));
 	}
 }

@@ -11,6 +11,7 @@ import net.minecraft.screen.slot.Slot;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
+import com.amorairedraws.equipleveling.util.EquipmentCategory;
 
 public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	
@@ -76,11 +77,12 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		double rand = random.nextDouble();
 		double upgradeWeight = EquipLevelingConfig.getUpgradeWeight();
 		
-		if (rand < upgradeWeight && !data.slots.isEmpty()) {
-			// Upgrade existing enchantment
-			return new EquipmentEnchantingOffer.Upgrade(
-				data.slots.get(random.nextInt(data.slots.size()))
-			);
+		java.util.List<EquipmentComponent.EquipmentSlot> upgradeable = new java.util.ArrayList<>();
+		data.slots.stream().filter(s -> !s.isEmpty() && s.enchantmentLevel < 5).forEach(upgradeable::add);
+		data.bonusSlots.stream().filter(s -> !s.isEmpty() && s.enchantmentLevel < 5).forEach(upgradeable::add);
+		if (rand < upgradeWeight && !upgradeable.isEmpty()) {
+			// Upgrade a real, non-empty standard or loot slot.
+			return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
 		} else if (data.getFilledSlots() < 4) {
 			// Add new enchantment
 			return new EquipmentEnchantingOffer.NewEnchantment();
@@ -138,13 +140,18 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 
 		EquipmentComponent.EquipmentData data = itemStack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		EquipmentEnchantingOffer offer = offers[index];
+		if (!data.readyToLevelUp || data.broken || data.maxed) return;
 
 		if (offer instanceof EquipmentEnchantingOffer.NewEnchantment newEnch) {
 			if (data.getFilledSlots() < 4) {
+				// Empty standard slots are retained as four fixed positions.  Appending
+				// here used to create a fifth slot and was silently truncated on save.
 				EquipmentComponent.EquipmentSlot slot = new EquipmentComponent.EquipmentSlot(
 					"minecraft:unbreaking", 1
 				);
-				data.slots.add(slot);
+				for (int i = 0; i < data.slots.size(); i++) {
+					if (data.slots.get(i).isEmpty()) { data.slots.set(i, slot); break; }
+				}
 			}
 		} else if (offer instanceof EquipmentEnchantingOffer.Upgrade upgrade) {
 			if (upgrade.slot.enchantmentLevel < 5) {
@@ -153,9 +160,9 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		} else if (offer instanceof EquipmentEnchantingOffer.LegendaryUpgrade) {
 			// Handle material tier upgrade
 			String[] tiers = EquipLevelingConfig.getMaterialTiers();
-			if (data.level < tiers.length - 1) {
-				data.level++;
-			}
+			// The normal level increment below advances progression exactly once.
+			// Tier promotion is represented by the material replacement in the
+			// completed implementation; do not increment the level twice here.
 		}
 
 		// Restore durability
@@ -173,9 +180,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		}
 
 		// Level up
-		data.levelUp();
-		data.readyToLevelUp = false;
-
+		data.levelUp(EquipmentCategory.getCategory(itemStack));
+		itemStack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
 		generateOffers(player);
 	}
 }

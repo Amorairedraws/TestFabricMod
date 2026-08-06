@@ -86,9 +86,17 @@ public final class EquipmentComponent {
         public static EquipmentData create() { return create("default"); }
 
         public void addXp(int amount) {
+            // Never allow a broken item, a capped item, or a maxed item to accrue XP.
             if (amount <= 0 || broken || readyToLevelUp || maxed) return;
-            xp = Math.min(Integer.MAX_VALUE, xp + amount);
+            xp = (int) Math.min(Integer.MAX_VALUE, (long) xp + amount);
             readyToLevelUp = xp >= xpRequired;
+        }
+
+        /** Recomputes derived state after a slot or repair mutation. */
+        public void refresh() {
+            xpRequired = Math.max(1, xpRequired);
+            readyToLevelUp = xp >= xpRequired;
+            updateMaxed();
         }
         public void levelUp(String category) {
             level++; xp = 0; readyToLevelUp = false;
@@ -101,8 +109,14 @@ public final class EquipmentComponent {
         public int getTotalSlots() { return 4 + bonusSlots.size(); }
         public void updateMaxed() {
             maxed = getFilledSlots() == 4 && mending && level >= EquipLevelingConfig.getMaterialTiers().length - 1
-                && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= 5)
-                && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= 5);
+                && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s))
+                && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
+        }
+
+        private static int maxEnchantmentLevel(EquipmentSlot slot) {
+            // Mending has a vanilla maximum of one; other offers currently use
+            // the configurable progression cap of five.
+            return "minecraft:mending".equals(slot.enchantmentId) ? 1 : 5;
         }
         public EquipmentData copy() {
             List<EquipmentSlot> a = new ArrayList<>(), b = new ArrayList<>();
