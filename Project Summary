@@ -1,0 +1,171 @@
+## Project Summary: Equip Leveling!
+
+**Platform:** Fabric mod for Minecraft Java Edition 1.21.11 (Not 1.21.1). Dependencies: Fabric API, Mod Menu. No Cloth Config. No required resource pack.
+
+---
+
+### Core Data: Custom Item Component
+Every piece of equipment (weapons, tools, armor) receives a custom component containing:
+- `level` (int): current item level, starts at 0
+- `xp` (int): current XP toward the next level
+- `xpRequired` (int): XP needed for next level, calculated as `baseXP * multiplier^level`
+- `mending` (boolean): true when all 4 slots are filled, is the mending enchantment. Displayed with (💎) and cyan text.
+- `slots` (list of up to 4): each slot holds an enchantment ID + level, or is empty. These are the standard earned slots.
+- `bonusSlots` (list of 0–2): pre-filled slots from loot generation. Displayed with ★(star) and gold text. Upgradeable normally. Exist on top of the 4 standard slots.
+- `readyToLevelUp` (boolean): true when XP >= xpRequired
+- `broken` (boolean): true when item durability hits zero
+- `maxed` (boolean): true when all standard slots are filled, all enchantments (standard and bonus) are at max level, and item is at max configured tier
+
+`baseXP` is configurable per item category (e.g. Sword, Axe, Pickaxe, Shovel, Hoe, Helmet, Chestplate, Leggings, Boots, Fishing Rod — not per material). The scaling multiplier (default 1.2) is a single global value, both configurable in the Mod Menu config screen.
+
+---
+
+### XP Accrual (Action-Based)
+XP is granted to the relevant held or worn item via Fabric events. XP does not accrue while `broken` or `readyToLevelUp` is true.
+
+- **Swords:** entity kill events. XP scales with the killed entity's max health.
+- **Axes:** natural log block breaks (via block tag), or entity kills identically to swords.
+- **Pickaxes:** block break events. XP scales by ore rarity — common blocks give nothing displayable, iron gives minor XP, gold/diamonds/ancient debris/etc. give significantly more. Rarity values configurable.
+- **Shovels:** relevant dirt/sand/gravel/snow block break events.
+- **Hoes:** tilling and crop harvest events.
+- **Fishing Rods:** successful fish reel-in events.
+- **Helmets, Chestplates, Leggings, Boots:** damage taken events on the player. Each armor piece in a worn slot grants XP when the player is hit.
+- **Other/modded tools:** included automatically if they carry the relevant item category tag.
+
+Modded items are included automatically via item tags (`equip_leveling:upgradeable_equipment` plus per-category tags). Modded enchantments are included automatically by reading from the enchantment registry at runtime.
+
+XP stops accumulating once the item reaches its cap for the current level (`readyToLevelUp` flips to true). Accumulation resumes after leveling up.
+
+**Floating XP numbers:** rendered in 3D world space at the event position, billboard-style, depth-test disabled (always rendered on top of geometry). Float upward and fade over ~1.5 seconds. Only displayed when the XP gain exceeds a configurable threshold, so routine actions (mining stone, hitting weak mobs) show nothing while meaningful gains (rare ores, strong enemies) show a number.
+
+---
+
+### Broken Item State
+When a piece of equipment's vanilla durability reaches zero:
+- `broken` is set to true
+- The item does not disappear — it remains in the player's inventory
+- All enchantment effects are suppressed
+- XP accrual is halted
+- The item name gains a red `[BROKEN]` prefix
+- The item renderer applies a strong red tint to the item sprite via Mixin, making it visually distinct at a glance
+- Tooltip shows "Broken — repair at an Anvil"
+- Repairing at an Anvil with the appropriate material removes the `broken` flag, restores the normal amount of durability, and resumes normal function. Repair cost scales with item level (see Anvil Changes).
+
+---
+
+### Glint System
+Mixin into `ItemStack.hasGlint()`:
+- Always returns `false` for any item with our custom component, unless `readyToLevelUp` is true
+- Items are always visually mundane until the level-up moment, regardless of internally slotted enchantments
+- Glint disappears again immediately upon leveling up
+
+---
+
+### Tooltip Display
+Custom tooltip renderer using Fabric's tooltip rendering hook. Anchored at the top of the item tooltip:
+- A pixel-rendered XP bar (styled like the vanilla durability bar, inside the tooltip)
+- `(240/500) XP` text beneath it
+- Current item level
+- Standard slots listed (filled or empty), normal white text
+- Bonus slots listed beneath, each prefixed with ★(a star) in gold text
+- `[BROKEN]` state reflected in name and tooltip only when actively broken.
+- "MAX LEVEL" replaces the level line when `maxed` is true
+
+---
+
+### Enchanting Table
+Custom screen handler and screen class, visually identical to vanilla. No new art assets — uses vanilla texture atlas and font throughout.
+
+**Behavior when a qualifying item is placed:**
+Generates 3 offers. Each offer is one of:
+- A new enchantment at level 1 for an empty standard slot (if any exist) (Mending is exempt)
+- An upgrade (+1 level) to an existing standard or bonus slot enchantment (if any are below max level)
+- A legendary upgrade (material tier promotion) — rare, configurable probability
+
+Offer weights slightly favor upgrades to existing slots over new enchantments. Weights configurable.
+
+A **"Reroll" button** (text only, vanilla button style) replaces the lapis slot. Displays the level cost beneath it. Spends player XP levels to regenerate 3 new offers.
+
+**Reroll cost by number of filled standard slots:**
+- 0 filled: 1 levels
+- 1 filled: 2 levels
+- 2 filled: 3 levels
+- 3 filled: 4 levels
+- 4 filled: 5 levels
+
+The reroll cost is then further increased by the Vanilla cost/weight value of the enchantments that were offered.
+
+All values configurable.
+
+**On selecting an offer:**
+- Enchantment written to the appropriate slot in the component
+- Item durability restored by a configurable percentage (default 25%)
+- If all 4 standard slots are now filled, Mending is automatically added as a bonus slot separate from the 2 loot based bonus slots (💎, cyan text) at the far top of the enchantment slots.
+- `readyToLevelUp` resets to false, XP resets to 0, level increments by 1
+
+**Legendary upgrade:** promotes item to next tier in the configured material ladder. Creates a new item of the next material, copies all component data across, restores full durability. Configurable probability. Only appears as an offer while higher tiers remain available.
+
+**When item is maxed:** screen opens, offer area is empty and non-interactable — identical to placing an unenchantable item in vanilla's enchanting table.
+
+---
+
+### Loot Integration
+A global loot modifier runs post-generation on all loot tables (vanilla and modded). For every generated equipment item that already has vanilla enchantments:
+- Those enchantments are converted into 1–2 bonus slots (`bonusSlots`) in the component
+- The vanilla enchantment tags are stripped
+- These slots appear beneath the standard slots in the tooltip, prefixed with ★ in gold text
+- They are upgradeable through the enchanting table normally
+- The item still has its full 4 standard slots available to earn through play
+
+Found enchanted loot is therefore always meaningfully ahead of freshly crafted gear.
+
+---
+
+### Enchantment Books: Fully Disabled
+- Global loot modifier strips enchanted books from all loot table outputs (catches modded tables automatically)
+- Mixin blocks villager enchanted book trades
+- Mixin blocks fishing from producing enchanted books
+- Custom enchanting table never produces books
+- Net result: enchanted books are unobtainable by any means in the game
+
+---
+
+### Anvil Changes
+- Combining two equipment items is blocked (Mixin returns empty result)
+- Repairing with materials still works
+- Vanilla "too expensive" scaling (prior work penalty) is removed
+- Repair cost instead scales with item level — configurable base cost + flat increase per level
+- Repairing a `broken` item with materials removes the broken state and restores partial durability as normal
+
+---
+
+### Grindstone Changes
+- Mixin strips all custom slot and level data (standard and bonus slots) from the item
+- Returns player XP equivalent to the combined vanilla XP value of all slotted enchantments
+- Does not affect durability
+- Behaves exactly as players would expect from the vanilla grindstone, extended to the new system
+
+---
+
+### Death Behavior
+- Config toggle: **"Keep Leveled Equipment on Death"** (default: off)
+- When enabled, acts as keep-inventory specifically for any item with our custom component — armor, tools, weapons with any level data are kept on death
+- Non-equipment items still drop normally
+- Does not interact with or require the global `keepInventory` gamerule
+
+---
+
+### Config (Mod Menu, hand-rolled screen)
+- `baseXP` per item category (Sword, Axe, Pickaxe, Shovel, Hoe, Helmet, Chestplate, Leggings, Boots, Fishing Rod, and a default fallback)
+- XP scaling multiplier (default 1.2, global)
+- XP display threshold (minimum gain to show floating number)
+- Durability restore % on level up (default 25%)
+- Reroll costs per slot count (5 / 10 / 15 / 20 / 25)
+- Legendary upgrade probability
+- Material tier upgrade ladder (ordered list — default Wood → Stone → Iron → Diamond → Netherite, gold excluded, editable)
+- Enchantment offer weights (upgrade vs new slot probability)
+- Anvil repair base cost and per-level cost increase
+- Keep Leveled Equipment on Death toggle (default off)
+- Broken item mechanic toggle (default on)
+
+---
