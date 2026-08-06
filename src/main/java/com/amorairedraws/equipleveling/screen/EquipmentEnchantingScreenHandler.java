@@ -72,9 +72,12 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 
 		EquipmentComponent.EquipmentData data = itemStack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		
-		if (data.maxed) {
-			// No offers for maxed items
+		if (data.maxed || data.broken || !data.readyToLevelUp) {
+			// The table is intentionally inert until the item reaches its XP cap.
+			// This also prevents a client from selecting stale offers after a
+			// concurrent inventory update.
 			this.offers = new EquipmentEnchantingOffer[0];
+			this.offerLevels = new int[0];
 			return;
 		}
 
@@ -104,20 +107,24 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
 		} else if (rand < upgradeWeight + newSlotWeight && data.getFilledSlots() < 4) {
 			// Read the live registry so datapack/mod enchantments participate too.
-			var ids = new java.util.ArrayList<>(player.getEntityWorld().getRegistryManager()
-					.getOrThrow(net.minecraft.registry.RegistryKeys.ENCHANTMENT).getIds());
-			// Mending is reserved for the automatic completion bonus and must never
-			// consume one of the four earned slots.
-			ids.removeIf(id -> "minecraft:mending".equals(id.toString()));
+			var enchantments = player.getEntityWorld().getRegistryManager()
+					.getOrThrow(net.minecraft.registry.RegistryKeys.ENCHANTMENT);
+			var ids = new java.util.ArrayList<>(enchantments.getIds());
+			// Mending is reserved for the automatic completion bonus. Also filter
+			// through the enchantment's own compatibility predicate so offers never
+			// contain enchantments that cannot operate on this item (including modded
+			// enchantments registered by datapacks).
+			ids.removeIf(id -> "minecraft:mending".equals(id.toString())
+					|| !enchantments.get(id).isAcceptableItem(itemStack));
 			if (ids.isEmpty()) return null;
 			String id = ids.get(random.nextInt(ids.size())).toString();
 			return new EquipmentEnchantingOffer.NewEnchantment(id);
-		} else if (data.getFilledSlots() == 4 && rand < totalWeight
+		} else if (rand < upgradeWeight + newSlotWeight + legendaryWeight
 				&& MaterialTierUpgrader.canPromote(itemStack,
 						EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers())) {
-			// Legendary upgrade is only offered after standard slots are complete
-			// and a real next tier exists. The input can be in our private inventory,
-			// so use it rather than whichever item the player currently holds.
+			// Legendary upgrades are independent of slot completion and may replace
+			// an enchantment offer at any level, as specified by the progression
+			// rules. The configured probability is a separate weighted outcome.
 			return new EquipmentEnchantingOffer.LegendaryUpgrade();
 		}
 		

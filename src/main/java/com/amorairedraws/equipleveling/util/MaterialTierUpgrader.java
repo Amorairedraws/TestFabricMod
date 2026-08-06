@@ -49,6 +49,10 @@ public final class MaterialTierUpgrader {
             case "pickaxe" -> switch (t) { case "wood" -> Items.WOODEN_PICKAXE; case "stone" -> Items.STONE_PICKAXE; case "iron" -> Items.IRON_PICKAXE; case "diamond" -> Items.DIAMOND_PICKAXE; case "netherite" -> Items.NETHERITE_PICKAXE; default -> null; };
             case "shovel" -> switch (t) { case "wood" -> Items.WOODEN_SHOVEL; case "stone" -> Items.STONE_SHOVEL; case "iron" -> Items.IRON_SHOVEL; case "diamond" -> Items.DIAMOND_SHOVEL; case "netherite" -> Items.NETHERITE_SHOVEL; default -> null; };
             case "hoe" -> switch (t) { case "wood" -> Items.WOODEN_HOE; case "stone" -> Items.STONE_HOE; case "iron" -> Items.IRON_HOE; case "diamond" -> Items.DIAMOND_HOE; case "netherite" -> Items.NETHERITE_HOE; default -> null; };
+            // Vanilla has no material variants for fishing rods; retaining this
+            // explicit case prevents a configured ladder from creating an
+            // invalid legendary offer for rods.
+            case "fishing_rod" -> null;
             case "helmet" -> switch (t) { case "wood" -> null; case "stone" -> null; case "iron" -> Items.IRON_HELMET; case "diamond" -> Items.DIAMOND_HELMET; case "netherite" -> Items.NETHERITE_HELMET; default -> null; };
             case "chestplate" -> switch (t) { case "wood" -> null; case "stone" -> null; case "iron" -> Items.IRON_CHESTPLATE; case "diamond" -> Items.DIAMOND_CHESTPLATE; case "netherite" -> Items.NETHERITE_CHESTPLATE; default -> null; };
             case "leggings" -> switch (t) { case "wood" -> null; case "stone" -> null; case "iron" -> Items.IRON_LEGGINGS; case "diamond" -> Items.DIAMOND_LEGGINGS; case "netherite" -> Items.NETHERITE_LEGGINGS; default -> null; };
