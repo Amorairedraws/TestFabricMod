@@ -236,6 +236,9 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		// functional while ItemStackMixin controls their visual glint.
 		for (EquipmentComponent.EquipmentSlot slot : data.slots) syncEnchantment(itemStack, slot, player);
 		for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) syncEnchantment(itemStack, slot, player);
+		if (data.mending) {
+			syncEnchantment(itemStack, new EquipmentComponent.EquipmentSlot("minecraft:mending", 1), player);
+		}
 
 		// Level up
 		data.levelUp(EquipmentCategory.getCategory(itemStack));
