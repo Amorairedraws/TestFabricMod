@@ -28,7 +28,8 @@ public class EquipLevelingConfig {
 	private static double xpMultiplier = 1.2;
 	private static int xpDisplayThreshold = 10;
 	private static int durabilityRestorePercent = 25;
-	private static int[] rerollCosts = {1, 2, 3, 4, 5};
+	// Cost is indexed by the number of filled standard slots (0..4).
+	private static int[] rerollCosts = {5, 10, 15, 20, 25};
 	private static double legendaryUpgradeProbability = 0.05;
 	private static String[] materialTiers = {"wood", "stone", "iron", "diamond", "netherite"};
 	private static double upgradeWeight = 0.6;
@@ -83,7 +84,8 @@ public class EquipLevelingConfig {
 			durabilityRestorePercent = json.has("durabilityRestorePercent") ? json.get("durabilityRestorePercent").getAsInt() : 25;
 			
 			if (json.has("rerollCosts")) {
-				rerollCosts = GSON.fromJson(json.get("rerollCosts"), int[].class);
+				int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
+				if (loaded != null && loaded.length == 5) rerollCosts = loaded;
 			}
 			
 			legendaryUpgradeProbability = json.has("legendaryUpgradeProbability") ? json.get("legendaryUpgradeProbability").getAsDouble() : 0.05;
@@ -212,6 +214,41 @@ public class EquipLevelingConfig {
 
 	public static void setBrokenMechanicEnabled(boolean enabled) {
 		enableBrokenMechanic = enabled;
+		save();
+	}
+
+	public static void setDurabilityRestorePercent(int value) {
+		durabilityRestorePercent = Math.max(0, Math.min(100, value));
+		save();
+	}
+
+	public static void setRerollCosts(int[] costs) {
+		if (costs == null || costs.length != 5) throw new IllegalArgumentException("Five reroll costs are required");
+		rerollCosts = java.util.Arrays.stream(costs).map(v -> Math.max(0, v)).toArray();
+		save();
+	}
+
+	public static void setLegendaryUpgradeProbability(double value) {
+		legendaryUpgradeProbability = Math.max(0, Math.min(1, value));
+		save();
+	}
+
+	public static void setMaterialTiers(String[] tiers) {
+		if (tiers == null || tiers.length == 0) throw new IllegalArgumentException("At least one material tier is required");
+		materialTiers = java.util.Arrays.stream(tiers).filter(s -> s != null && !s.isBlank()).map(String::toLowerCase).toArray(String[]::new);
+		if (materialTiers.length == 0) throw new IllegalArgumentException("At least one material tier is required");
+		save();
+	}
+
+	public static void setOfferWeights(double upgrade, double newSlot) {
+		upgradeWeight = Math.max(0, upgrade);
+		newSlotWeight = Math.max(0, newSlot);
+		save();
+	}
+
+	public static void setAnvilCosts(int base, int perLevel) {
+		anvilBaseCost = Math.max(0, base);
+		anvilPerLevelCost = Math.max(0, perLevel);
 		save();
 	}
 }

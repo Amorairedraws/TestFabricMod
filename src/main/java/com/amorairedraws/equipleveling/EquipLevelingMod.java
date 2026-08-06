@@ -27,6 +27,7 @@ import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.util.ActionResult;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 
 public class EquipLevelingMod implements ModInitializer {
 	public static final String MOD_ID = "equip_leveling";
@@ -55,12 +56,26 @@ public class EquipLevelingMod implements ModInitializer {
 					|| !EquipmentComponent.isTracked(player.getStackInHand(hand))) return ActionResult.PASS;
 			if (player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer) {
 				SimpleInventory input = new SimpleInventory(1);
-				input.setStack(0, player.getStackInHand(hand).copyWithCount(1));
+				// Keep the same stack instance: the handler mutates the item in the player's
+				// inventory rather than a detached copy that would lose the upgrade.
+				input.setStack(0, player.getStackInHand(hand));
 				serverPlayer.openHandledScreen(new SimpleNamedScreenHandlerFactory(
 					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input),
 					Text.translatable("equip_leveling.title")));
 			}
 			return ActionResult.SUCCESS;
+		});
+
+		// Copy only our leveled equipment across the vanilla player clone created
+		// after death. This is independent of the global keepInventory gamerule.
+		ServerPlayerEvents.COPY_FROM.register((oldPlayer, newPlayer, alive) -> {
+			if (!EquipLevelingConfig.isKeepEquipOnDeath() || alive) return;
+			for (int i = 0; i < oldPlayer.getInventory().size(); i++) {
+				var stack = oldPlayer.getInventory().getStack(i);
+				if (EquipmentComponent.isTracked(stack) && stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+					newPlayer.getInventory().setStack(i, stack.copy());
+				}
+			}
 		});
 
 		// Register event listeners
