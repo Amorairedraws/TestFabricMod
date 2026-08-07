@@ -64,6 +64,8 @@ public final class EquipmentComponent {
         if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE)) return;
         EquipmentData data = stack.get(EQUIPMENT_TYPE);
         if (data == null) return;
+        data.updateMaxed(lookup);
+        stack.set(EQUIPMENT_TYPE, data);
         if (data.broken) {
             stack.remove(DataComponentTypes.ENCHANTMENTS);
             return;
@@ -192,6 +194,14 @@ public final class EquipmentComponent {
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
         }
 
+        /** Uses the live world registry when deciding whether a modded
+         * enchantment has reached its real maximum level. */
+        public void updateMaxed(RegistryWrapper.WrapperLookup lookup) {
+            maxed = getFilledSlots() == 4 && mending && level >= EquipLevelingConfig.getMaterialTiers().length - 1
+                && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup))
+                && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup));
+        }
+
         /** Returns the registered maximum, including maxima supplied by modded
          * or datapack enchantments. Unknown IDs retain a safe progression cap. */
         public static int maxEnchantmentLevel(EquipmentSlot slot) {
@@ -214,6 +224,17 @@ public final class EquipmentComponent {
                 return 5;
             }
         }
+        private static int maxEnchantmentLevel(EquipmentSlot slot, RegistryWrapper.WrapperLookup lookup) {
+            try {
+                var key = RegistryKey.of(RegistryKeys.ENCHANTMENT, Identifier.of(slot.enchantmentId));
+                return lookup.getOrThrow(RegistryKeys.ENCHANTMENT).getOptional(key)
+                        .map(entry -> Math.max(1, entry.value().getMaxLevel()))
+                        .orElse(maxEnchantmentLevel(slot));
+            } catch (RuntimeException ignored) {
+                return maxEnchantmentLevel(slot);
+            }
+        }
+
         public EquipmentData copy() {
             List<EquipmentSlot> a = new ArrayList<>(), b = new ArrayList<>();
             slots.forEach(s -> a.add(s.copy())); bonusSlots.forEach(s -> b.add(s.copy()));

@@ -91,6 +91,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		}
 
 		EquipmentComponent.EquipmentData data = itemStack.get(EquipmentComponent.EQUIPMENT_TYPE);
+		data.updateMaxed(player.getEntityWorld().getRegistryManager());
+		itemStack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
 		
 		if (data.maxed || data.broken || !data.readyToLevelUp) {
 			// The table is intentionally inert until the item reaches its XP cap.
