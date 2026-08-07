@@ -269,6 +269,7 @@ public class EquipLevelingConfig {
 	}
 
 	public static void setLegendaryUpgradeProbability(double value) {
+		if (!Double.isFinite(value)) return;
 		legendaryUpgradeProbability = Math.max(0, Math.min(1, value));
 		save();
 	}
@@ -281,6 +282,7 @@ public class EquipLevelingConfig {
 	}
 
 	public static void setOfferWeights(double upgrade, double newSlot) {
+		if (!Double.isFinite(upgrade) || !Double.isFinite(newSlot)) return;
 		upgradeWeight = Math.max(0, upgrade);
 		newSlotWeight = Math.max(0, newSlot);
 		save();
