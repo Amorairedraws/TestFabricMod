@@ -6,7 +6,13 @@ import com.amorairedraws.equipleveling.EquipLevelingMod;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 import net.minecraft.component.ComponentType;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
+import net.minecraft.component.type.TooltipDisplayComponent;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
@@ -49,6 +55,40 @@ public final class EquipmentComponent {
         EquipmentData data = getOrCreate(stack);
         data.addXp(amount);
         stack.set(EQUIPMENT_TYPE, data);
+    }
+
+    /** Rehydrates vanilla's enchantment component from custom slot IDs. Loot
+     * intentionally removes vanilla enchantment tags, so this bridge makes loot
+     * bonuses functional again while keeping the custom component authoritative. */
+    public static void restoreEnchantments(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
+        if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE)) return;
+        EquipmentData data = stack.get(EQUIPMENT_TYPE);
+        if (data == null) return;
+        if (data.broken) {
+            stack.remove(DataComponentTypes.ENCHANTMENTS);
+            return;
+        }
+        var enchantmentLookup = lookup.getOrThrow(RegistryKeys.ENCHANTMENT);
+        ItemEnchantmentsComponent.Builder builder = new ItemEnchantmentsComponent.Builder(ItemEnchantmentsComponent.DEFAULT);
+        for (EquipmentSlot slot : data.slots) addEnchantment(builder, enchantmentLookup, slot);
+        for (EquipmentSlot slot : data.bonusSlots) addEnchantment(builder, enchantmentLookup, slot);
+        if (data.mending) addEnchantment(builder, enchantmentLookup,
+                new EquipmentSlot("minecraft:mending", 1));
+        stack.set(DataComponentTypes.ENCHANTMENTS, builder.build());
+        TooltipDisplayComponent display = stack.getOrDefault(DataComponentTypes.TOOLTIP_DISPLAY,
+                TooltipDisplayComponent.DEFAULT);
+        stack.set(DataComponentTypes.TOOLTIP_DISPLAY,
+                display.with(DataComponentTypes.ENCHANTMENTS, false));
+    }
+
+    private static void addEnchantment(ItemEnchantmentsComponent.Builder builder,
+            net.minecraft.registry.RegistryEntryLookup<net.minecraft.enchantment.Enchantment> lookup,
+            EquipmentSlot slot) {
+        if (slot.isEmpty()) return;
+        try {
+            var key = RegistryKey.of(RegistryKeys.ENCHANTMENT, Identifier.of(slot.enchantmentId));
+            lookup.getOptional(key).ifPresent(entry -> builder.set(entry, slot.enchantmentLevel));
+        } catch (RuntimeException ignored) { }
     }
 
     public static void markBrokenIfNecessary(ItemStack stack) {

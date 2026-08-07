@@ -156,7 +156,10 @@ public class EquipLevelingMod implements ModInitializer {
 					// Materialize the component for every qualifying stack, not only
 					// stacks that have already earned XP. This keeps the promised
 					// persistent data model consistent for crafted and modded gear.
-					if (EquipmentComponent.isTracked(stack)) EquipmentComponent.getOrCreate(stack);
+					if (EquipmentComponent.isTracked(stack)) {
+						EquipmentComponent.getOrCreate(stack);
+						EquipmentComponent.restoreEnchantments(stack, player.getEntityWorld().getRegistryManager());
+					}
 					EquipmentComponent.markBrokenIfNecessary(stack);
 				}
 			}
