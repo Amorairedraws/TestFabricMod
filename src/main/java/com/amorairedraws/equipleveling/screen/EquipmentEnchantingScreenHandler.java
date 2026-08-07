@@ -22,7 +22,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	public static ScreenHandlerType<EquipmentEnchantingScreenHandler> TYPE;
 	
 	public static final int WIDTH = 176;
-	public static final int HEIGHT = 166;
+	public static final int HEIGHT = 222;
 
 	private final Inventory inventory;
 	private final PlayerEntity sourcePlayer;
@@ -369,6 +369,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		// Level up
 		data.levelUp(EquipmentCategory.getCategory(itemStack));
 		itemStack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
+		this.inventory.setStack(0, itemStack);
+		this.inventory.markDirty();
 		generateOffers(player);
 	}
 

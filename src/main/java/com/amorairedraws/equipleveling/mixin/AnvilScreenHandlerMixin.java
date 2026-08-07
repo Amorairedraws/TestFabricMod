@@ -53,7 +53,7 @@ public abstract class AnvilScreenHandlerMixin {
             var data = output.get(EquipmentComponent.EQUIPMENT_TYPE);
             if (data != null && data.broken) {
                 data.broken = false;
-                output.setDamage(Math.max(0, output.getDamage()));
+                data.refresh();
                 output.set(EquipmentComponent.EQUIPMENT_TYPE, data);
             }
         }

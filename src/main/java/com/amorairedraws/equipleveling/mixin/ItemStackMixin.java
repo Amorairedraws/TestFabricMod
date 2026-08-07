@@ -54,6 +54,7 @@ public class ItemStackMixin {
 			java.util.function.BiConsumer<net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.attribute.EntityAttribute>,
 					net.minecraft.entity.attribute.EntityAttributeModifier> consumer, CallbackInfo ci) {
 		ItemStack stack = (ItemStack) (Object) this;
+		if (!stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return;
 		EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		if (data != null && data.broken) ci.cancel();
 	}
