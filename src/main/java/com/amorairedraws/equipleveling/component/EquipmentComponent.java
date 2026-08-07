@@ -188,7 +188,7 @@ public final class EquipmentComponent {
             // Mending is a derived completion flag, not one of the two loot
             // bonus slots. Keeping it separate is important: loot may always
             // contribute at most two bonus enchantments.
-            if (getFilledSlots() == 4) mending = true;
+            mending = getFilledSlots() == 4;
             while (bonusSlots.size() > 2) bonusSlots.remove(bonusSlots.size() - 1);
             updateMaxed();
         }

@@ -39,15 +39,16 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			lines.add(insertIndex++, Text.literal(String.format("Level %d", data.level)).formatted(Formatting.YELLOW));
 		}
 
-		// Standard slots
-		renderSlots(lines, insertIndex, data.slots, "Standard");
-		insertIndex += data.slots.size() + 1;
-
 		// Mending is the completion reward and is intentionally distinct from
-		// the two loot-derived bonus slots.
+		// the two loot-derived bonus slots. It appears at the top of the slot
+		// section, before the four standard slots.
 		if (data.mending) {
 			lines.add(insertIndex++, Text.literal("\u2666 Mending 1").formatted(Formatting.AQUA));
 		}
+
+		// Standard slots
+		renderSlots(lines, insertIndex, data.slots, "Standard");
+		insertIndex += data.slots.size() + 1;
 
 		// Bonus slots
 		if (!data.bonusSlots.isEmpty()) {
@@ -57,11 +58,12 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 					lines.add(insertIndex++, Text.literal("★ [Empty]").formatted(Formatting.GOLD));
 				} else {
 					String enchName = slot.enchantmentId.replace("minecraft:", "");
-					Formatting color = "minecraft:mending".equals(slot.enchantmentId) ? Formatting.AQUA : Formatting.GOLD;
-					String prefix = "minecraft:mending".equals(slot.enchantmentId) ? "♦ " : "★ ";
+					// Every entry in bonusSlots is loot-derived, even if the loot
+					// happened to contain Mending. Automatic completion Mending is
+					// rendered separately above and remains cyan.
 					lines.add(insertIndex++,
-						Text.literal(String.format("%s%s %d", prefix,
-							enchName, slot.enchantmentLevel)).formatted(color));
+						Text.literal(String.format("★ %s %d", enchName,
+							slot.enchantmentLevel)).formatted(Formatting.GOLD));
 				}
 			}
 		}
