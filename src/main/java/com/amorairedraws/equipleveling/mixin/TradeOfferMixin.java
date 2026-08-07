@@ -2,6 +2,7 @@ package com.amorairedraws.equipleveling.mixin;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.village.TradeOffer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,10 +14,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class TradeOfferMixin {
     @Inject(method = "getSellItem", at = @At("RETURN"), cancellable = true)
     private void equipLeveling$disableEnchantedBookTrades(CallbackInfoReturnable<ItemStack> cir) {
-        if (cir.getReturnValue().isOf(Items.ENCHANTED_BOOK)) cir.setReturnValue(ItemStack.EMPTY);
+        if (isEnchantedBook(cir.getReturnValue())) cir.setReturnValue(ItemStack.EMPTY);
     }
     @Inject(method = "copySellItem", at = @At("RETURN"), cancellable = true)
     private void equipLeveling$disableCopiedBookTrades(CallbackInfoReturnable<ItemStack> cir) {
-        if (cir.getReturnValue().isOf(Items.ENCHANTED_BOOK)) cir.setReturnValue(ItemStack.EMPTY);
+        if (isEnchantedBook(cir.getReturnValue())) cir.setReturnValue(ItemStack.EMPTY);
+    }
+
+    private static boolean isEnchantedBook(ItemStack stack) {
+        return stack.isOf(Items.ENCHANTED_BOOK)
+                || stack.contains(DataComponentTypes.STORED_ENCHANTMENTS);
     }
 }

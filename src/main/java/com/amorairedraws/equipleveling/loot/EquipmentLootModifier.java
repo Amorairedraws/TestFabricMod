@@ -15,7 +15,11 @@ public final class EquipmentLootModifier {
     private EquipmentLootModifier() { }
 
     public static ItemStack processLootItem(ItemStack stack) {
-        if (stack.isEmpty() || stack.getItem() == Items.ENCHANTED_BOOK) return ItemStack.EMPTY;
+        // Do not rely only on the vanilla item ID: modded enchanted books and
+        // renamed/custom book items are represented by the stored-enchantments
+        // component as well. This keeps the global book ban data-driven.
+        if (stack.isEmpty() || stack.getItem() == Items.ENCHANTED_BOOK
+                || stack.contains(DataComponentTypes.STORED_ENCHANTMENTS)) return ItemStack.EMPTY;
         if (!EquipmentCategory.isEquipment(stack)) return stack;
         var enchantments = stack.getEnchantments().getEnchantmentEntries();
         if (enchantments.isEmpty()) return stack;
