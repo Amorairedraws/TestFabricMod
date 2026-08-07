@@ -1,90 +1,70 @@
 package com.amorairedraws.equipleveling.util;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.CropBlock;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.block.BlockState;
 
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 
-public class XpCalculator {
-	
-	// Entity kill XP based on max health
-	public static int calculateEntityKillXp(LivingEntity entity) {
-		float maxHealth = entity.getMaxHealth();
-		// The display threshold controls presentation, never progression. Weak
-		// entities must still grant their real (small) amount of XP.
-		return Math.max(1, (int) Math.ceil(maxHealth * 2.0));
-	}
+/** Pure XP calculations shared by the server event handlers and client previews. */
+public final class XpCalculator {
+    private XpCalculator() {}
 
-	// Ore XP calculation
-	public static int calculateOreXp(BlockState state) {
-		Block block = state.getBlock();
-		
-		// Diamond, emerald, ancient debris - high XP
-		if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE ||
-			block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE ||
-			block == Blocks.ANCIENT_DEBRIS) {
-			return EquipLevelingConfig.getRareOreXp();
-		}
-		
-		// Gold - medium-high XP
-		if (block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE) {
-			return EquipLevelingConfig.getGoldXp();
-		}
-		
-		// Iron - medium XP
-		if (block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE) {
-			return EquipLevelingConfig.getIronXp();
-		}
-		
-		// Copper, redstone, lapis - low-medium XP
-		if (block == Blocks.COPPER_ORE || block == Blocks.DEEPSLATE_COPPER_ORE ||
-			block == Blocks.REDSTONE_ORE || block == Blocks.DEEPSLATE_REDSTONE_ORE ||
-			block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE) {
-			return 25;
-		}
-		
-		// Coal - low XP
-		if (block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE) {
-			return EquipLevelingConfig.getCoalXp();
-		}
-		
-		return 0;
-	}
+    /** Entity kill XP scales with the killed entity's maximum health. */
+    public static int calculateEntityKillXp(LivingEntity entity) {
+        return Math.max(1, (int) Math.ceil(entity.getMaxHealth() * 2.0));
+    }
 
-	// Log XP calculation
-	public static int calculateLogXp(BlockState state) {
-		if (state.isIn(BlockTags.LOGS)) {
-			return 10;
-		}
-		return 0;
-	}
+    /**
+     * Returns zero for ordinary stone and other common blocks.  The explicit
+     * vanilla cases cover the rarity ladder, while the block tags make the
+     * common categories safe to extend through datapacks in the future.
+     */
+    public static int calculateOreXp(BlockState state) {
+        Block block = state.getBlock();
+        if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE
+                || block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE
+                || block == Blocks.ANCIENT_DEBRIS || block == Blocks.NETHER_QUARTZ_ORE
+                || block == Blocks.NETHER_GOLD_ORE) {
+            return EquipLevelingConfig.getRareOreXp();
+        }
+        if (block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE) {
+            return EquipLevelingConfig.getGoldXp();
+        }
+        if (block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE) {
+            return EquipLevelingConfig.getIronXp();
+        }
+        if (block == Blocks.COPPER_ORE || block == Blocks.DEEPSLATE_COPPER_ORE
+                || block == Blocks.REDSTONE_ORE || block == Blocks.DEEPSLATE_REDSTONE_ORE
+                || block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE) {
+            return Math.max(0, EquipLevelingConfig.getCoalXp() * 2);
+        }
+        if (block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE) {
+            return EquipLevelingConfig.getCoalXp();
+        }
+        return 0;
+    }
 
-	// Shovel XP calculation (dirt, sand, gravel, snow)
-	public static int calculateShovelXp(BlockState state) {
-		Block block = state.getBlock();
-		if (block == Blocks.DIRT || block == Blocks.COARSE_DIRT || block == Blocks.ROOTED_DIRT ||
-			block == Blocks.SAND || block == Blocks.RED_SAND || block == Blocks.GRAVEL ||
-			block == Blocks.SNOW_BLOCK || block == Blocks.SNOW) {
-			return 5;
-		}
-		return 0;
-	}
+    /** Every log/stem in the vanilla LOGS tag is an axe action. */
+    public static int calculateLogXp(BlockState state) {
+        return state.isIn(BlockTags.LOGS) ? 10 : 0;
+    }
 
-	// Hoe XP calculation (crop harvests)
-	public static int calculateHoeXp(BlockState state) {
-		Block block = state.getBlock();
-		// Check if it's a crop-like block
-		if (block == Blocks.WHEAT || block == Blocks.CARROTS || block == Blocks.POTATOES ||
-			block == Blocks.BEETROOTS || block == Blocks.NETHER_WART) {
-			return 15;
-		}
-		// Tilling soil
-		if (block == Blocks.DIRT || block == Blocks.GRASS_BLOCK || block == Blocks.COARSE_DIRT) {
-			return 3;
-		}
-		return 0;
-	}
+    /** Shovel XP is tag based so modded dirt, sand, gravel and snow work too. */
+    public static int calculateShovelXp(BlockState state) {
+        return state.isIn(BlockTags.DIRT) || state.isIn(BlockTags.SAND)
+                || state.isIn(BlockTags.SNOW) ? 5 : 0;
+    }
+
+    /** XP is awarded for harvesting mature crop blocks, not destroying seedlings. */
+    public static int calculateHoeXp(BlockState state) {
+        if (state.getBlock() instanceof CropBlock crop) {
+            return crop.isMature(state) ? 15 : 0;
+        }
+        if (state.isIn(BlockTags.CROPS)) return 15;
+        return state.isOf(Blocks.NETHER_WART) ? 15 : 0;
+    }
 }

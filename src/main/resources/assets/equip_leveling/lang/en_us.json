@@ -7,5 +7,7 @@
   "equip_leveling.tooltip.broken": "Broken — repair at an Anvil",
   "equip_leveling.tooltip.standard_slots": "Standard Slots",
   "equip_leveling.tooltip.bonus_slots": "Bonus Slots",
-  "equip_leveling.enchanting.reroll": "Reroll"
+  "equip_leveling.enchanting.reroll": "Reroll",
+  "equip_leveling.enchanting.select": "Select",
+  "equip_leveling.enchanting.cost": "Cost: %d levels"
 }

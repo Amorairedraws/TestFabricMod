@@ -32,6 +32,19 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	public EquipmentEnchantingOffer[] offers = new EquipmentEnchantingOffer[3];
 	public int[] offerLevels = new int[3];
 
+	/* Four integer properties per offer make the server-generated offers visible
+	 * on the client without trusting client-side random generation. Layout:
+	 * type (1=new, 2=upgrade, 3=legendary), enchantment raw ID, level, cost. */
+	private final int[] offerPropertyValues = new int[12];
+	private final net.minecraft.screen.PropertyDelegate offerProperties = new net.minecraft.screen.PropertyDelegate() {
+		@Override public int get(int index) { return index >= 0 && index < 12 ? offerPropertyValues[index] : 0; }
+		@Override public void set(int index, int value) {
+			if (index >= 0 && index < 12) offerPropertyValues[index] = value;
+			if (sourcePlayer.getEntityWorld().isClient()) rebuildClientOffers();
+		}
+		@Override public int size() { return 12; }
+	};
+
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory) {
 		this(syncId, playerInventory, new SimpleInventory(1), playerInventory.player, null);
 	}
@@ -65,11 +78,12 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		for (int m = 0; m < 9; m++) {
 			this.addSlot(new Slot(playerInventory, m, 8 + m * 18, 198));
 		}
-		
+		this.addProperties(offerProperties);
 		this.generateOffers(playerInventory.player);
 	}
 
 	public void generateOffers(PlayerEntity player) {
+		clearOfferProperties();
 		ItemStack itemStack = this.inventory.getStack(0);
 		
 		if (!itemStack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
@@ -96,6 +110,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 				this.offerLevels[i] = calculateOfferCost(data, this.offers[i], player);
 			}
 		}
+		syncOfferProperties(player);
 	}
 
 	private EquipmentEnchantingOffer generateRandomOffer(EquipmentComponent.EquipmentData data, PlayerEntity player, ItemStack itemStack) {
@@ -114,8 +129,10 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		double rand = totalWeight <= 0 ? 0 : random.nextDouble() * totalWeight;
 		
 		java.util.List<EquipmentComponent.EquipmentSlot> upgradeable = new java.util.ArrayList<>();
-		data.slots.stream().filter(s -> !s.isEmpty() && s.enchantmentLevel < 5).forEach(upgradeable::add);
-		data.bonusSlots.stream().filter(s -> !s.isEmpty() && s.enchantmentLevel < 5).forEach(upgradeable::add);
+		data.slots.stream().filter(s -> !s.isEmpty()
+				&& s.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(s)).forEach(upgradeable::add);
+		data.bonusSlots.stream().filter(s -> !s.isEmpty()
+				&& s.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(s)).forEach(upgradeable::add);
 		if (rand < upgradeWeight && !upgradeable.isEmpty()) {
 			// Upgrade a real, non-empty standard or loot slot.
 			return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
@@ -154,6 +171,80 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			} catch (RuntimeException ignored) { }
 		}
 		return Math.max(1, baseCost + enchantmentWeight);
+	}
+
+	private void clearOfferProperties() {
+		java.util.Arrays.fill(offerPropertyValues, 0);
+		offers = new EquipmentEnchantingOffer[3];
+		offerLevels = new int[3];
+	}
+
+	private void syncOfferProperties(PlayerEntity player) {
+		var registry = player.getEntityWorld().getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
+		for (int i = 0; i < 3; i++) {
+			EquipmentEnchantingOffer offer = offers[i];
+			int base = i * 4;
+			if (offer instanceof EquipmentEnchantingOffer.NewEnchantment newOffer) {
+				offerPropertyValues[base] = 1;
+				offerPropertyValues[base + 1] = registry.getRawId(registry.get(Identifier.of(newOffer.enchantmentId)));
+				offerPropertyValues[base + 2] = newOffer.level;
+			} else if (offer instanceof EquipmentEnchantingOffer.Upgrade upgrade) {
+				offerPropertyValues[base] = 2;
+				offerPropertyValues[base + 1] = registry.getRawId(registry.get(Identifier.of(upgrade.slot.enchantmentId)));
+				offerPropertyValues[base + 2] = upgrade.slot.enchantmentLevel;
+			} else if (offer instanceof EquipmentEnchantingOffer.LegendaryUpgrade) {
+				offerPropertyValues[base] = 3;
+			}
+			offerPropertyValues[base + 3] = offer == null ? 0 : offerLevels[i];
+		}
+	}
+
+	/** Reconstructs the server's offer descriptions after property packets arrive. */
+	private void rebuildClientOffers() {
+		if (!sourcePlayer.getEntityWorld().isClient()) return;
+		ItemStack stack = inventory.getStack(0);
+		if (!stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return;
+		var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+		var registry = sourcePlayer.getEntityWorld().getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
+		offers = new EquipmentEnchantingOffer[3];
+		offerLevels = new int[3];
+		for (int i = 0; i < 3; i++) {
+			int base = i * 4;
+			offerLevels[i] = offerPropertyValues[base + 3];
+			try {
+				offers[i] = switch (offerPropertyValues[base]) {
+					case 1 -> registry.getEntry(offerPropertyValues[base + 1])
+							.map(entry -> new EquipmentEnchantingOffer.NewEnchantment(registry.getId(entry.value()).toString()))
+							.orElse(null);
+					case 2 -> findUpgrade(data, registry.getEntry(offerPropertyValues[base + 1])
+							.map(entry -> registry.getId(entry.value()).toString()).orElse(null), offerPropertyValues[base + 2]);
+					case 3 -> new EquipmentEnchantingOffer.LegendaryUpgrade();
+					default -> null;
+				};
+			} catch (RuntimeException ignored) {
+				offers[i] = null;
+			}
+		}
+	}
+
+	private EquipmentEnchantingOffer.Upgrade findUpgrade(EquipmentComponent.EquipmentData data,
+			String id, int level) {
+		if (id == null) return null;
+		for (EquipmentComponent.EquipmentSlot slot : data.slots) {
+			if (id.equals(slot.enchantmentId) && slot.enchantmentLevel == level)
+				return new EquipmentEnchantingOffer.Upgrade(slot);
+		}
+		for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
+			if (id.equals(slot.enchantmentId) && slot.enchantmentLevel == level)
+				return new EquipmentEnchantingOffer.Upgrade(slot);
+		}
+		return null;
+	}
+
+	@Override
+	public void onContentChanged(Inventory changedInventory) {
+		super.onContentChanged(changedInventory);
+		if (sourcePlayer.getEntityWorld().isClient()) rebuildClientOffers();
 	}
 
 	@Override
@@ -244,7 +335,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 				}
 			}
 		} else if (offer instanceof EquipmentEnchantingOffer.Upgrade upgrade) {
-			if (upgrade.slot.enchantmentLevel < 5) {
+			if (upgrade.slot.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(upgrade.slot)) {
 				upgrade.slot.enchantmentLevel++;
 			}
 		} else if (offer instanceof EquipmentEnchantingOffer.LegendaryUpgrade) {

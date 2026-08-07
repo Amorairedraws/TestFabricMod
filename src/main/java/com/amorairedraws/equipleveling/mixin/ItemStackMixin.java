@@ -48,6 +48,16 @@ public class ItemStackMixin {
 		}
 	}
 
+	/** Broken armor and weapons must not contribute their attribute modifiers. */
+	@Inject(method = "applyAttributeModifiers", at = @At("HEAD"), cancellable = true)
+	private void suppressBrokenAttributes(net.minecraft.entity.EquipmentSlot slot,
+			java.util.function.BiConsumer<net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.attribute.EntityAttribute>,
+					net.minecraft.entity.attribute.EntityAttributeModifier> consumer, CallbackInfo ci) {
+		ItemStack stack = (ItemStack) (Object) this;
+		EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+		if (data != null && data.broken) ci.cancel();
+	}
+
 	@Inject(method = "getMiningSpeedMultiplier", at = @At("HEAD"), cancellable = true)
 	private void suppressBrokenToolSpeed(BlockState state, CallbackInfoReturnable<Float> cir) {
 		ItemStack stack = (ItemStack) (Object) this;

@@ -4,6 +4,10 @@ import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 import net.minecraft.entity.projectile.FishingBobberEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.component.DataComponentTypes;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -30,5 +34,15 @@ public abstract class FishingBobberEntityMixin {
                 }
             }
         }
+    }
+
+    /** Fishing loot is generated directly from the fishing table and does not
+     * pass through the normal loot-drop callback. Replace forbidden books before
+     * the item entity is constructed so enchanted books cannot be fished. */
+    @ModifyArg(method = "use", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/entity/ItemEntity;<init>(Lnet/minecraft/world/World;DDDLnet/minecraft/item/ItemStack;)V"), index = 4)
+    private ItemStack equipLeveling$removeFishedBooks(ItemStack stack) {
+        return stack.isOf(Items.ENCHANTED_BOOK)
+                || stack.contains(DataComponentTypes.STORED_ENCHANTMENTS) ? ItemStack.EMPTY : stack;
     }
 }

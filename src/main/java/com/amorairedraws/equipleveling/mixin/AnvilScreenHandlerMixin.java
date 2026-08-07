@@ -4,7 +4,10 @@ import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.AnvilScreenHandler;
+import net.minecraft.screen.Property;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -13,23 +16,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /** Extends vanilla anvil rules without replacing the vanilla repair algorithm. */
 @Mixin(AnvilScreenHandler.class)
 public abstract class AnvilScreenHandlerMixin {
+    @Shadow @Final private Property levelCost;
+
     @Inject(method = "updateResult", at = @At("RETURN"))
     private void equipLeveling$applyLevelBasedCost(CallbackInfo ci) {
         AnvilScreenHandler handler = (AnvilScreenHandler)(Object)this;
         ItemStack left = handler.getSlot(0).getStack();
         if (!EquipmentComponent.isTracked(left) || handler.getSlot(2).getStack().isEmpty()) return;
-        // The level-cost field is private and has different names in named and
-        // intermediary environments. Resolve it without a fragile @Shadow.
-        for (Class<?> type = handler.getClass(); type != null; type = type.getSuperclass()) {
-            for (java.lang.reflect.Field field : type.getDeclaredFields()) {
-                if (field.getType() == int.class && (field.getName().equals("levelCost")
-                        || field.getName().equals("field_7770") || field.getName().equals("y"))) {
-                    try { field.setAccessible(true); field.setInt(handler, EquipmentComponent.repairCost(left)); }
-                    catch (ReflectiveOperationException ignored) { }
-                    return;
-                }
-            }
-        }
+        // The named field is a Property in 1.21.11, not an int. Shadowing it
+        // keeps the level cost synchronized to the client and survives remapping.
+        this.levelCost.set(EquipmentComponent.repairCost(left));
     }
 
     @Inject(method = "canTakeOutput", at = @At("HEAD"), cancellable = true)

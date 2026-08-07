@@ -8,12 +8,21 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 
-/** Awards the same incoming hit XP to every worn armor piece. */
+/** Awards XP after damage has actually been applied to a player. */
 public final class ArmorXpHandler {
     private ArmorXpHandler() {}
-    public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
-        if (!(entity instanceof PlayerEntity player) || amount <= 0 || player.getEntityWorld().isClient()) return true;
-        int xp = Math.max(1, (int)Math.ceil(amount * 5));
+
+    /**
+     * Fabric calls this after the damage pipeline, so invulnerability frames and
+     * cancelled damage do not award progression.  Every worn piece receives the
+     * same reward, as specified by the equipment-leveling rules.
+     */
+    public static void afterDamage(LivingEntity entity, DamageSource source, float attempted,
+            float actual, boolean blocked) {
+        if (!(entity instanceof PlayerEntity player) || player.getEntityWorld().isClient()
+                || blocked || actual <= 0.0f) return;
+
+        int xp = Math.max(1, (int) Math.ceil(actual * 5.0f));
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
                 EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             ItemStack armor = player.getEquippedStack(slot);
@@ -21,6 +30,5 @@ public final class ArmorXpHandler {
                 EquipmentComponent.addXp(armor, xp);
             }
         }
-        return true;
     }
 }

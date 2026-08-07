@@ -31,7 +31,8 @@ public class EquipLevelingConfig {
 	// Ore/action rewards are configurable independently of equipment material.
 	private static int coalXp = 15, ironXp = 40, goldXp = 80, rareOreXp = 150;
 	// Cost is indexed by the number of filled standard slots (0..4).
-	private static int[] rerollCosts = {5, 10, 15, 20, 25};
+	// Cost is one level plus one level per filled standard slot (0..4).
+	private static int[] rerollCosts = {1, 2, 3, 4, 5};
 	private static double legendaryUpgradeProbability = 0.05;
 	private static String[] materialTiers = {"wood", "stone", "iron", "diamond", "netherite"};
 	private static double upgradeWeight = 0.6;
@@ -95,6 +96,8 @@ public class EquipLevelingConfig {
 			if (json.has("rerollCosts")) {
 				int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
 				if (loaded != null && loaded.length == 5) rerollCosts = loaded;
+			} else {
+				rerollCosts = new int[]{1, 2, 3, 4, 5};
 			}
 			
 			legendaryUpgradeProbability = json.has("legendaryUpgradeProbability") ? json.get("legendaryUpgradeProbability").getAsDouble() : 0.05;

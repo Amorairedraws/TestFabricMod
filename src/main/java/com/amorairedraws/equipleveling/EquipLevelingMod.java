@@ -161,6 +161,8 @@ public class EquipLevelingMod implements ModInitializer {
 				}
 			}
 		});
-		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> ArmorXpHandler.allowDamage(entity, source, amount));
+		// Award armor XP only after the damage pipeline confirms that damage was
+		// actually applied; ALLOW_DAMAGE fires too early and also sees blocked hits.
+		ServerLivingEntityEvents.AFTER_DAMAGE.register(ArmorXpHandler::afterDamage);
 	}
 }

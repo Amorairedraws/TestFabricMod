@@ -4,6 +4,7 @@ import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.GrindstoneScreenHandler;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -36,8 +37,19 @@ public abstract class ScreenHandlerMixin {
         if (!stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return 0;
         EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
         int xp = 0;
-        for (EquipmentComponent.EquipmentSlot slot : data.slots) if (!slot.isEmpty()) xp += slot.enchantmentLevel;
-        for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) if (!slot.isEmpty()) xp += slot.enchantmentLevel;
+        for (EquipmentComponent.EquipmentSlot slot : data.slots) xp += slotExperience(slot);
+        for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) xp += slotExperience(slot);
+        // Mending is represented separately in the component but still has the
+        // same vanilla grindstone value as a normal level-I enchantment.
+        if (data.mending) xp += 1;
         return xp;
+    }
+
+    private static int slotExperience(EquipmentComponent.EquipmentSlot slot) {
+        if (slot.isEmpty()) return 0;
+        // The grindstone reward is the sum of the vanilla enchantment levels;
+        // the registry is world-scoped in 1.21.11 and is unavailable from this
+        // small result-slot mixin without introducing a client/server lookup.
+        return slot.enchantmentLevel;
     }
 }

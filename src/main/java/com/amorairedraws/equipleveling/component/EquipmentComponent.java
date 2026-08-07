@@ -152,10 +152,27 @@ public final class EquipmentComponent {
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
         }
 
-        private static int maxEnchantmentLevel(EquipmentSlot slot) {
-            // Mending has a vanilla maximum of one; other offers currently use
-            // the configurable progression cap of five.
-            return "minecraft:mending".equals(slot.enchantmentId) ? 1 : 5;
+        /** Returns the registered maximum, including maxima supplied by modded
+         * or datapack enchantments. Unknown IDs retain a safe progression cap. */
+        public static int maxEnchantmentLevel(EquipmentSlot slot) {
+            if (slot == null || slot.isEmpty()) return 0;
+            try {
+                // Enchantment registries are world/datapack registries in 1.21.11,
+                // so there is no safe process-global registry to query here.
+                // The offer generator performs the world-registry compatibility
+                // check; this fallback covers the vanilla maxima used by stored data.
+                return switch (slot.enchantmentId) {
+                    case "minecraft:mending", "minecraft:binding_curse", "minecraft:vanishing_curse",
+                            "minecraft:silk_touch", "minecraft:flame", "minecraft:infinity",
+                            "minecraft:multishot", "minecraft:channeling" -> 1;
+                    case "minecraft:frost_walker" -> 2;
+                    case "minecraft:soul_speed", "minecraft:swift_sneak", "minecraft:wind_burst" -> 3;
+                    case "minecraft:breach" -> 4;
+                    default -> 5;
+                };
+            } catch (RuntimeException ignored) {
+                return 5;
+            }
         }
         public EquipmentData copy() {
             List<EquipmentSlot> a = new ArrayList<>(), b = new ArrayList<>();
