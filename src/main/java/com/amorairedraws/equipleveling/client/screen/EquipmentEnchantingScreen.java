@@ -1,6 +1,5 @@
 package com.amorairedraws.equipleveling.client.screen;
 
-import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.screen.EquipmentEnchantingOffer;
 import com.amorairedraws.equipleveling.screen.EquipmentEnchantingScreenHandler;
 import net.minecraft.client.gui.DrawContext;
@@ -45,9 +44,8 @@ public final class EquipmentEnchantingScreen extends HandledScreen<EquipmentEnch
 
     private void refreshButtonState() {
         if (rerollButton == null) return;
-        boolean usable = handler.offers.length == 3 && handler.offers[0] != null
-                || handler.offers.length == 3 && handler.offers[1] != null
-                || handler.offers.length == 3 && handler.offers[2] != null;
+        boolean usable = handler.offers.length == 3
+                && (handler.offers[0] != null || handler.offers[1] != null || handler.offers[2] != null);
         rerollButton.active = usable && client.player != null
                 && client.player.experienceLevel >= handler.getRerollCost();
         for (int i = 0; i < 3; i++) {

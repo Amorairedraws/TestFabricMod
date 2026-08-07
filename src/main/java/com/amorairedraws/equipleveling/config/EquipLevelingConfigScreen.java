@@ -60,27 +60,31 @@ public final class EquipLevelingConfigScreen extends Screen {
         field("Anvil per level", Integer.toString(EquipLevelingConfig.getAnvilPerLevelCost()), 250, 132);
         field("Reroll costs", join(EquipLevelingConfig.getRerollCosts()), 20, 162);
         field("Material ladder", String.join(",", EquipLevelingConfig.getMaterialTiers()), 250, 162);
+        field("Coal ore XP", Integer.toString(EquipLevelingConfig.getCoalXp()), 20, 192);
+        field("Iron ore XP", Integer.toString(EquipLevelingConfig.getIronXp()), 250, 192);
+        field("Gold ore XP", Integer.toString(EquipLevelingConfig.getGoldXp()), 20, 222);
+        field("Rare ore XP", Integer.toString(EquipLevelingConfig.getRareOreXp()), 250, 222);
 
         addDrawableChild(ButtonWidget.builder(Text.literal(EquipLevelingConfig.isKeepEquipOnDeath()
                 ? "Keep equipment: ON" : "Keep equipment: OFF"), b -> {
             EquipLevelingConfig.setKeepEquipOnDeath(!EquipLevelingConfig.isKeepEquipOnDeath());
             b.setMessage(Text.literal(EquipLevelingConfig.isKeepEquipOnDeath()
                     ? "Keep equipment: ON" : "Keep equipment: OFF"));
-        }).dimensions(20, 202, 224, 20).build());
+        }).dimensions(20, 262, 224, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal(EquipLevelingConfig.isBrokenMechanicEnabled()
                 ? "Broken mechanic: ON" : "Broken mechanic: OFF"), b -> {
             EquipLevelingConfig.setBrokenMechanicEnabled(!EquipLevelingConfig.isBrokenMechanicEnabled());
             b.setMessage(Text.literal(EquipLevelingConfig.isBrokenMechanicEnabled()
                     ? "Broken mechanic: ON" : "Broken mechanic: OFF"));
-        }).dimensions(250, 202, 224, 20).build());
+        }).dimensions(250, 262, 224, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Edit category base XP"), b -> {
             page = 1;
             clearAndInit();
-        }).dimensions(20, 240, 224, 20).build());
+        }).dimensions(20, 300, 224, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Save & Exit"), b -> {
             applyGeneral();
             client.setScreen(parent);
-        }).dimensions(250, 240, 224, 20).build());
+        }).dimensions(250, 300, 224, 20).build());
     }
 
     private void buildBaseXpPage() {
@@ -110,6 +114,9 @@ public final class EquipLevelingConfigScreen extends Screen {
             EquipLevelingConfig.setAnvilCosts(Integer.parseInt(fields.get(6).getText()), Integer.parseInt(fields.get(7).getText()));
             EquipLevelingConfig.setRerollCosts(parseInts(fields.get(8).getText(), 5));
             EquipLevelingConfig.setMaterialTiers(fields.get(9).getText().split(","));
+            EquipLevelingConfig.setOreXp(Integer.parseInt(fields.get(10).getText()),
+                    Integer.parseInt(fields.get(11).getText()), Integer.parseInt(fields.get(12).getText()),
+                    Integer.parseInt(fields.get(13).getText()));
         } catch (RuntimeException ignored) {
             // Individual setters validate values; a malformed field leaves its
             // previous setting intact rather than breaking the config screen.
