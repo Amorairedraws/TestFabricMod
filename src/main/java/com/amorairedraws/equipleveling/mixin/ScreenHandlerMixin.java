@@ -35,6 +35,12 @@ public abstract class ScreenHandlerMixin {
 
     private static int getExperience(ItemStack stack) {
         if (!stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return 0;
+        // The common tick synchronizer mirrors custom slots into vanilla's
+        // enchantment component. In that case vanilla's result-slot hook already
+        // awards the normal grindstone XP; adding it here would double the payout.
+        // This fallback is only for a freshly-created component that has not yet
+        // been mirrored (for example, an item inserted immediately after login).
+        if (!stack.getEnchantments().getEnchantmentEntries().isEmpty()) return 0;
         EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
         int xp = 0;
         for (EquipmentComponent.EquipmentSlot slot : data.slots) xp += slotExperience(slot);
