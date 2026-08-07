@@ -130,7 +130,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		newEnchantmentIds.removeIf(id -> "minecraft:mending".equals(id.toString())
 				|| data.slots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
 				|| data.bonusSlots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
-				|| !enchantments.get(id).isAcceptableItem(itemStack));
+				|| !enchantments.get(id).isAcceptableItem(itemStack)
+				|| conflictsWithExisting(id, data, enchantments));
 
 		boolean canLegendary = MaterialTierUpgrader.canPromote(itemStack,
 				EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers());
@@ -161,6 +162,28 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		// A zero-weight configuration should still produce a valid offer.
 		if (canUpgrade) return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
 		return canLegendary ? new EquipmentEnchantingOffer.LegendaryUpgrade() : null;
+	}
+
+	private boolean conflictsWithExisting(net.minecraft.util.Identifier id,
+			EquipmentComponent.EquipmentData data,
+			net.minecraft.registry.Registry<net.minecraft.enchantment.Enchantment> enchantments) {
+		var candidate = enchantments.getEntry(id).orElse(null);
+		if (candidate == null) return true;
+		for (EquipmentComponent.EquipmentSlot slot : data.slots) {
+			if (slot.isEmpty()) continue;
+			try {
+				var existing = enchantments.getEntry(Identifier.of(slot.enchantmentId)).orElse(null);
+				if (existing != null && !net.minecraft.enchantment.Enchantment.canBeCombined(candidate, existing)) return true;
+			} catch (RuntimeException ignored) { }
+		}
+		for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
+			if (slot.isEmpty()) continue;
+			try {
+				var existing = enchantments.getEntry(Identifier.of(slot.enchantmentId)).orElse(null);
+				if (existing != null && !net.minecraft.enchantment.Enchantment.canBeCombined(candidate, existing)) return true;
+			} catch (RuntimeException ignored) { }
+		}
+		return false;
 	}
 
 	private int calculateOfferCost(EquipmentComponent.EquipmentData data,

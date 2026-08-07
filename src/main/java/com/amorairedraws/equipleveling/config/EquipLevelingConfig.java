@@ -171,8 +171,10 @@ public class EquipLevelingConfig {
 
 	// Getters
 	public static int getBaseXpForCategory(String category) {
-		int value = baseXp.getOrDefault(category == null ? "default" : category, baseXp.get("default"));
-		return Math.max(1, value);
+		Integer fallback = baseXp.get("default");
+		if (fallback == null) fallback = 100;
+		Integer value = baseXp.get(category == null ? "default" : category.toLowerCase());
+		return Math.max(1, value == null ? fallback : value);
 	}
 
 	public static double getXpMultiplier() {
