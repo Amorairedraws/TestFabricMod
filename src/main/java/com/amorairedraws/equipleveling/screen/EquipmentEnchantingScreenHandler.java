@@ -101,8 +101,16 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	private EquipmentEnchantingOffer generateRandomOffer(EquipmentComponent.EquipmentData data, PlayerEntity player, ItemStack itemStack) {
 		double upgradeWeight = Math.max(0, EquipLevelingConfig.getUpgradeWeight());
 		double newSlotWeight = Math.max(0, EquipLevelingConfig.getNewSlotWeight());
-		double legendaryWeight = Math.max(0, EquipLevelingConfig.getLegendaryUpgradeProbability());
-		double totalWeight = upgradeWeight + newSlotWeight + legendaryWeight;
+		// Legendary is a probability, not a third weight. Roll it separately so
+		// its configured chance is not changed when ordinary offer weights change.
+		double legendaryProbability = Math.max(0, Math.min(1,
+				EquipLevelingConfig.getLegendaryUpgradeProbability()));
+		if (random.nextDouble() < legendaryProbability
+				&& MaterialTierUpgrader.canPromote(itemStack,
+						EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers())) {
+			return new EquipmentEnchantingOffer.LegendaryUpgrade();
+		}
+		double totalWeight = upgradeWeight + newSlotWeight;
 		double rand = totalWeight <= 0 ? 0 : random.nextDouble() * totalWeight;
 		
 		java.util.List<EquipmentComponent.EquipmentSlot> upgradeable = new java.util.ArrayList<>();
@@ -127,15 +135,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			if (ids.isEmpty()) return null;
 			String id = ids.get(random.nextInt(ids.size())).toString();
 			return new EquipmentEnchantingOffer.NewEnchantment(id);
-		} else if (rand < upgradeWeight + newSlotWeight + legendaryWeight
-				&& MaterialTierUpgrader.canPromote(itemStack,
-						EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers())) {
-			// Legendary upgrades are independent of slot completion and may replace
-			// an enchantment offer at any level, as specified by the progression
-			// rules. The configured probability is a separate weighted outcome.
-			return new EquipmentEnchantingOffer.LegendaryUpgrade();
 		}
-		
 		return null;
 	}
 

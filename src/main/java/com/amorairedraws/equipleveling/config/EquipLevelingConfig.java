@@ -64,8 +64,11 @@ public class EquipLevelingConfig {
 			} else {
 				save();
 			}
-		} catch (IOException e) {
-			LOGGER.error("Failed to load config", e);
+		} catch (IOException | RuntimeException e) {
+			// A hand-edited config must never prevent the mod from starting. Keep
+			// the validated defaults when JSON is malformed or has an unexpected
+			// value, and report the problem for the user to correct.
+			LOGGER.error("Failed to load config; using defaults for invalid values", e);
 		}
 	}
 
