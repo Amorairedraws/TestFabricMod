@@ -138,7 +138,7 @@ public class EquipLevelingMod implements ModInitializer {
 		});
 
 		// XP accrual events
-		PlayerBlockBreakEvents.BEFORE.register(new EquipmentXpEvents.BlockBreakXpHandler());
+		PlayerBlockBreakEvents.AFTER.register(new EquipmentXpEvents.BlockBreakXpHandler());
 		// AttackEntityCallback is used only for the client-side floating label. The
 		// authoritative reward is granted from AFTER_DEATH below, once the kill is
 		// known to have succeeded.

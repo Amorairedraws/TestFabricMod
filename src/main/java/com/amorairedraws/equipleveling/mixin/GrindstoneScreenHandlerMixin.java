@@ -23,4 +23,5 @@ public abstract class GrindstoneScreenHandlerMixin {
             handler.getSlot(2).setStack(output);
         }
     }
+
 }

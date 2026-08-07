@@ -50,10 +50,10 @@ public class EquipmentXpEvents {
 		}
 	}
 
-	public static class BlockBreakXpHandler implements PlayerBlockBreakEvents.Before {
+	public static class BlockBreakXpHandler implements PlayerBlockBreakEvents.After {
 		@Override
-		public boolean beforeBlockBreak(World world, PlayerEntity player, net.minecraft.util.math.BlockPos pos,
-										net.minecraft.block.BlockState state, net.minecraft.block.entity.BlockEntity breakingEntity) {
+		public void afterBlockBreak(World world, PlayerEntity player, net.minecraft.util.math.BlockPos pos,
+								net.minecraft.block.BlockState state, net.minecraft.block.entity.BlockEntity breakingEntity) {
 			ItemStack heldItem = player.getMainHandStack();
 			String category = EquipmentCategory.getCategory(heldItem);
 			
@@ -75,7 +75,6 @@ public class EquipmentXpEvents {
 				}
 			}
 			
-			return true;
 		}
 	}
 
