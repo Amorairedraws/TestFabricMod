@@ -61,8 +61,8 @@ A comprehensive equipment leveling system for Minecraft Java Edition 1.21.11. Th
 
 1. Download the latest mod JAR
 2. Place in your `.minecraft/mods` folder
-3. Requires: Fabric Loader + Fabric API
-4. Optional: Mod Menu for config UI
+3. Requires: Fabric Loader + Fabric API + Mod Menu (for the in-game configuration screen)
+4. No Cloth Config or resource pack is required
 
 ## Building
 
