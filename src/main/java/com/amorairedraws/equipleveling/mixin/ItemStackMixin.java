@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemConvertible;
 import net.minecraft.block.BlockState;
 import net.minecraft.text.Text;
 import net.minecraft.component.type.ItemEnchantmentsComponent;
@@ -31,17 +32,19 @@ public class ItemStackMixin {
 	/** Keep tracked equipment as an inventory stack when its last durability point is used.
 	 * Vanilla decrements the stack on break; setting damage to max and cancelling here
 	 * gives the component scanner a durable broken item to work with instead. */
-	@Inject(method = "damage(ILnet/minecraft/entity/LivingEntity;Lnet/minecraft/entity/EquipmentSlot;)V", at = @At("HEAD"), cancellable = true)
-	private void preserveBrokenEquipment(int amount, net.minecraft.entity.LivingEntity entity,
-			net.minecraft.entity.EquipmentSlot slot, CallbackInfo ci) {
+	@Inject(method = "damage(ILnet/minecraft/item/ItemConvertible;Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/entity/EquipmentSlot;)Lnet/minecraft/item/ItemStack;", at = @At("HEAD"), cancellable = true)
+	private void preserveBrokenEquipment(int amount, ItemConvertible itemAfterBreaking,
+			net.minecraft.entity.LivingEntity entity, net.minecraft.entity.EquipmentSlot slot,
+			CallbackInfoReturnable<ItemStack> cir) {
 		ItemStack stack = (ItemStack) (Object) this;
 		if (!com.amorairedraws.equipleveling.config.EquipLevelingConfig.isBrokenMechanicEnabled()
-				|| !EquipmentComponent.isTracked(stack) || stack.contains(EquipmentComponent.EQUIPMENT_TYPE)
-				&& stack.get(EquipmentComponent.EQUIPMENT_TYPE).broken) return;
+				|| !EquipmentComponent.isTracked(stack)) return;
+		EquipmentComponent.EquipmentData existing = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+		if (existing != null && existing.broken) return;
 		if (stack.isDamageable() && stack.getDamage() + amount >= stack.getMaxDamage()) {
 			stack.setDamage(stack.getMaxDamage());
 			EquipmentComponent.markBrokenIfNecessary(stack);
-			ci.cancel();
+			cir.setReturnValue(stack);
 		}
 	}
 

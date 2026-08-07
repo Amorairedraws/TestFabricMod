@@ -93,7 +93,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		for (int i = 0; i < 3; i++) {
 			this.offers[i] = generateRandomOffer(data, player, itemStack);
 			if (this.offers[i] != null) {
-				this.offerLevels[i] = calculateOfferCost(data, i);
+				this.offerLevels[i] = calculateOfferCost(data, this.offers[i], player);
 			}
 		}
 	}
@@ -139,10 +139,21 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		return null;
 	}
 
-	private int calculateOfferCost(EquipmentComponent.EquipmentData data, int slotIndex) {
+	private int calculateOfferCost(EquipmentComponent.EquipmentData data,
+			EquipmentEnchantingOffer offer, PlayerEntity player) {
 		int baseCost = EquipLevelingConfig.getRerollCosts()[Math.min(data.getFilledSlots(), 4)];
-		// Add enchantment weight multiplier
-		return baseCost;
+		int enchantmentWeight = 0;
+		String id = offer instanceof EquipmentEnchantingOffer.NewEnchantment n ? n.enchantmentId
+				: offer instanceof EquipmentEnchantingOffer.Upgrade u ? u.slot.enchantmentId : null;
+		if (id != null) {
+			try {
+				var registry = player.getEntityWorld().getRegistryManager()
+						.getOrThrow(RegistryKeys.ENCHANTMENT);
+				var entry = registry.get(Identifier.of(id));
+				if (entry != null) enchantmentWeight = Math.max(0, entry.getAnvilCost());
+			} catch (RuntimeException ignored) { }
+		}
+		return Math.max(1, baseCost + enchantmentWeight);
 	}
 
 	@Override
@@ -151,8 +162,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			ItemStack stack = inventory.getStack(0);
 			if (stack.isEmpty() || !stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return false;
 			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-			int cost = EquipLevelingConfig.getRerollCosts()[Math.min(4, data.getFilledSlots())];
-			if (player.experienceLevel < cost || data.maxed) return false;
+			int cost = getRerollCost();
+			if (player.experienceLevel < cost || data.maxed || data.broken || !data.readyToLevelUp) return false;
 			player.addExperienceLevels(-cost);
 			generateOffers(player);
 			return true;
@@ -200,7 +211,11 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		
 		EquipmentComponent.EquipmentData data = itemStack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		int filledSlots = Math.min(data.getFilledSlots(), 4);
-		return EquipLevelingConfig.getRerollCosts()[filledSlots];
+		int cost = EquipLevelingConfig.getRerollCosts()[filledSlots];
+		// The current offers make difficult enchantments more expensive to reroll,
+		// matching the vanilla anvil-weight concept used by the offer display.
+		for (int offerCost : offerLevels) cost += Math.max(0, offerCost - EquipLevelingConfig.getRerollCosts()[filledSlots]);
+		return cost;
 	}
 
 	public void selectOffer(int index, PlayerEntity player) {

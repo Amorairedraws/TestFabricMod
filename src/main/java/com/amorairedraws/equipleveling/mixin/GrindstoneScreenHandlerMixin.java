@@ -9,12 +9,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Grindstones cleanse all Equip Leveling progression, while preserving durability. */
+/** Grindstones cleanse all Equip Leveling progression without changing durability. */
 @Mixin(GrindstoneScreenHandler.class)
 public abstract class GrindstoneScreenHandlerMixin {
     @Inject(method = "onContentChanged", at = @At("RETURN"))
     private void equipLeveling$stripProgression(Inventory inventory, CallbackInfo ci) {
-        GrindstoneScreenHandler handler = (GrindstoneScreenHandler)(Object)this;
+        GrindstoneScreenHandler handler = (GrindstoneScreenHandler) (Object) this;
         ItemStack first = handler.getSlot(0).getStack();
         ItemStack second = handler.getSlot(1).getStack();
         ItemStack output = handler.getSlot(2).getStack();
@@ -23,5 +23,4 @@ public abstract class GrindstoneScreenHandlerMixin {
             handler.getSlot(2).setStack(output);
         }
     }
-
 }

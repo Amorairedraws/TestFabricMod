@@ -51,9 +51,13 @@ public class EquipLevelingMod implements ModInitializer {
 		// The vanilla table is deliberately reused: no resource pack or custom
 		// block is needed. Only qualifying equipment opens our handler.
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
-			if (world.isClient() || hit.getBlockPos() == null
+			if (hit.getBlockPos() == null
 					|| world.getBlockState(hit.getBlockPos()).getBlock() != Blocks.ENCHANTING_TABLE
 					|| !EquipmentComponent.isTracked(player.getStackInHand(hand))) return ActionResult.PASS;
+			// Consume the interaction on both logical sides.  Returning PASS on the
+			// client would open the vanilla enchanting screen before the server packet
+			// for our handler arrives.
+			if (world.isClient()) return ActionResult.SUCCESS;
 			if (player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer) {
 				SimpleInventory input = new SimpleInventory(1);
 				// Initialize lazily, but before the handler generates offers. The same

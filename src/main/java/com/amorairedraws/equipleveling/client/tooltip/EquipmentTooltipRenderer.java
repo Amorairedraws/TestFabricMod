@@ -27,7 +27,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
 
 		// Insert at the top (after the item name)
-		int insertIndex = 1;
+		int insertIndex = Math.min(1, lines.size());
 
 		// XP bar
 		lines.add(insertIndex++, renderXpBar(data));

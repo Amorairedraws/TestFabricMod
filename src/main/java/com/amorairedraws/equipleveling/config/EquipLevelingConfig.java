@@ -168,7 +168,8 @@ public class EquipLevelingConfig {
 
 	// Getters
 	public static int getBaseXpForCategory(String category) {
-		return baseXp.getOrDefault(category, baseXp.get("default"));
+		int value = baseXp.getOrDefault(category == null ? "default" : category, baseXp.get("default"));
+		return Math.max(1, value);
 	}
 
 	public static double getXpMultiplier() {
@@ -193,7 +194,7 @@ public class EquipLevelingConfig {
 	}
 
 	public static int[] getRerollCosts() {
-		return rerollCosts;
+		return java.util.Arrays.copyOf(rerollCosts, rerollCosts.length);
 	}
 
 	public static double getLegendaryUpgradeProbability() {
@@ -201,7 +202,7 @@ public class EquipLevelingConfig {
 	}
 
 	public static String[] getMaterialTiers() {
-		return materialTiers;
+		return java.util.Arrays.copyOf(materialTiers, materialTiers.length);
 	}
 
 	public static double getUpgradeWeight() {
@@ -230,7 +231,8 @@ public class EquipLevelingConfig {
 
 	// Setters
 	public static void setBaseXpForCategory(String category, int xp) {
-		baseXp.put(category, xp);
+		if (category == null || category.isBlank()) return;
+		baseXp.put(category.toLowerCase(), Math.max(1, xp));
 		save();
 	}
 
