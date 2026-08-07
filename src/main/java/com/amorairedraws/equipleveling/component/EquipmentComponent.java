@@ -64,6 +64,19 @@ public final class EquipmentComponent {
         if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE)) return;
         EquipmentData data = stack.get(EQUIPMENT_TYPE);
         if (data == null) return;
+
+        // Equipment can enter a world through commands, older versions of this
+        // mod, or another mod without passing through our loot hook. Preserve
+        // those vanilla enchantments instead of silently deleting them when the
+        // server refreshes the component for the first time.
+        if (data.getFilledSlots() == 0 && data.bonusSlots.isEmpty()) {
+            for (var entry : stack.getEnchantments().getEnchantmentEntries()) {
+                if (data.bonusSlots.size() >= 2) break;
+                String id = entry.getKey().getKey().map(Object::toString).orElse(null);
+                if (id != null) data.bonusSlots.add(new EquipmentSlot(id, entry.getIntValue()));
+            }
+        }
+        data.refresh();
         data.updateMaxed(lookup);
         stack.set(EQUIPMENT_TYPE, data);
         if (data.broken) {
@@ -224,7 +237,7 @@ public final class EquipmentComponent {
                 return 5;
             }
         }
-        private static int maxEnchantmentLevel(EquipmentSlot slot, RegistryWrapper.WrapperLookup lookup) {
+        public static int maxEnchantmentLevel(EquipmentSlot slot, RegistryWrapper.WrapperLookup lookup) {
             try {
                 var key = RegistryKey.of(RegistryKeys.ENCHANTMENT, Identifier.of(slot.enchantmentId));
                 return lookup.getOrThrow(RegistryKeys.ENCHANTMENT).getOptional(key)

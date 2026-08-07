@@ -116,46 +116,51 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	}
 
 	private EquipmentEnchantingOffer generateRandomOffer(EquipmentComponent.EquipmentData data, PlayerEntity player, ItemStack itemStack) {
-		double upgradeWeight = Math.max(0, EquipLevelingConfig.getUpgradeWeight());
-		double newSlotWeight = Math.max(0, EquipLevelingConfig.getNewSlotWeight());
-		// Legendary is a probability, not a third weight. Roll it separately so
-		// its configured chance is not changed when ordinary offer weights change.
-		double legendaryProbability = Math.max(0, Math.min(1,
-				EquipLevelingConfig.getLegendaryUpgradeProbability()));
-		if (random.nextDouble() < legendaryProbability
-				&& MaterialTierUpgrader.canPromote(itemStack,
-						EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers())) {
-			return new EquipmentEnchantingOffer.LegendaryUpgrade();
-		}
-		double totalWeight = upgradeWeight + newSlotWeight;
-		double rand = totalWeight <= 0 ? 0 : random.nextDouble() * totalWeight;
-		
+		var enchantments = player.getEntityWorld().getRegistryManager()
+				.getOrThrow(net.minecraft.registry.RegistryKeys.ENCHANTMENT);
 		java.util.List<EquipmentComponent.EquipmentSlot> upgradeable = new java.util.ArrayList<>();
 		data.slots.stream().filter(s -> !s.isEmpty()
-				&& s.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(s)).forEach(upgradeable::add);
+				&& s.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(s, player.getEntityWorld().getRegistryManager()))
+			.forEach(upgradeable::add);
 		data.bonusSlots.stream().filter(s -> !s.isEmpty()
-				&& s.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(s)).forEach(upgradeable::add);
-		if (rand < upgradeWeight && !upgradeable.isEmpty()) {
-			// Upgrade a real, non-empty standard or loot slot.
-			return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
-		} else if (rand < upgradeWeight + newSlotWeight && data.getFilledSlots() < 4) {
-			// Read the live registry so datapack/mod enchantments participate too.
-			var enchantments = player.getEntityWorld().getRegistryManager()
-					.getOrThrow(net.minecraft.registry.RegistryKeys.ENCHANTMENT);
-			var ids = new java.util.ArrayList<>(enchantments.getIds());
-			// Mending is reserved for the automatic completion bonus. Also filter
-			// through the enchantment's own compatibility predicate so offers never
-			// contain enchantments that cannot operate on this item (including modded
-			// enchantments registered by datapacks).
-			ids.removeIf(id -> "minecraft:mending".equals(id.toString())
-					|| data.slots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
-					|| data.bonusSlots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
-					|| !enchantments.get(id).isAcceptableItem(itemStack));
-			if (ids.isEmpty()) return null;
-			String id = ids.get(random.nextInt(ids.size())).toString();
-			return new EquipmentEnchantingOffer.NewEnchantment(id);
+				&& s.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(s, player.getEntityWorld().getRegistryManager()))
+			.forEach(upgradeable::add);
+
+		java.util.List<net.minecraft.util.Identifier> newEnchantmentIds = new java.util.ArrayList<>(enchantments.getIds());
+		newEnchantmentIds.removeIf(id -> "minecraft:mending".equals(id.toString())
+				|| data.slots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
+				|| data.bonusSlots.stream().anyMatch(slot -> id.toString().equals(slot.enchantmentId))
+				|| !enchantments.get(id).isAcceptableItem(itemStack));
+
+		boolean canLegendary = MaterialTierUpgrader.canPromote(itemStack,
+				EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers());
+		boolean canUpgrade = !upgradeable.isEmpty();
+		boolean canAdd = data.getFilledSlots() < 4 && !newEnchantmentIds.isEmpty();
+		if (!canLegendary && !canUpgrade && !canAdd) return null;
+
+		// Legendary is an independent rare roll. If ordinary offers are impossible,
+		// it becomes the deterministic fallback so a non-max-tier item never gets
+		// an empty offer list merely because the probability roll missed.
+		double legendaryProbability = Math.max(0, Math.min(1,
+				EquipLevelingConfig.getLegendaryUpgradeProbability()));
+		if (canLegendary && (random.nextDouble() < legendaryProbability || (!canUpgrade && !canAdd))) {
+			return new EquipmentEnchantingOffer.LegendaryUpgrade();
 		}
-		return null;
+
+		double upgradeWeight = Math.max(0, EquipLevelingConfig.getUpgradeWeight());
+		double newSlotWeight = Math.max(0, EquipLevelingConfig.getNewSlotWeight());
+		double totalWeight = upgradeWeight + newSlotWeight;
+		double roll = totalWeight <= 0 ? 0 : random.nextDouble() * totalWeight;
+		if (canUpgrade && (!canAdd || roll < upgradeWeight)) {
+			return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
+		}
+		if (canAdd) {
+			return new EquipmentEnchantingOffer.NewEnchantment(
+					newEnchantmentIds.get(random.nextInt(newEnchantmentIds.size())).toString());
+		}
+		// A zero-weight configuration should still produce a valid offer.
+		if (canUpgrade) return new EquipmentEnchantingOffer.Upgrade(upgradeable.get(random.nextInt(upgradeable.size())));
+		return canLegendary ? new EquipmentEnchantingOffer.LegendaryUpgrade() : null;
 	}
 
 	private int calculateOfferCost(EquipmentComponent.EquipmentData data,

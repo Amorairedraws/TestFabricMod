@@ -19,10 +19,15 @@ public final class ArmorXpHandler {
      */
     public static void afterDamage(LivingEntity entity, DamageSource source, float attempted,
             float actual, boolean blocked) {
-        if (!(entity instanceof PlayerEntity player) || player.getEntityWorld().isClient()
-                || blocked || actual <= 0.0f) return;
+        if (!(entity instanceof PlayerEntity player) || blocked || actual <= 0.0f) return;
 
         int xp = Math.max(1, (int) Math.ceil(actual * 5.0f));
+        if (player.getEntityWorld().isClient()) {
+            // The event is also emitted on the client for the local player; the
+            // client must never mutate the component, but it can show feedback.
+            XpDisplay.show(player.getEyePos(), xp);
+            return;
+        }
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
                 EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             ItemStack armor = player.getEquippedStack(slot);
