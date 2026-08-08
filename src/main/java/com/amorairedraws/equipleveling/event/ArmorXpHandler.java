@@ -22,12 +22,10 @@ public final class ArmorXpHandler {
         if (!(entity instanceof PlayerEntity player) || blocked || actual <= 0.0f) return;
 
         int xp = Math.max(1, (int) Math.ceil(actual * 5.0f));
-        if (player.getEntityWorld().isClient()) {
-            // The event is also emitted on the client for the local player; the
-            // client must never mutate the component, but it can show feedback.
-            XpDisplay.show(player.getEyePos(), xp);
-            return;
-        }
+        // The server owns progression and sends the floating label only after
+        // each eligible armor stack accepts the reward. Client-side prediction
+        // would show duplicate labels on versions that mirror the event.
+        if (player.getEntityWorld().isClient()) return;
         boolean awarded = false;
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
                 EquipmentSlot.LEGS, EquipmentSlot.FEET}) {

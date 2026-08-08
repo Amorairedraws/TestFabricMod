@@ -27,9 +27,7 @@ public abstract class FishingBobberEntityMixin {
             }
             if ("fishing_rod".equals(EquipmentCategory.getCategory(rod))) {
                 int xp = callback.getReturnValue() * 10;
-                if (player.getEntityWorld().isClient()) {
-                    com.amorairedraws.equipleveling.event.XpDisplay.show(bobber.getEntityPos(), xp);
-                } else if (EquipmentComponent.addXp(rod, xp)) {
+                if (!player.getEntityWorld().isClient() && EquipmentComponent.addXp(rod, xp)) {
                     com.amorairedraws.equipleveling.event.XpDisplay.showForPlayer(player, bobber.getEntityPos(), xp);
                 }
             }

@@ -219,8 +219,15 @@ public final class EquipmentComponent {
         public void levelUp() { levelUp("default"); }
         public int getFilledSlots() { return (int)slots.stream().filter(s -> !s.isEmpty()).count(); }
         public int getTotalSlots() { return 4 + bonusSlots.size(); }
+        /**
+         * Recomputes the enchantment portion of maxed state when no ItemStack is
+         * available.  Material tier is deliberately treated as unsatisfied here;
+         * callers that have the stack must use the overload accepting the live
+         * tier result.  This avoids incorrectly marking a wood item maxed merely
+         * because its numeric level happens to be high enough.
+         */
         public void updateMaxed() {
-            updateMaxed(level >= EquipLevelingConfig.getMaterialTiers().length - 1);
+            updateMaxed(false);
         }
 
         public void updateMaxed(boolean tierLevelSatisfied) {
@@ -232,7 +239,10 @@ public final class EquipmentComponent {
         /** Uses the live world registry when deciding whether a modded
          * enchantment has reached its real maximum level. */
         public void updateMaxed(RegistryWrapper.WrapperLookup lookup) {
-            updateMaxed(lookup, level >= EquipLevelingConfig.getMaterialTiers().length - 1);
+            // The item is required for a reliable material-tier check.  Use the
+            // conservative value here; restoreEnchantments/getOrCreate follow
+            // this with the stack-aware overload.
+            updateMaxed(lookup, false);
         }
 
         public void updateMaxed(RegistryWrapper.WrapperLookup lookup, boolean tierLevelSatisfied) {

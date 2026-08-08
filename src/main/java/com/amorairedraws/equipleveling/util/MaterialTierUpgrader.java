@@ -29,11 +29,18 @@ public final class MaterialTierUpgrader {
         return index < 0 || index == ladder.length - 1;
     }
 
-    /** Whether the progression level has also reached the configured tier cap. */
+    /**
+     * Returns whether the item is at the last configured material tier.
+     *
+     * The numeric equipment level is independent of the material ladder: a
+     * legendary promotion changes the material and must not force an arbitrary
+     * level cap.  Max-level state is based on the actual item tier plus the
+     * enchantment completion rules, not on the number of promotions performed.
+     * The level parameter remains part of the API for compatibility with older
+     * component data and callers.
+     */
     public static boolean isTierLevelSatisfied(ItemStack stack, int level, String[] ladder) {
-        if (stack.isEmpty() || ladder == null || ladder.length == 0) return true;
-        int index = indexOf(ladder, material(stack.getItem()));
-        return index < 0 || (index == ladder.length - 1 && level >= ladder.length - 1);
+        return isAtMaxTier(stack, ladder);
     }
 
     public static ItemStack promote(ItemStack old, String category, String[] ladder) {

@@ -27,6 +27,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	private final Inventory inventory;
 	private final PlayerEntity sourcePlayer;
 	private final net.minecraft.util.Hand sourceHand;
+	/** Inventory index occupied by the item that opened the table, or -1 on the client constructor. */
+	private final int sourceInventorySlot;
 	private final net.minecraft.util.math.BlockPos sourcePos;
 	private final net.minecraft.util.math.random.Random random = net.minecraft.util.math.random.Random.create();
 	
@@ -66,6 +68,10 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		this.inventory = inventory;
 		this.sourcePlayer = sourcePlayer;
 		this.sourceHand = sourceHand;
+		this.sourceInventorySlot = sourceHand == null ? -1
+				: sourceHand == net.minecraft.util.Hand.MAIN_HAND
+						? sourcePlayer.getInventory().getSelectedSlot()
+						: PlayerInventory.OFF_HAND_SLOT;
 		this.sourcePos = sourcePos;
 
 		// The item is supplied by the hand that opened the table. It is a
@@ -79,15 +85,31 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		// Player inventory
 		for (int m = 0; m < 3; m++) {
 			for (int l = 0; l < 9; l++) {
-				this.addSlot(new Slot(playerInventory, l + m * 9 + 9, 8 + l * 18, 140 + m * 18));
+				int inventoryIndex = l + m * 9 + 9;
+				this.addSlot(playerSlot(playerInventory, inventoryIndex, 8 + l * 18, 140 + m * 18));
 			}
 		}
 
 		for (int m = 0; m < 9; m++) {
-			this.addSlot(new Slot(playerInventory, m, 8 + m * 18, 198));
+			this.addSlot(playerSlot(playerInventory, m, 8 + m * 18, 198));
 		}
 		this.addProperties(offerProperties);
 		this.generateOffers(playerInventory.player);
+	}
+
+	/** The opening stack remains in its original hand slot for the whole screen. */
+	private Slot playerSlot(PlayerInventory playerInventory, int inventoryIndex, int x, int y) {
+		return new Slot(playerInventory, inventoryIndex, x, y) {
+			@Override
+			public boolean canTakeItems(PlayerEntity player) {
+				return inventoryIndex != sourceInventorySlot && super.canTakeItems(player);
+			}
+
+			@Override
+			public boolean canInsert(ItemStack stack) {
+				return inventoryIndex != sourceInventorySlot && super.canInsert(stack);
+			}
+		};
 	}
 
 	public void generateOffers(PlayerEntity player) {
@@ -323,10 +345,11 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	public void onClosed(PlayerEntity player) {
 		super.onClosed(player);
 		// Legendary promotion creates a new stack. Put that stack back in the
-		// hand that opened the table instead of silently losing the promotion.
-		if (sourcePlayer == player && sourceHand != null) {
+		// exact inventory slot that opened the table instead of silently losing the
+		// promotion or overwriting a different hand after a hotbar change.
+		if (sourcePlayer == player && sourceInventorySlot >= 0) {
 			ItemStack result = this.inventory.getStack(0);
-			if (!result.isEmpty()) sourcePlayer.setStackInHand(sourceHand, result);
+			if (!result.isEmpty()) sourcePlayer.getInventory().setStack(sourceInventorySlot, result);
 		}
 	}
 

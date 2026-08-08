@@ -70,13 +70,11 @@ public class EquipmentXpEvents {
 					case "hoe" -> xp = XpCalculator.calculateHoeXp(state);
 				}
 				
-				if (xp > 0) {
-					if (world.isClient()) {
-						// Some versions also invoke the callback on the logical client.
-						XpDisplay.show(net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
-					} else if (EquipmentComponent.addXp(heldItem, xp)) {
-						XpDisplay.showForPlayer(player, net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
-					}
+				// Progression and its notification are server-authoritative.
+				// Showing a client-side prediction here would duplicate the packet
+				// emitted after the server accepts the reward.
+				if (xp > 0 && !world.isClient() && EquipmentComponent.addXp(heldItem, xp)) {
+					XpDisplay.showForPlayer(player, net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
 				}
 			}
 			

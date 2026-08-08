@@ -8,6 +8,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.block.BlockState;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.component.type.ItemEnchantmentsComponent;
 import net.minecraft.util.Formatting;
@@ -25,6 +28,30 @@ public class ItemStackMixin {
             // Broken equipment has no active enchantment effects and should not
             // advertise a ready-to-level-up state with a glint.
             cir.setReturnValue(data != null && data.readyToLevelUp && !data.broken);
+        }
+    }
+
+    /**
+     * PlayerEntity's convenience overload intentionally clamps damage to
+     * maxDamage - 1 so vanilla can consume the stack on the next line.  That
+     * clamp would make a persistent broken item impossible: the stack would
+     * never reach shouldBreak() without disappearing.  Handle the terminal
+     * durability change before vanilla applies that clamp.
+     */
+    @Inject(method = "damage(ILnet/minecraft/entity/player/PlayerEntity;)V", at = @At("HEAD"), cancellable = true)
+    private void equipLeveling$preventVanillaRemoval(int amount, PlayerEntity player, CallbackInfo ci) {
+        ItemStack stack = (ItemStack) (Object) this;
+        if (!com.amorairedraws.equipleveling.config.EquipLevelingConfig.isBrokenMechanicEnabled()
+                || !(player instanceof ServerPlayerEntity serverPlayer)
+                || !EquipmentComponent.isTracked(stack) || !stack.isDamageable()
+                || stack.get(EquipmentComponent.EQUIPMENT_TYPE) instanceof EquipmentComponent.EquipmentData data
+                    && data.broken) return;
+
+        int actualDamage = EnchantmentHelper.getItemDamage(serverPlayer.getEntityWorld(), stack, amount);
+        if (actualDamage > 0 && (long) stack.getDamage() + actualDamage >= stack.getMaxDamage()) {
+            stack.setDamage(stack.getMaxDamage());
+            EquipmentComponent.markBrokenIfNecessary(stack);
+            ci.cancel();
         }
     }
 
