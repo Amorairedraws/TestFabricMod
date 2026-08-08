@@ -29,8 +29,11 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		// Insert at the top (after the item name)
 		int insertIndex = Math.min(1, lines.size());
 
-		// XP bar
+		// XP bar and its numeric readout occupy separate tooltip rows, matching
+		// the vanilla durability-bar presentation.
 		lines.add(insertIndex++, renderXpBar(data));
+		lines.add(insertIndex++, Text.literal(String.format("(%d/%d) XP", data.xp, data.xpRequired))
+				.formatted(Formatting.GRAY));
 
 		// Level or MAX LEVEL
 		if (data.maxed) {
@@ -87,8 +90,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 				bar.append("§7█");
 			}
 		}
-		bar.append("§8] ");
-		bar.append(String.format("(%d/%d) XP", data.xp, data.xpRequired));
+		bar.append("§8]");
 
 		return Text.of(bar.toString());
 	}
