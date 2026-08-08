@@ -92,6 +92,8 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 
 		EquipmentComponent.EquipmentData data = itemStack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		data.updateMaxed(player.getEntityWorld().getRegistryManager());
+		data.maxed = data.maxed && MaterialTierUpgrader.isAtMaxTier(itemStack,
+				EquipLevelingConfig.getMaterialTiers());
 		itemStack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
 		
 		if (data.maxed || data.broken || !data.readyToLevelUp) {

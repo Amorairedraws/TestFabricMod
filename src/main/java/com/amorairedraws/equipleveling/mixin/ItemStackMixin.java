@@ -51,6 +51,22 @@ public class ItemStackMixin {
         }
     }
 
+    /** Keep compatibility with the legacy overload still present in 1.21.11.
+     * Some vanilla item paths call this overload rather than the void method. */
+    @Inject(method = "damage(ILnet/minecraft/item/ItemConvertible;Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/entity/EquipmentSlot;)Lnet/minecraft/item/ItemStack;", at = @At("HEAD"), cancellable = true)
+    private void preserveBrokenEquipmentLegacy(int amount, net.minecraft.item.ItemConvertible itemAfterBreaking,
+            net.minecraft.entity.LivingEntity entity, net.minecraft.entity.EquipmentSlot slot,
+            CallbackInfoReturnable<ItemStack> cir) {
+        ItemStack stack = (ItemStack) (Object) this;
+        if (!com.amorairedraws.equipleveling.config.EquipLevelingConfig.isBrokenMechanicEnabled()
+                || !EquipmentComponent.isTracked(stack)) return;
+        if (stack.isDamageable() && stack.getDamage() + amount >= stack.getMaxDamage()) {
+            stack.setDamage(stack.getMaxDamage());
+            EquipmentComponent.markBrokenIfNecessary(stack);
+            cir.setReturnValue(stack);
+        }
+    }
+
     /** Also cover damage caused by dispensers and other non-living sources. */
     @Inject(method = "damage(ILnet/minecraft/server/world/ServerWorld;Lnet/minecraft/server/network/ServerPlayerEntity;Ljava/util/function/Consumer;)V", at = @At("HEAD"), cancellable = true)
     private void preserveBrokenEquipmentFromWorld(int amount, net.minecraft.server.world.ServerWorld world,

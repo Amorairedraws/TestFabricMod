@@ -5,6 +5,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.amorairedraws.equipleveling.EquipLevelingMod;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
+import com.amorairedraws.equipleveling.util.MaterialTierUpgrader;
 import net.minecraft.component.ComponentType;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.ItemEnchantmentsComponent;
@@ -78,6 +79,8 @@ public final class EquipmentComponent {
         }
         data.refresh();
         data.updateMaxed(lookup);
+        data.maxed = data.maxed && MaterialTierUpgrader.isAtMaxTier(stack,
+                EquipLevelingConfig.getMaterialTiers());
         stack.set(EQUIPMENT_TYPE, data);
         if (data.broken) {
             stack.remove(DataComponentTypes.ENCHANTMENTS);

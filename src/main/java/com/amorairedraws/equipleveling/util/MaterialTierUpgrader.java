@@ -18,6 +18,14 @@ public final class MaterialTierUpgrader {
                 && itemFor(category, ladder[index + 1], old.getItem()) != null;
     }
 
+    /** A stack is at the configured ceiling only when its material is the final
+     * configured tier. Unknown materials are deliberately not treated as maxed. */
+    public static boolean isAtMaxTier(ItemStack stack, String[] ladder) {
+        if (stack.isEmpty() || ladder == null || ladder.length == 0) return false;
+        return ladder[ladder.length - 1] != null
+                && ladder[ladder.length - 1].equalsIgnoreCase(material(stack.getItem()));
+    }
+
     public static ItemStack promote(ItemStack old, String category, String[] ladder) {
         if (!canPromote(old, category, ladder)) return old;
         int index = indexOf(ladder, material(old.getItem()));
