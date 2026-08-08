@@ -43,7 +43,7 @@ public final class EquipmentComponent {
         if (data == null) {
             data = EquipmentData.create(EquipmentCategory.getCategory(stack));
         } else {
-            data.refresh();
+            data.refresh(EquipmentCategory.getCategory(stack));
         }
         // refresh() can only inspect component data. Include the actual item
         // material here so non-tiered equipment can still reach MAX LEVEL and a
@@ -84,7 +84,7 @@ public final class EquipmentComponent {
                 if (id != null) data.bonusSlots.add(new EquipmentSlot(id, entry.getIntValue()));
             }
         }
-        data.refresh();
+        data.refresh(EquipmentCategory.getCategory(stack));
         data.updateMaxed(lookup, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
                 EquipLevelingConfig.getMaterialTiers()));
         stack.set(EQUIPMENT_TYPE, data);
@@ -136,7 +136,7 @@ public final class EquipmentComponent {
         if (!data.broken && stack.getDamage() <= 0) return false;
         stack.setDamage(Math.max(0, stack.getDamage() - Math.max(1, restoredDamage)));
         data.broken = false;
-        data.refresh();
+        data.refresh(EquipmentCategory.getCategory(stack));
         stack.set(EQUIPMENT_TYPE, data);
         return true;
     }
@@ -196,7 +196,20 @@ public final class EquipmentComponent {
 
         /** Recomputes derived state after a slot or repair mutation. */
         public void refresh() {
-            xpRequired = Math.max(1, xpRequired);
+            refresh(null);
+        }
+
+        /** Recomputes the configured XP curve as well as derived slot state. */
+        public void refresh(String category) {
+            if (category != null) {
+                double required = EquipLevelingConfig.getBaseXpForCategory(category)
+                        * Math.pow(EquipLevelingConfig.getXpMultiplier(), level);
+                xpRequired = Double.isFinite(required)
+                        ? Math.max(1, required >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.ceil(required))
+                        : Integer.MAX_VALUE;
+            } else {
+                xpRequired = Math.max(1, xpRequired);
+            }
             readyToLevelUp = xp >= xpRequired;
             // Mending is derived from the four standard slots, never from the
             // material or from vanilla enchantment data.

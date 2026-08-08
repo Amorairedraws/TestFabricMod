@@ -69,7 +69,7 @@ public abstract class AnvilScreenHandlerMixin {
             var data = output.get(EquipmentComponent.EQUIPMENT_TYPE);
             if (data != null && data.broken) {
                 data.broken = false;
-                data.refresh();
+                data.refresh(com.amorairedraws.equipleveling.util.EquipmentCategory.getCategory(output));
                 output.set(EquipmentComponent.EQUIPMENT_TYPE, data);
                 // A broken stack has its mirrored vanilla enchantments removed;
                 // rebuild them after the material repair restores functionality.
