@@ -32,7 +32,11 @@ public abstract class AnvilScreenHandlerMixin {
     private void equipLeveling$removeTooExpensiveLimit(PlayerEntity player, boolean present, CallbackInfoReturnable<Boolean> cir) {
         AnvilScreenHandler handler = (AnvilScreenHandler)(Object)this;
         if (present && EquipmentComponent.isTracked(handler.getSlot(0).getStack())
-                && !handler.getSlot(2).getStack().isEmpty()) cir.setReturnValue(true);
+                && !handler.getSlot(2).getStack().isEmpty()) {
+            // Remove only the vanilla 40-level "too expensive" ceiling; a
+            // player still has to pay the configured level cost unless creative.
+            cir.setReturnValue(player.isCreative() || player.experienceLevel >= handler.getLevelCost());
+        }
     }
 
     @Inject(method = "updateResult", at = @At("HEAD"), cancellable = true)

@@ -1,10 +1,14 @@
 package com.amorairedraws.equipleveling.mixin;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
+import net.minecraft.registry.tag.EnchantmentTags;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.screen.GrindstoneScreenHandler;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
+import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -28,12 +32,13 @@ public abstract class ScreenHandlerMixin {
             }
         }
         if (handler == null) return;
-        int xp = getExperience(handler.getSlot(0).getStack())
-                + getExperience(handler.getSlot(1).getStack());
+        RegistryWrapper.WrapperLookup lookup = player.getEntityWorld().getRegistryManager();
+        int xp = getExperience(handler.getSlot(0).getStack(), lookup)
+                + getExperience(handler.getSlot(1).getStack(), lookup);
         if (xp > 0) player.addExperience(xp);
     }
 
-    private static int getExperience(ItemStack stack) {
+    private static int getExperience(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
         if (!stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return 0;
         // The common tick synchronizer mirrors custom slots into vanilla's
         // enchantment component. In that case vanilla's result-slot hook already
@@ -43,19 +48,24 @@ public abstract class ScreenHandlerMixin {
         if (!stack.getEnchantments().getEnchantmentEntries().isEmpty()) return 0;
         EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
         int xp = 0;
-        for (EquipmentComponent.EquipmentSlot slot : data.slots) xp += slotExperience(slot);
-        for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) xp += slotExperience(slot);
-        // Mending is represented separately in the component but still has the
-        // same vanilla grindstone value as a normal level-I enchantment.
-        if (data.mending) xp += 1;
+        for (EquipmentComponent.EquipmentSlot slot : data.slots) xp += slotExperience(slot, lookup);
+        for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) xp += slotExperience(slot, lookup);
+        if (data.mending) xp += slotExperience(
+                new EquipmentComponent.EquipmentSlot("minecraft:mending", 1), lookup);
         return xp;
     }
 
-    private static int slotExperience(EquipmentComponent.EquipmentSlot slot) {
+    private static int slotExperience(EquipmentComponent.EquipmentSlot slot,
+            RegistryWrapper.WrapperLookup lookup) {
         if (slot.isEmpty()) return 0;
-        // The grindstone reward is the sum of the vanilla enchantment levels;
-        // the registry is world-scoped in 1.21.11 and is unavailable from this
-        // small result-slot mixin without introducing a client/server lookup.
-        return slot.enchantmentLevel;
+        try {
+            var key = RegistryKey.of(RegistryKeys.ENCHANTMENT, Identifier.of(slot.enchantmentId));
+            var entry = lookup.getOrThrow(RegistryKeys.ENCHANTMENT).getOptional(key).orElse(null);
+            if (entry == null || entry.isIn(EnchantmentTags.CURSE)) return 0;
+            return Math.max(0, entry.value().getMinPower(slot.enchantmentLevel));
+        } catch (RuntimeException ignored) {
+            // Keep unknown datapack data grindable without crashing the screen.
+            return slot.enchantmentLevel;
+        }
     }
 }
