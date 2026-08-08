@@ -1,164 +1,119 @@
 package com.amorairedraws.equipleveling.config;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
+import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 
 /**
- * Small hand-rolled Mod Menu screen.  It intentionally edits the same JSON
- * backed config as the server, without introducing Cloth Config as a dependency.
+ * Cloth Config screen exposed through Mod Menu.  Keeping the screen in Cloth
+ * Config means it gets the same lifecycle and background rendering as other
+ * config screens, rather than manually rendering a second blurred background.
  */
-public final class EquipLevelingConfigScreen extends Screen {
-    private static final String[] CATEGORIES = {"sword", "axe", "pickaxe", "shovel", "hoe",
-            "helmet", "chestplate", "leggings", "boots", "fishing_rod", "default"};
-    private final Screen parent;
-    private final List<TextFieldWidget> fields = new ArrayList<>();
-    private int page;
+public final class EquipLevelingConfigScreen {
+    private static final String[] CATEGORIES = {
+            "sword", "axe", "pickaxe", "shovel", "hoe", "fishing_rod",
+            "helmet", "chestplate", "leggings", "boots", "default"
+    };
 
-    public EquipLevelingConfigScreen(Screen parent) {
-        super(Text.translatable("equip_leveling.config.title"));
-        this.parent = parent;
-    }
+    private EquipLevelingConfigScreen() { }
 
-    @Override
-    protected void init() {
-        super.init();
-        buildPage();
-    }
+    public static Screen create(Screen parent) {
+        var builder = ConfigBuilder.create()
+                .setParentScreen(parent)
+                .setTitle(Text.translatable("equip_leveling.config.title"))
+                .setDoesConfirmSave(false)
+                .setSavingRunnable(EquipLevelingConfig::save);
+        var entries = builder.entryBuilder();
 
-    private void buildPage() {
-        clearChildren();
-        fields.clear();
-        if (page == 0) buildGeneralPage();
-        else buildBaseXpPage();
-    }
+        var general = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.general"));
+        general.addEntry(entries.startDoubleField(
+                Text.translatable("equip_leveling.config.xp_multiplier"), EquipLevelingConfig.getXpMultiplier())
+                .setDefaultValue(1.2).setMin(1.0).setMax(10.0)
+                .setSaveConsumer(EquipLevelingConfig::setXpMultiplier).build());
+        general.addEntry(entries.startIntField(
+                Text.translatable("equip_leveling.config.xp_threshold"), EquipLevelingConfig.getXpDisplayThreshold())
+                .setDefaultValue(10).setMin(0)
+                .setSaveConsumer(EquipLevelingConfig::setXpDisplayThreshold).build());
+        general.addEntry(entries.startIntField(
+                Text.translatable("equip_leveling.config.durability_restore"), EquipLevelingConfig.getDurabilityRestorePercent())
+                .setDefaultValue(25).setMin(0).setMax(100)
+                .setSaveConsumer(EquipLevelingConfig::setDurabilityRestorePercent).build());
+        general.addEntry(entries.startDoubleField(
+                Text.translatable("equip_leveling.config.legendary_probability"), EquipLevelingConfig.getLegendaryUpgradeProbability())
+                .setDefaultValue(0.05).setMin(0.0).setMax(1.0)
+                .setSaveConsumer(EquipLevelingConfig::setLegendaryUpgradeProbability).build());
+        general.addEntry(entries.startDoubleField(
+                Text.translatable("equip_leveling.config.upgrade_weight"), EquipLevelingConfig.getUpgradeWeight())
+                .setDefaultValue(0.6).setMin(0.0)
+                .setSaveConsumer(value -> EquipLevelingConfig.setOfferWeights(value, EquipLevelingConfig.getNewSlotWeight())).build());
+        general.addEntry(entries.startDoubleField(
+                Text.translatable("equip_leveling.config.new_slot_weight"), EquipLevelingConfig.getNewSlotWeight())
+                .setDefaultValue(0.4).setMin(0.0)
+                .setSaveConsumer(value -> EquipLevelingConfig.setOfferWeights(EquipLevelingConfig.getUpgradeWeight(), value)).build());
+        general.addEntry(entries.startIntField(
+                Text.translatable("equip_leveling.config.anvil_base"), EquipLevelingConfig.getAnvilBaseCost())
+                .setDefaultValue(1).setMin(0)
+                .setSaveConsumer(value -> EquipLevelingConfig.setAnvilCosts(value, EquipLevelingConfig.getAnvilPerLevelCost())).build());
+        general.addEntry(entries.startIntField(
+                Text.translatable("equip_leveling.config.anvil_per_level"), EquipLevelingConfig.getAnvilPerLevelCost())
+                .setDefaultValue(1).setMin(0)
+                .setSaveConsumer(value -> EquipLevelingConfig.setAnvilCosts(EquipLevelingConfig.getAnvilBaseCost(), value)).build());
+        general.addEntry(entries.startBooleanToggle(
+                Text.translatable("equip_leveling.config.keep_on_death"), EquipLevelingConfig.isKeepEquipOnDeath())
+                .setDefaultValue(false).setSaveConsumer(EquipLevelingConfig::setKeepEquipOnDeath).build());
+        general.addEntry(entries.startBooleanToggle(
+                Text.translatable("equip_leveling.config.broken_mechanic"), EquipLevelingConfig.isBrokenMechanicEnabled())
+                .setDefaultValue(true).setSaveConsumer(EquipLevelingConfig::setBrokenMechanicEnabled).build());
+        general.addEntry(entries.startStrField(
+                Text.translatable("equip_leveling.config.material_tiers"), String.join(", ", EquipLevelingConfig.getMaterialTiers()))
+                .setDefaultValue("wood, stone, iron, diamond, netherite")
+                .setSaveConsumer(value -> EquipLevelingConfig.setMaterialTiers(value.split(","))).build());
 
-    private TextFieldWidget field(String label, String value, int x, int y) {
-        ButtonWidget labelWidget = addDrawableChild(ButtonWidget.builder(Text.literal(label), b -> {})
-                .dimensions(x, y, 120, 20).build());
-        labelWidget.active = false;
-        TextFieldWidget field = new TextFieldWidget(textRenderer, x + 124, y, 100, 20, Text.literal(label));
-        field.setText(value);
-        fields.add(field);
-        addDrawableChild(field);
-        return field;
-    }
-
-    private void buildGeneralPage() {
-        field("XP multiplier", Double.toString(EquipLevelingConfig.getXpMultiplier()), 20, 42);
-        field("Display threshold", Integer.toString(EquipLevelingConfig.getXpDisplayThreshold()), 250, 42);
-        field("Restore percent", Integer.toString(EquipLevelingConfig.getDurabilityRestorePercent()), 20, 72);
-        field("Legendary chance", Double.toString(EquipLevelingConfig.getLegendaryUpgradeProbability()), 250, 72);
-        field("Upgrade weight", Double.toString(EquipLevelingConfig.getUpgradeWeight()), 20, 102);
-        field("New-slot weight", Double.toString(EquipLevelingConfig.getNewSlotWeight()), 250, 102);
-        field("Anvil base cost", Integer.toString(EquipLevelingConfig.getAnvilBaseCost()), 20, 132);
-        field("Anvil per level", Integer.toString(EquipLevelingConfig.getAnvilPerLevelCost()), 250, 132);
-        field("Reroll costs", join(EquipLevelingConfig.getRerollCosts()), 20, 162);
-        field("Material ladder", String.join(",", EquipLevelingConfig.getMaterialTiers()), 250, 162);
-        field("Coal ore XP", Integer.toString(EquipLevelingConfig.getCoalXp()), 20, 192);
-        field("Iron ore XP", Integer.toString(EquipLevelingConfig.getIronXp()), 250, 192);
-        field("Gold ore XP", Integer.toString(EquipLevelingConfig.getGoldXp()), 20, 222);
-        field("Rare ore XP", Integer.toString(EquipLevelingConfig.getRareOreXp()), 250, 222);
-
-        addDrawableChild(ButtonWidget.builder(Text.literal(EquipLevelingConfig.isKeepEquipOnDeath()
-                ? "Keep equipment: ON" : "Keep equipment: OFF"), b -> {
-            EquipLevelingConfig.setKeepEquipOnDeath(!EquipLevelingConfig.isKeepEquipOnDeath());
-            b.setMessage(Text.literal(EquipLevelingConfig.isKeepEquipOnDeath()
-                    ? "Keep equipment: ON" : "Keep equipment: OFF"));
-        }).dimensions(20, 262, 224, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal(EquipLevelingConfig.isBrokenMechanicEnabled()
-                ? "Broken mechanic: ON" : "Broken mechanic: OFF"), b -> {
-            EquipLevelingConfig.setBrokenMechanicEnabled(!EquipLevelingConfig.isBrokenMechanicEnabled());
-            b.setMessage(Text.literal(EquipLevelingConfig.isBrokenMechanicEnabled()
-                    ? "Broken mechanic: ON" : "Broken mechanic: OFF"));
-        }).dimensions(250, 262, 224, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Edit category base XP"), b -> {
-            page = 1;
-            clearAndInit();
-        }).dimensions(20, 300, 224, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Save & Exit"), b -> {
-            applyGeneral();
-            client.setScreen(parent);
-        }).dimensions(250, 300, 224, 20).build());
-    }
-
-    private void buildBaseXpPage() {
-        for (int i = 0; i < CATEGORIES.length; i++) {
-            int x = i < 6 ? 20 : 250;
-            int y = 42 + (i % 6) * 28;
-            field(CATEGORIES[i] + " base XP", Integer.toString(EquipLevelingConfig.getBaseXpForCategory(CATEGORIES[i])), x, y);
+        var reroll = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.reroll"));
+        int[] costs = EquipLevelingConfig.getRerollCosts();
+        for (int i = 0; i < costs.length; i++) {
+            final int slotCount = i;
+            reroll.addEntry(entries.startIntField(
+                    Text.translatable("equip_leveling.config.reroll_cost", i), costs[i])
+                    .setDefaultValue((i + 1) * 5).setMin(0)
+                    .setSaveConsumer(value -> {
+                        int[] updated = EquipLevelingConfig.getRerollCosts();
+                        updated[slotCount] = value;
+                        EquipLevelingConfig.setRerollCosts(updated);
+                    }).build());
         }
-        addDrawableChild(ButtonWidget.builder(Text.literal("Back"), b -> {
-            applyBaseXp();
-            page = 0;
-            clearAndInit();
-        }).dimensions(20, 235, 224, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Save & Exit"), b -> {
-            applyBaseXp();
-            client.setScreen(parent);
-        }).dimensions(250, 235, 224, 20).build());
-    }
 
-    private void applyGeneral() {
-        try {
-            EquipLevelingConfig.setXpMultiplier(Double.parseDouble(fields.get(0).getText()));
-            EquipLevelingConfig.setXpDisplayThreshold(Integer.parseInt(fields.get(1).getText()));
-            EquipLevelingConfig.setDurabilityRestorePercent(Integer.parseInt(fields.get(2).getText()));
-            EquipLevelingConfig.setLegendaryUpgradeProbability(Double.parseDouble(fields.get(3).getText()));
-            EquipLevelingConfig.setOfferWeights(Double.parseDouble(fields.get(4).getText()), Double.parseDouble(fields.get(5).getText()));
-            EquipLevelingConfig.setAnvilCosts(Integer.parseInt(fields.get(6).getText()), Integer.parseInt(fields.get(7).getText()));
-            EquipLevelingConfig.setRerollCosts(parseInts(fields.get(8).getText(), 5));
-            EquipLevelingConfig.setMaterialTiers(fields.get(9).getText().split(","));
-            EquipLevelingConfig.setOreXp(Integer.parseInt(fields.get(10).getText()),
-                    Integer.parseInt(fields.get(11).getText()), Integer.parseInt(fields.get(12).getText()),
-                    Integer.parseInt(fields.get(13).getText()));
-        } catch (RuntimeException ignored) {
-            // Individual setters validate values; a malformed field leaves its
-            // previous setting intact rather than breaking the config screen.
+        var xp = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.base_xp"));
+        for (String category : CATEGORIES) {
+            xp.addEntry(entries.startIntField(
+                    Text.translatable("equip_leveling.config.base_xp", pretty(category)),
+                    EquipLevelingConfig.getBaseXpForCategory(category))
+                    .setDefaultValue(100).setMin(1)
+                    .setSaveConsumer(value -> EquipLevelingConfig.setBaseXpForCategory(category, value)).build());
         }
+
+        var ore = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.ore_xp"));
+        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.coal_xp"), EquipLevelingConfig.getCoalXp())
+                .setDefaultValue(5).setMin(0).setSaveConsumer(value -> saveOre(value, EquipLevelingConfig.getIronXp(), EquipLevelingConfig.getGoldXp(), EquipLevelingConfig.getRareOreXp())).build());
+        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.iron_xp"), EquipLevelingConfig.getIronXp())
+                .setDefaultValue(40).setMin(0).setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), value, EquipLevelingConfig.getGoldXp(), EquipLevelingConfig.getRareOreXp())).build());
+        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.gold_xp"), EquipLevelingConfig.getGoldXp())
+                .setDefaultValue(80).setMin(0).setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), EquipLevelingConfig.getIronXp(), value, EquipLevelingConfig.getRareOreXp())).build());
+        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.rare_ore_xp"), EquipLevelingConfig.getRareOreXp())
+                .setDefaultValue(150).setMin(0).setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), EquipLevelingConfig.getIronXp(), EquipLevelingConfig.getGoldXp(), value)).build());
+
+        return builder.build();
     }
 
-    private void applyBaseXp() {
-        for (int i = 0; i < CATEGORIES.length && i < fields.size(); i++) {
-            try {
-                EquipLevelingConfig.setBaseXpForCategory(CATEGORIES[i], Integer.parseInt(fields.get(i).getText()));
-            } catch (NumberFormatException ignored) { }
-        }
+    private static void saveOre(int coal, int iron, int gold, int rare) {
+        EquipLevelingConfig.setOreXp(coal, iron, gold, rare);
     }
 
-    private static int[] parseInts(String text, int count) {
-        String[] values = text.split(",");
-        if (values.length != count) throw new IllegalArgumentException("expected " + count + " values");
-        int[] result = new int[count];
-        for (int i = 0; i < count; i++) result[i] = Integer.parseInt(values[i].trim());
-        return result;
-    }
-
-    private static String join(int[] values) {
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < values.length; i++) {
-            if (i > 0) result.append(',');
-            result.append(values[i]);
-        }
-        return result.toString();
-    }
-
-    @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 15, 0xFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal(page == 0 ? "General settings" : "Base XP by category"), width / 2, 28, 0xAAAAAA);
-        super.render(context, mouseX, mouseY, delta);
-    }
-
-    @Override
-    public void close() {
-        client.setScreen(parent);
+    private static String pretty(String value) {
+        return Arrays.stream(value.split("_"))
+                .map(part -> part.isEmpty() ? part : Character.toUpperCase(part.charAt(0)) + part.substring(1))
+                .reduce((a, b) -> a + " " + b).orElse(value);
     }
 }

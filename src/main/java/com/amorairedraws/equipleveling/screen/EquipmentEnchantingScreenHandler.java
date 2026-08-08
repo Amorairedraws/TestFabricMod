@@ -26,9 +26,6 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 
 	private final Inventory inventory;
 	private final PlayerEntity sourcePlayer;
-	private final net.minecraft.util.Hand sourceHand;
-	/** Inventory index occupied by the item that opened the table, or -1 on the client constructor. */
-	private final int sourceInventorySlot;
 	private final net.minecraft.util.math.BlockPos sourcePos;
 	private final net.minecraft.util.math.random.Random random = net.minecraft.util.math.random.Random.create();
 	
@@ -49,37 +46,27 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	};
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory) {
-		this(syncId, playerInventory, new SimpleInventory(1), playerInventory.player, null, null);
+		this(syncId, playerInventory, new SimpleInventory(1), playerInventory.player, null);
 	}
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory) {
-		this(syncId, playerInventory, inventory, playerInventory.player, null, null);
+		this(syncId, playerInventory, inventory, playerInventory.player, null);
 	}
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory,
-			PlayerEntity sourcePlayer, net.minecraft.util.Hand sourceHand) {
-		this(syncId, playerInventory, inventory, sourcePlayer, sourceHand, null);
-	}
-
-	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory,
-			PlayerEntity sourcePlayer, net.minecraft.util.Hand sourceHand,
-			net.minecraft.util.math.BlockPos sourcePos) {
+			PlayerEntity sourcePlayer, net.minecraft.util.math.BlockPos sourcePos) {
 		super(TYPE, syncId);
 		this.inventory = inventory;
 		this.sourcePlayer = sourcePlayer;
-		this.sourceHand = sourceHand;
-		this.sourceInventorySlot = sourceHand == null ? -1
-				: sourceHand == net.minecraft.util.Hand.MAIN_HAND
-						? sourcePlayer.getInventory().getSelectedSlot()
-						: PlayerInventory.OFF_HAND_SLOT;
 		this.sourcePos = sourcePos;
 
-		// The item is supplied by the hand that opened the table. It is a
-		// deliberately fixed slot: allowing the generic Slot implementation to
-		// take/place stacks would duplicate or lose the hand stack on close.
+		// This is a real input slot, just like the vanilla enchanting table slot.
+		// The item is not copied from the player's hand: any qualifying equipment
+		// can be dragged here and is returned to the player when the screen closes.
 		this.addSlot(new Slot(inventory, 0, 15, 47) {
-			@Override public boolean canInsert(ItemStack stack) { return false; }
-			@Override public boolean canTakeItems(PlayerEntity player) { return false; }
+			@Override public boolean canInsert(ItemStack stack) {
+				return EquipmentComponent.isTracked(stack);
+			}
 		});
 
 		// Player inventory
@@ -97,27 +84,18 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		this.generateOffers(playerInventory.player);
 	}
 
-	/** The opening stack remains in its original hand slot for the whole screen. */
 	private Slot playerSlot(PlayerInventory playerInventory, int inventoryIndex, int x, int y) {
-		return new Slot(playerInventory, inventoryIndex, x, y) {
-			@Override
-			public boolean canTakeItems(PlayerEntity player) {
-				return inventoryIndex != sourceInventorySlot && super.canTakeItems(player);
-			}
-
-			@Override
-			public boolean canInsert(ItemStack stack) {
-				return inventoryIndex != sourceInventorySlot && super.canInsert(stack);
-			}
-		};
+		return new Slot(playerInventory, inventoryIndex, x, y);
 	}
 
 	public void generateOffers(PlayerEntity player) {
 		clearOfferProperties();
 		ItemStack itemStack = this.inventory.getStack(0);
-		
-		if (!itemStack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+		if (!EquipmentComponent.isTracked(itemStack)) {
 			return;
+		}
+		if (!itemStack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+			EquipmentComponent.getOrCreate(itemStack);
 		}
 
 		EquipmentComponent.EquipmentData data = itemStack.get(EquipmentComponent.EQUIPMENT_TYPE);
@@ -306,7 +284,12 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	@Override
 	public void onContentChanged(Inventory changedInventory) {
 		super.onContentChanged(changedInventory);
-		if (sourcePlayer.getEntityWorld().isClient()) rebuildClientOffers();
+		if (sourcePlayer.getEntityWorld().isClient()) {
+			rebuildClientOffers();
+		} else if (changedInventory == inventory) {
+			// Generate offers when the player actually places an item in the slot.
+			generateOffers(sourcePlayer);
+		}
 	}
 
 	@Override
@@ -329,8 +312,20 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	}
 
 	@Override
-	public ItemStack quickMove(PlayerEntity player, int slot) {
-		return ItemStack.EMPTY;
+	public ItemStack quickMove(PlayerEntity player, int slotIndex) {
+		if (slotIndex < 0 || slotIndex >= this.slots.size()) return ItemStack.EMPTY;
+		Slot source = this.slots.get(slotIndex);
+		if (!source.hasStack()) return ItemStack.EMPTY;
+		ItemStack original = source.getStack().copy();
+		ItemStack moving = source.getStack();
+		if (slotIndex == 0) {
+			if (!insertItem(moving, 1, this.slots.size(), true)) return ItemStack.EMPTY;
+		} else {
+			if (!EquipmentComponent.isTracked(moving) || !insertItem(moving, 0, 1, false)) return ItemStack.EMPTY;
+		}
+		if (moving.isEmpty()) source.setStack(ItemStack.EMPTY);
+		else source.markDirty();
+		return original;
 	}
 
 	@Override
@@ -344,12 +339,13 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	@Override
 	public void onClosed(PlayerEntity player) {
 		super.onClosed(player);
-		// Legendary promotion creates a new stack. Put that stack back in the
-		// exact inventory slot that opened the table instead of silently losing the
-		// promotion or overwriting a different hand after a hotbar change.
-		if (sourcePlayer == player && sourceInventorySlot >= 0) {
-			ItemStack result = this.inventory.getStack(0);
-			if (!result.isEmpty()) sourcePlayer.getInventory().setStack(sourceInventorySlot, result);
+		// SimpleInventory is not a block inventory, so return the real input stack
+		// explicitly. This prevents the old display-copy/duplication behaviour.
+		if (!player.getEntityWorld().isClient()) {
+			ItemStack result = this.inventory.removeStack(0);
+			if (!result.isEmpty() && !player.getInventory().insertStack(result)) {
+				player.dropItem(result, false);
+			}
 		}
 	}
 

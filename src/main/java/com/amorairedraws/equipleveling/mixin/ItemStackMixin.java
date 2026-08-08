@@ -84,23 +84,13 @@ public class ItemStackMixin {
         if (data != null && data.broken) ci.cancel();
     }
 
+    /** A broken tool is still allowed to mine, but only at hand speed. */
     @Inject(method = "getMiningSpeedMultiplier", at = @At("HEAD"), cancellable = true)
     private void suppressBrokenToolSpeed(BlockState state, CallbackInfoReturnable<Float> cir) {
         ItemStack stack = (ItemStack) (Object) this;
         if (stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
             var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-            if (data != null && data.broken) cir.setReturnValue(0.0f);
-        }
-    }
-
-    @Inject(method = "canMine", at = @At("HEAD"), cancellable = true)
-    private void suppressBrokenMining(BlockState state, net.minecraft.world.World world,
-            net.minecraft.util.math.BlockPos pos, net.minecraft.entity.player.PlayerEntity player,
-            CallbackInfoReturnable<Boolean> cir) {
-        ItemStack stack = (ItemStack) (Object) this;
-        if (stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
-            var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-            if (data != null && data.broken) cir.setReturnValue(false);
+            if (data != null && data.broken) cir.setReturnValue(1.0f);
         }
     }
 

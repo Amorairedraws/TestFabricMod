@@ -60,7 +60,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 				if (slot.isEmpty()) {
 					lines.add(insertIndex++, Text.literal("★ [Empty]").formatted(Formatting.GOLD));
 				} else {
-					String enchName = slot.enchantmentId.replace("minecraft:", "");
+					String enchName = formatEnchantmentName(slot.enchantmentId);
 					// Every entry in bonusSlots is loot-derived, even if the loot
 					// happened to contain Mending. Automatic completion Mending is
 					// rendered separately above and remains cyan.
@@ -95,6 +95,18 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		return Text.of(bar.toString());
 	}
 
+	private static String formatEnchantmentName(String id) {
+		String name = id == null ? "Unknown" : id.substring(id.indexOf(':') + 1)
+				.replace('_', ' ').replace('-', ' ');
+		StringBuilder result = new StringBuilder();
+		for (String word : name.split("\\s+")) {
+			if (word.isEmpty()) continue;
+			if (result.length() > 0) result.append(' ');
+			result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+		}
+		return result.toString();
+	}
+
 	private void renderSlots(List<Text> lines, int startIndex, List<EquipmentComponent.EquipmentSlot> slots, 
 							 String slotType) {
 		if (slots.isEmpty()) {
@@ -106,7 +118,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 				if (slot.isEmpty()) {
 					lines.add(startIndex + i + 1, Text.literal("  [Empty]").formatted(Formatting.DARK_GRAY));
 				} else {
-					String enchName = slot.enchantmentId.replace("minecraft:", "");
+					String enchName = formatEnchantmentName(slot.enchantmentId);
 					lines.add(startIndex + i + 1,
 						Text.literal(String.format("  %s %d", enchName, slot.enchantmentLevel)).formatted(Formatting.WHITE));
 				}

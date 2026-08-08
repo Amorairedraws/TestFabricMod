@@ -10,6 +10,7 @@ base { archivesName = project.archives_base_name }
 
 repositories {
 	maven { name = "Terraformers"; url = "https://maven.terraformersmc.com/releases/" }
+	maven { name = "Shedaniel"; url = "https://maven.shedaniel.me/" }
 	maven {
 		name = "Modrinth"
 		url = "https://api.modrinth.com/maven"
@@ -22,6 +23,7 @@ dependencies {
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 	modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+	modImplementation "me.shedaniel.cloth:cloth-config-fabric:${project.cloth_version}"
 }
 
 processResources {
@@ -36,7 +38,8 @@ processResources {
 				"minecraft_version": project.minecraft_version,
 				"loader_version": project.loader_version,
 				"fabric_version": project.fabric_version,
-				"modmenu_version": project.modmenu_version
+				"modmenu_version": project.modmenu_version,
+				"cloth_version": project.cloth_version
 	}
 }
 

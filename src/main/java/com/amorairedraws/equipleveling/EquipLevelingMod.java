@@ -53,28 +53,19 @@ public class EquipLevelingMod implements ModInitializer {
 			Identifier.of(MOD_ID, "equipment_enchanting"),
 			new ScreenHandlerType<>(EquipmentEnchantingScreenHandler::new, net.minecraft.resource.featuretoggle.FeatureFlags.VANILLA_FEATURES));
 		
-		// The vanilla table is deliberately reused: no resource pack or custom
-		// block is needed. Only qualifying equipment opens our handler.
+		// Always intercept the vanilla enchanting table. The custom screen starts
+		// with an empty, real input slot, so it works regardless of what is held.
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
-			var held = player.getStackInHand(hand);
-			if (hit.getBlockPos() == null
-					|| world.getBlockState(hit.getBlockPos()).getBlock() != Blocks.ENCHANTING_TABLE
-					|| !EquipmentComponent.isTracked(held)) return ActionResult.PASS;
-			var heldData = held.get(EquipmentComponent.EQUIPMENT_TYPE);
-			if (heldData != null && heldData.broken) return ActionResult.FAIL;
-			// Consume the interaction on both logical sides.  Returning PASS on the
-			// client would open the vanilla enchanting screen before the server packet
-			// for our handler arrives.
+			if (world.getBlockState(hit.getBlockPos()).getBlock() != Blocks.ENCHANTING_TABLE) {
+				return ActionResult.PASS;
+			}
+			// Consume the interaction on both logical sides so vanilla never opens
+			// its own handler first.
 			if (world.isClient()) return ActionResult.SUCCESS;
 			if (player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer) {
 				SimpleInventory input = new SimpleInventory(1);
-				// Initialize lazily, but before the handler generates offers. The same
-				// stack object is retained so component mutations persist in inventory.
-				EquipmentComponent.getOrCreate(held);
-				EquipmentComponent.restoreEnchantments(held, serverPlayer.getEntityWorld().getRegistryManager());
-				input.setStack(0, held);
 				serverPlayer.openHandledScreen(new SimpleNamedScreenHandlerFactory(
-					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input, p, hand,
+					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input, p,
 							hit.getBlockPos()),
 					Text.translatable("equip_leveling.title")));
 			}
@@ -125,19 +116,9 @@ public class EquipLevelingMod implements ModInitializer {
 	}
 
 	private void registerEventListeners() {
-		// A broken stack must not be usable as a weapon or right-click tool. Mining
-		// is covered by ItemStackMixin.canMine; these callbacks cover entity attacks
-		// and item-use actions without changing vanilla durability behaviour.
-		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
-			var stack = player.getStackInHand(hand);
-			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-			return data != null && data.broken ? ActionResult.FAIL : ActionResult.PASS;
-		});
-		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register((player, world, hand) -> {
-			var stack = player.getStackInHand(hand);
-			var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-			return data != null && data.broken ? ActionResult.FAIL : ActionResult.PASS;
-		});
+		// Broken items deliberately use vanilla's ordinary fallback behaviour.
+		// Their enchantments and attributes are suppressed by ItemStackMixin, but
+		// they remain usable as slowly as a hand rather than blocking interaction.
 
 		// XP accrual events
 		PlayerBlockBreakEvents.AFTER.register(new EquipmentXpEvents.BlockBreakXpHandler());
