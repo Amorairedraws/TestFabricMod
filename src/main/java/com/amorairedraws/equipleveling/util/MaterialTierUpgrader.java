@@ -18,12 +18,22 @@ public final class MaterialTierUpgrader {
                 && itemFor(category, ladder[index + 1], old.getItem()) != null;
     }
 
-    /** A stack is at the configured ceiling only when its material is the final
-     * configured tier. Unknown materials are deliberately not treated as maxed. */
+    /**
+     * Returns true when no configured promotion remains. Equipment without a
+     * material ladder (for example fishing rods) has no legendary promotion to
+     * wait for and can therefore still reach MAX LEVEL from enchantment progress.
+     */
     public static boolean isAtMaxTier(ItemStack stack, String[] ladder) {
-        if (stack.isEmpty() || ladder == null || ladder.length == 0) return false;
-        return ladder[ladder.length - 1] != null
-                && ladder[ladder.length - 1].equalsIgnoreCase(material(stack.getItem()));
+        if (stack.isEmpty() || ladder == null || ladder.length == 0) return true;
+        int index = indexOf(ladder, material(stack.getItem()));
+        return index < 0 || index == ladder.length - 1;
+    }
+
+    /** Whether the progression level has also reached the configured tier cap. */
+    public static boolean isTierLevelSatisfied(ItemStack stack, int level, String[] ladder) {
+        if (stack.isEmpty() || ladder == null || ladder.length == 0) return true;
+        int index = indexOf(ladder, material(stack.getItem()));
+        return index < 0 || (index == ladder.length - 1 && level >= ladder.length - 1);
     }
 
     public static ItemStack promote(ItemStack old, String category, String[] ladder) {

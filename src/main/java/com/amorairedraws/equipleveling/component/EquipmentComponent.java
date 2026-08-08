@@ -46,10 +46,10 @@ public final class EquipmentComponent {
             data.refresh();
         }
         // refresh() can only inspect component data. Include the actual item
-        // material here so a non-final tier is not incorrectly treated as maxed
-        // before it has earned its legendary promotion.
-        data.maxed = data.maxed && MaterialTierUpgrader.isAtMaxTier(stack,
-                EquipLevelingConfig.getMaterialTiers());
+        // material here so non-tiered equipment can still reach MAX LEVEL and a
+        // non-final tier is not incorrectly treated as maxed.
+        data.updateMaxed(MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
+                EquipLevelingConfig.getMaterialTiers()));
         stack.set(EQUIPMENT_TYPE, data);
         return data;
     }
@@ -85,9 +85,8 @@ public final class EquipmentComponent {
             }
         }
         data.refresh();
-        data.updateMaxed(lookup);
-        data.maxed = data.maxed && MaterialTierUpgrader.isAtMaxTier(stack,
-                EquipLevelingConfig.getMaterialTiers());
+        data.updateMaxed(lookup, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
+                EquipLevelingConfig.getMaterialTiers()));
         stack.set(EQUIPMENT_TYPE, data);
         if (data.broken) {
             stack.remove(DataComponentTypes.ENCHANTMENTS);
@@ -144,8 +143,10 @@ public final class EquipmentComponent {
 
     public static int repairCost(ItemStack stack) {
         EquipmentData data = stack.get(EQUIPMENT_TYPE);
-        return data == null ? 0 : EquipLevelingConfig.getAnvilBaseCost()
-                + data.level * EquipLevelingConfig.getAnvilPerLevelCost();
+        if (data == null) return 0;
+        long cost = (long) EquipLevelingConfig.getAnvilBaseCost()
+                + (long) data.level * EquipLevelingConfig.getAnvilPerLevelCost();
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, cost));
     }
 
     public static final class EquipmentData {
@@ -207,16 +208,23 @@ public final class EquipmentComponent {
             updateMaxed();
         }
         public void levelUp(String category) {
-            level++; xp = 0; readyToLevelUp = false;
-            xpRequired = Math.max(1, (int)Math.ceil(EquipLevelingConfig.getBaseXpForCategory(category)
-                    * Math.pow(EquipLevelingConfig.getXpMultiplier(), level)));
+            if (level < Integer.MAX_VALUE) level++;
+            xp = 0; readyToLevelUp = false;
+            double required = EquipLevelingConfig.getBaseXpForCategory(category)
+                    * Math.pow(EquipLevelingConfig.getXpMultiplier(), level);
+            xpRequired = Double.isFinite(required)
+                    ? Math.max(1, (int) Math.ceil(required)) : Integer.MAX_VALUE;
             updateMaxed();
         }
         public void levelUp() { levelUp("default"); }
         public int getFilledSlots() { return (int)slots.stream().filter(s -> !s.isEmpty()).count(); }
         public int getTotalSlots() { return 4 + bonusSlots.size(); }
         public void updateMaxed() {
-            maxed = getFilledSlots() == 4 && mending && level >= EquipLevelingConfig.getMaterialTiers().length - 1
+            updateMaxed(level >= EquipLevelingConfig.getMaterialTiers().length - 1);
+        }
+
+        public void updateMaxed(boolean tierLevelSatisfied) {
+            maxed = getFilledSlots() == 4 && mending && tierLevelSatisfied
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
         }
@@ -224,7 +232,11 @@ public final class EquipmentComponent {
         /** Uses the live world registry when deciding whether a modded
          * enchantment has reached its real maximum level. */
         public void updateMaxed(RegistryWrapper.WrapperLookup lookup) {
-            maxed = getFilledSlots() == 4 && mending && level >= EquipLevelingConfig.getMaterialTiers().length - 1
+            updateMaxed(lookup, level >= EquipLevelingConfig.getMaterialTiers().length - 1);
+        }
+
+        public void updateMaxed(RegistryWrapper.WrapperLookup lookup, boolean tierLevelSatisfied) {
+            maxed = getFilledSlots() == 4 && mending && tierLevelSatisfied
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup));
         }

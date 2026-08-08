@@ -29,7 +29,7 @@ public class EquipLevelingConfig {
 	private static int xpDisplayThreshold = 10;
 	private static int durabilityRestorePercent = 25;
 	// Ore/action rewards are configurable independently of equipment material.
-	private static int coalXp = 15, ironXp = 40, goldXp = 80, rareOreXp = 150;
+	private static int coalXp = 5, ironXp = 40, goldXp = 80, rareOreXp = 150;
 	// Cost is indexed by the number of filled standard slots (0..4).
 	// Cost is one level plus one level per filled standard slot (0..4).
 	private static int[] rerollCosts = {1, 2, 3, 4, 5};
@@ -88,7 +88,7 @@ public class EquipLevelingConfig {
 			xpMultiplier = json.has("xpMultiplier") ? json.get("xpMultiplier").getAsDouble() : 1.2;
 			xpDisplayThreshold = json.has("xpDisplayThreshold") ? json.get("xpDisplayThreshold").getAsInt() : 10;
 			durabilityRestorePercent = json.has("durabilityRestorePercent") ? json.get("durabilityRestorePercent").getAsInt() : 25;
-			coalXp = json.has("coalXp") ? json.get("coalXp").getAsInt() : 15;
+			coalXp = json.has("coalXp") ? json.get("coalXp").getAsInt() : 5;
 			ironXp = json.has("ironXp") ? json.get("ironXp").getAsInt() : 40;
 			goldXp = json.has("goldXp") ? json.get("goldXp").getAsInt() : 80;
 			rareOreXp = json.has("rareOreXp") ? json.get("rareOreXp").getAsInt() : 150;

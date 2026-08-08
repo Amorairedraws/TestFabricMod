@@ -16,16 +16,19 @@ import java.util.List;
 
 /**
  * Removes only leveled equipment from the list being dropped on death, then
- * restores it immediately.  This is deliberately done at the drop boundary;
+ * restores it immediately. This is deliberately done at the drop boundary;
  * AFTER_DEATH is too late because vanilla has already spawned the item entities.
  */
 @Mixin(PlayerEntity.class)
 public abstract class PlayerEntityMixin {
     @Unique
+    private final List<Integer> equipLeveling$keptSlots = new ArrayList<>();
+    @Unique
     private final List<ItemStack> equipLeveling$keptStacks = new ArrayList<>();
 
     @Inject(method = "dropInventory", at = @At("HEAD"))
     private void equipLeveling$hideKeptEquipment(ServerWorld world, CallbackInfo ci) {
+        equipLeveling$keptSlots.clear();
         equipLeveling$keptStacks.clear();
         if (!EquipLevelingConfig.isKeepEquipOnDeath()) return;
 
@@ -33,6 +36,7 @@ public abstract class PlayerEntityMixin {
         for (int i = 0; i < player.getInventory().size(); i++) {
             ItemStack stack = player.getInventory().getStack(i);
             if (EquipmentComponent.isTracked(stack) && stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+                equipLeveling$keptSlots.add(i);
                 equipLeveling$keptStacks.add(stack.copy());
                 player.getInventory().setStack(i, ItemStack.EMPTY);
             }
@@ -43,12 +47,19 @@ public abstract class PlayerEntityMixin {
     private void equipLeveling$restoreKeptEquipment(ServerWorld world, CallbackInfo ci) {
         if (equipLeveling$keptStacks.isEmpty()) return;
         PlayerEntity player = (PlayerEntity) (Object) this;
-        int saved = 0;
-        for (int i = 0; i < player.getInventory().size() && saved < equipLeveling$keptStacks.size(); i++) {
-            if (player.getInventory().getStack(i).isEmpty()) {
-                player.getInventory().setStack(i, equipLeveling$keptStacks.get(saved++));
+        for (int n = 0; n < equipLeveling$keptStacks.size(); n++) {
+            int slot = equipLeveling$keptSlots.get(n);
+            // The slot was emptied before vanilla ran. Restore it in place so
+            // armor, off-hand and hotbar equipment remain equipped/in-position.
+            if (player.getInventory().getStack(slot).isEmpty()) {
+                player.getInventory().setStack(slot, equipLeveling$keptStacks.get(n));
+            } else {
+                // Be defensive about other mods mutating the inventory during
+                // dropInventory; do not lose the kept stack in that case.
+                player.giveItemStack(equipLeveling$keptStacks.get(n));
             }
         }
+        equipLeveling$keptSlots.clear();
         equipLeveling$keptStacks.clear();
     }
 }
