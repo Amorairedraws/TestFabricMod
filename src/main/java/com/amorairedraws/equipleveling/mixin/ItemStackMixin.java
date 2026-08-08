@@ -28,54 +28,18 @@ public class ItemStackMixin {
         }
     }
 
-    /** Keep tracked equipment as an inventory stack when its last durability point is used.
-     *
-     * 1.21.11's entity-damage overload returns void. The old ItemStack-returning
-     * selector silently failed to protect the item at runtime. Cancel the
-     * correctly-mapped overload before vanilla can decrement the stack. */
-    @Inject(method = "damage(ILnet/minecraft/entity/LivingEntity;Lnet/minecraft/entity/EquipmentSlot;)V", at = @At("HEAD"), cancellable = true)
-    private void preserveBrokenEquipment(int amount, net.minecraft.entity.LivingEntity entity,
-            net.minecraft.entity.EquipmentSlot slot, CallbackInfo ci) {
-        ItemStack stack = (ItemStack) (Object) this;
-        if (!com.amorairedraws.equipleveling.config.EquipLevelingConfig.isBrokenMechanicEnabled()
-                || !EquipmentComponent.isTracked(stack)) return;
-        EquipmentComponent.EquipmentData existing = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-        if (existing != null && existing.broken) {
-            ci.cancel();
-            return;
-        }
-        if (stack.isDamageable() && stack.getDamage() + amount >= stack.getMaxDamage()) {
-            stack.setDamage(stack.getMaxDamage());
-            EquipmentComponent.markBrokenIfNecessary(stack);
-            ci.cancel();
-        }
-    }
-
-    /** Keep compatibility with the legacy overload still present in 1.21.11.
-     * Some vanilla item paths call this overload rather than the void method. */
-    @Inject(method = "damage(ILnet/minecraft/item/ItemConvertible;Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/entity/EquipmentSlot;)Lnet/minecraft/item/ItemStack;", at = @At("HEAD"), cancellable = true)
-    private void preserveBrokenEquipmentLegacy(int amount, net.minecraft.item.ItemConvertible itemAfterBreaking,
-            net.minecraft.entity.LivingEntity entity, net.minecraft.entity.EquipmentSlot slot,
-            CallbackInfoReturnable<ItemStack> cir) {
-        ItemStack stack = (ItemStack) (Object) this;
-        if (!com.amorairedraws.equipleveling.config.EquipLevelingConfig.isBrokenMechanicEnabled()
-                || !EquipmentComponent.isTracked(stack)) return;
-        if (stack.isDamageable() && stack.getDamage() + amount >= stack.getMaxDamage()) {
-            stack.setDamage(stack.getMaxDamage());
-            EquipmentComponent.markBrokenIfNecessary(stack);
-            cir.setReturnValue(stack);
-        }
-    }
-
-    /** Also cover damage caused by dispensers and other non-living sources. */
-    @Inject(method = "damage(ILnet/minecraft/server/world/ServerWorld;Lnet/minecraft/server/network/ServerPlayerEntity;Ljava/util/function/Consumer;)V", at = @At("HEAD"), cancellable = true)
-    private void preserveBrokenEquipmentFromWorld(int amount, net.minecraft.server.world.ServerWorld world,
-            net.minecraft.server.network.ServerPlayerEntity player,
+    /**
+     * Vanilla calculates Unbreaking and creative-mode exemptions before calling
+     * onDurabilityChange. Intercept at that boundary so the broken mechanic uses
+     * the actual post-enchantment damage rather than the raw requested amount.
+     */
+    @Inject(method = "onDurabilityChange", at = @At("HEAD"), cancellable = true)
+    private void preserveBrokenEquipment(int damage, net.minecraft.server.network.ServerPlayerEntity player,
             java.util.function.Consumer<net.minecraft.item.Item> breakCallback, CallbackInfo ci) {
         ItemStack stack = (ItemStack) (Object) this;
         if (!com.amorairedraws.equipleveling.config.EquipLevelingConfig.isBrokenMechanicEnabled()
                 || !EquipmentComponent.isTracked(stack)) return;
-        if (stack.isDamageable() && stack.getDamage() + amount >= stack.getMaxDamage()) {
+        if (stack.isDamageable() && damage >= stack.getMaxDamage()) {
             stack.setDamage(stack.getMaxDamage());
             EquipmentComponent.markBrokenIfNecessary(stack);
             ci.cancel();
