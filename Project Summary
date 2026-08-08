@@ -114,7 +114,7 @@ All values configurable.
 
 ### Loot Integration
 A global loot modifier runs post-generation on all loot tables (vanilla and modded). For every generated equipment item that already has vanilla enchantments:
-- Those enchantments are converted into 1–2 bonus slots (`bonusSlots`) in the component
+- Those enchantments are converted into 1–2 bonus slots (`bonusSlots`) in the component (mending can never be in a bonus slot. It's instead deleted from the item until reintroduced through the dedicated cyan mending slot)
 - The vanilla enchantment tags are stripped
 - These slots appear beneath the standard slots in the tooltip, prefixed with ★ in gold text
 - They are upgradeable through the enchanting table normally
