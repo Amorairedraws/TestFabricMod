@@ -2,6 +2,8 @@ package com.amorairedraws.equipleveling;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import com.amorairedraws.equipleveling.network.XpGainPayload;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
@@ -39,6 +41,9 @@ public class EquipLevelingMod implements ModInitializer {
 		
 		// Load config
 		EquipLevelingConfig.load();
+		// Register the server-authoritative notification used for floating XP.
+		// The client registers the same payload type before it joins a world.
+		PayloadTypeRegistry.playS2C().register(XpGainPayload.ID, XpGainPayload.CODEC);
 		
 		// Register custom component and the real handler type used by both server
 		// and client.  Passing null to ScreenHandler's constructor prevents the
@@ -82,6 +87,8 @@ public class EquipLevelingMod implements ModInitializer {
 							net.minecraft.util.math.Vec3d.ofCenter(hit.getBlockPos()), xp);
 				} else {
 					EquipmentComponent.addXp(player.getStackInHand(hand), xp);
+					com.amorairedraws.equipleveling.event.XpDisplay.showForPlayer(player,
+							net.minecraft.util.math.Vec3d.ofCenter(hit.getBlockPos()), xp);
 				}
 			}
 			return ActionResult.PASS;
@@ -118,8 +125,11 @@ public class EquipLevelingMod implements ModInitializer {
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof net.minecraft.entity.player.PlayerEntity dead) {
 				DeathEventHandler.handlePlayerDeath(dead);
-			} else if (source.getAttacker() instanceof net.minecraft.entity.player.PlayerEntity player) {
-				EquipmentXpEvents.awardKillXp(player, entity);
+			} else if (source.getSource() instanceof net.minecraft.entity.player.PlayerEntity player) {
+				// Only a direct player kill advances a held sword/axe.  Using a bow,
+				// projectile, tamed mob, or environmental damage must not award XP to
+				// whatever happens to be in the player's hand.
+				EquipmentXpEvents.awardKillXp(player, entity, source);
 			}
 		});
 

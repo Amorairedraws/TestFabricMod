@@ -28,8 +28,13 @@ public final class EquipmentLootModifier {
         List<EquipmentComponent.EquipmentSlot> bonus = new ArrayList<>();
         int i = 0;
         for (var entry : enchantments) {
+            String id = entry.getKey().getKey().map(Object::toString).orElse(null);
+            // Mending is never loot-derived.  It is the dedicated completion
+            // reward represented by EquipmentData.mending, and must not consume
+            // one of the two real bonus slots either.
+            if ("minecraft:mending".equals(id)) continue;
+            if (id == null) continue;
             if (i++ >= 2) break;
-            String id = entry.getKey().getKey().map(Object::toString).orElse("minecraft:unknown");
             bonus.add(new EquipmentComponent.EquipmentSlot(id, entry.getIntValue()));
         }
         data.bonusSlots = bonus;

@@ -19,11 +19,15 @@ import com.amorairedraws.equipleveling.event.XpDisplay;
 public class EquipmentXpEvents {
 
     /** Called after a living entity actually dies, so XP is never awarded for a hit. */
-    public static void awardKillXp(PlayerEntity player, LivingEntity entity) {
+    public static void awardKillXp(PlayerEntity player, LivingEntity entity,
+            net.minecraft.entity.damage.DamageSource source) {
+        if (source.getSource() != player) return;
         ItemStack held = player.getMainHandStack();
         String category = EquipmentCategory.getCategory(held);
         if (("sword".equals(category) || "axe".equals(category))) {
-            EquipmentComponent.addXp(held, XpCalculator.calculateEntityKillXp(entity));
+            int xp = XpCalculator.calculateEntityKillXp(entity);
+            EquipmentComponent.addXp(held, xp);
+            XpDisplay.showForPlayer(player, entity.getEntityPos(), xp);
         }
     }
 
@@ -41,9 +45,8 @@ public class EquipmentXpEvents {
 				int xp = XpCalculator.calculateEntityKillXp(living);
 				// This callback runs on both logical sides. Never mutate progression on
 				// the client; the AFTER_DEATH callback is the sole server reward path.
-				if (world.isClient()) {
-					XpDisplay.show(living.getEyePos(), xp);
-				}
+				// The reward and its floating label are emitted by AFTER_DEATH on
+				// the server. This callback must not predict a successful kill.
 			}
 			
 			return ActionResult.PASS;
@@ -68,9 +71,11 @@ public class EquipmentXpEvents {
 				
 				if (xp > 0) {
 					if (world.isClient()) {
+						// Some versions also invoke the callback on the logical client.
 						XpDisplay.show(net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
 					} else {
 						EquipmentComponent.addXp(heldItem, xp);
+						XpDisplay.showForPlayer(player, net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
 					}
 				}
 			}

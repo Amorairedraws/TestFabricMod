@@ -111,6 +111,10 @@ public final class EquipmentComponent {
                 && stack.getDamage() >= stack.getMaxDamage() && isTracked(stack)) {
             EquipmentData data = getOrCreate(stack);
             data.broken = true;
+            // Remove the mirrored vanilla component immediately.  The mixin also
+            // guards enchantment reads, but removing the data prevents other mods
+            // that inspect components directly from applying an effect.
+            stack.remove(DataComponentTypes.ENCHANTMENTS);
             stack.set(EQUIPMENT_TYPE, data);
         }
     }

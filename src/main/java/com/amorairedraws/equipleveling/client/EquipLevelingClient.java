@@ -11,12 +11,16 @@ import com.amorairedraws.equipleveling.client.tooltip.EquipmentTooltipRenderer;
 import com.amorairedraws.equipleveling.client.render.BrokenItemRenderer;
 import com.amorairedraws.equipleveling.client.render.FloatingXpRenderer;
 import com.amorairedraws.equipleveling.event.XpDisplay;
+import com.amorairedraws.equipleveling.network.XpGainPayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 public class EquipLevelingClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
 		HandledScreens.register(EquipmentEnchantingScreenHandler.TYPE, EquipmentEnchantingScreen::new);
+		ClientPlayNetworking.registerGlobalReceiver(XpGainPayload.ID,
+				(payload, context) -> XpDisplay.show(payload.position(), payload.amount()));
 
 		// Register tooltip renderer
 		new EquipmentTooltipRenderer().register();

@@ -28,6 +28,7 @@ public final class ArmorXpHandler {
             XpDisplay.show(player.getEyePos(), xp);
             return;
         }
+        XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
                 EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             ItemStack armor = player.getEquippedStack(slot);

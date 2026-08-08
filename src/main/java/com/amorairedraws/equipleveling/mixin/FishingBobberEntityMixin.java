@@ -31,6 +31,7 @@ public abstract class FishingBobberEntityMixin {
                     com.amorairedraws.equipleveling.event.XpDisplay.show(bobber.getEntityPos(), xp);
                 } else {
                     EquipmentComponent.addXp(rod, xp);
+                    com.amorairedraws.equipleveling.event.XpDisplay.showForPlayer(player, bobber.getEntityPos(), xp);
                 }
             }
         }

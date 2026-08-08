@@ -55,6 +55,10 @@ public abstract class AnvilScreenHandlerMixin {
                 data.broken = false;
                 data.refresh();
                 output.set(EquipmentComponent.EQUIPMENT_TYPE, data);
+                // A broken stack has its mirrored vanilla enchantments removed;
+                // rebuild them after the material repair restores functionality.
+                EquipmentComponent.restoreEnchantments(output,
+                        player.getEntityWorld().getRegistryManager());
             }
         }
     }
