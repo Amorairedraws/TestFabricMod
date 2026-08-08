@@ -33,9 +33,15 @@ public abstract class ScreenHandlerMixin {
         }
         if (handler == null) return;
         RegistryWrapper.WrapperLookup lookup = player.getEntityWorld().getRegistryManager();
-        int xp = getExperience(handler.getSlot(0).getStack(), lookup)
+        int totalEnchantmentPower = getExperience(handler.getSlot(0).getStack(), lookup)
                 + getExperience(handler.getSlot(1).getStack(), lookup);
-        if (xp > 0) player.addExperience(xp);
+        if (totalEnchantmentPower > 0) {
+            // Match GrindstoneScreenHandler's vanilla payout: ceil(total / 2)
+            // plus a random value in [0, ceil(total / 2)).
+            int base = (totalEnchantmentPower + 1) / 2;
+            int payout = base + player.getEntityWorld().getRandom().nextInt(base);
+            player.addExperience(payout);
+        }
     }
 
     private static int getExperience(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {

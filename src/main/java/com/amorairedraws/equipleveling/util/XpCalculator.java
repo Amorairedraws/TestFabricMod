@@ -56,7 +56,7 @@ public final class XpCalculator {
     /** Shovel XP is tag based so modded dirt, sand, gravel and snow work too. */
     public static int calculateShovelXp(BlockState state) {
         return state.isIn(BlockTags.DIRT) || state.isIn(BlockTags.SAND)
-                || state.isIn(BlockTags.SNOW) ? 5 : 0;
+                || state.isIn(BlockTags.SNOW) || state.isOf(Blocks.GRAVEL) ? 5 : 0;
     }
 
     /** XP is awarded for harvesting mature crop blocks, not destroying seedlings. */
