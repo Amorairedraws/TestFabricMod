@@ -41,14 +41,26 @@ public abstract class AnvilScreenHandlerMixin {
         ItemStack left = handler.getSlot(0).getStack();
         ItemStack right = handler.getSlot(1).getStack();
         if (EquipmentComponent.isTracked(left) && !right.isEmpty()
-                && EquipmentComponent.isTracked(right)) {
+                && (EquipmentComponent.isTracked(right) || isEnchantedBook(right))) {
             handler.getSlot(2).setStack(ItemStack.EMPTY);
             ci.cancel();
         }
     }
 
+    private static boolean isEnchantedBook(ItemStack stack) {
+        return stack.isOf(net.minecraft.item.Items.ENCHANTED_BOOK)
+                || stack.contains(net.minecraft.component.DataComponentTypes.STORED_ENCHANTMENTS);
+    }
+
     @Inject(method = "onTakeOutput", at = @At("RETURN"))
     private void equipLeveling$repairBroken(PlayerEntity player, ItemStack output, CallbackInfo ci) {
+        if (EquipmentComponent.isTracked(output)) {
+            if (!output.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+                EquipmentComponent.getOrCreate(output);
+                EquipmentComponent.restoreEnchantments(output,
+                        player.getEntityWorld().getRegistryManager());
+            }
+        }
         if (EquipmentComponent.isTracked(output) && output.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
             var data = output.get(EquipmentComponent.EQUIPMENT_TYPE);
             if (data != null && data.broken) {

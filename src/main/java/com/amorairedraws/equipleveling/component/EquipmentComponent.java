@@ -42,20 +42,27 @@ public final class EquipmentComponent {
         EquipmentData data = stack.get(EQUIPMENT_TYPE);
         if (data == null) {
             data = EquipmentData.create(EquipmentCategory.getCategory(stack));
-            stack.set(EQUIPMENT_TYPE, data);
         } else {
             data.refresh();
-            stack.set(EQUIPMENT_TYPE, data);
         }
+        // refresh() can only inspect component data. Include the actual item
+        // material here so a non-final tier is not incorrectly treated as maxed
+        // before it has earned its legendary promotion.
+        data.maxed = data.maxed && MaterialTierUpgrader.isAtMaxTier(stack,
+                EquipLevelingConfig.getMaterialTiers());
+        stack.set(EQUIPMENT_TYPE, data);
         return data;
     }
 
-    /** Adds progression XP and immediately writes the immutable data component back. */
-    public static void addXp(ItemStack stack, int amount) {
-        if (!isTracked(stack)) return;
+    /** Adds progression XP and immediately writes the immutable data component back.
+     * @return true only when the item accepted the reward (not broken, capped, or maxed). */
+    public static boolean addXp(ItemStack stack, int amount) {
+        if (!isTracked(stack)) return false;
         EquipmentData data = getOrCreate(stack);
+        int before = data.xp;
         data.addXp(amount);
         stack.set(EQUIPMENT_TYPE, data);
+        return data.xp != before;
     }
 
     /** Rehydrates vanilla's enchantment component from custom slot IDs. Loot

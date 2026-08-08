@@ -43,7 +43,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		// the two loot-derived bonus slots. It appears at the top of the slot
 		// section, before the four standard slots.
 		if (data.mending) {
-			lines.add(insertIndex++, Text.literal("\u2666 Mending 1").formatted(Formatting.AQUA));
+			lines.add(insertIndex++, Text.literal("\uD83D\uDC8E Mending 1").formatted(Formatting.AQUA));
 		}
 
 		// Standard slots

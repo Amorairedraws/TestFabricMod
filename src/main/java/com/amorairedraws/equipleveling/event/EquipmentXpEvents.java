@@ -26,8 +26,9 @@ public class EquipmentXpEvents {
         String category = EquipmentCategory.getCategory(held);
         if (("sword".equals(category) || "axe".equals(category))) {
             int xp = XpCalculator.calculateEntityKillXp(entity);
-            EquipmentComponent.addXp(held, xp);
-            XpDisplay.showForPlayer(player, entity.getEntityPos(), xp);
+            if (EquipmentComponent.addXp(held, xp)) {
+                XpDisplay.showForPlayer(player, entity.getEntityPos(), xp);
+            }
         }
     }
 
@@ -73,8 +74,7 @@ public class EquipmentXpEvents {
 					if (world.isClient()) {
 						// Some versions also invoke the callback on the logical client.
 						XpDisplay.show(net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
-					} else {
-						EquipmentComponent.addXp(heldItem, xp);
+					} else if (EquipmentComponent.addXp(heldItem, xp)) {
 						XpDisplay.showForPlayer(player, net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
 					}
 				}

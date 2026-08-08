@@ -36,6 +36,17 @@ public final class MaterialTierUpgrader {
         // trim data and every other component survive a legendary promotion.
         ItemStack result = new ItemStack(next, old.getCount());
         result.applyComponentsFrom(old.getComponents());
+        // Keep player-facing/custom data (including the Equip Leveling
+        // component, name and trim), but restore the promoted item's own combat,
+        // tool, armor, durability and repair defaults. Copying those old default
+        // components would make a diamond item retain iron stats.
+        result.remove(net.minecraft.component.DataComponentTypes.MAX_DAMAGE);
+        result.remove(net.minecraft.component.DataComponentTypes.DAMAGE);
+        result.remove(net.minecraft.component.DataComponentTypes.ATTRIBUTE_MODIFIERS);
+        result.remove(net.minecraft.component.DataComponentTypes.TOOL);
+        result.remove(net.minecraft.component.DataComponentTypes.WEAPON);
+        result.remove(net.minecraft.component.DataComponentTypes.EQUIPPABLE);
+        result.remove(net.minecraft.component.DataComponentTypes.REPAIRABLE);
         if (result.isDamageable()) result.setDamage(0); // legendary upgrades fully restore durability
         return result;
     }

@@ -14,7 +14,7 @@ public final class ArmorXpHandler {
 
     /**
      * Fabric calls this after the damage pipeline, so invulnerability frames and
-     * cancelled damage do not award progression.  Every worn piece receives the
+     * cancelled damage do not award progression. Every worn piece receives the
      * same reward, as specified by the equipment-leveling rules.
      */
     public static void afterDamage(LivingEntity entity, DamageSource source, float attempted,
@@ -28,13 +28,14 @@ public final class ArmorXpHandler {
             XpDisplay.show(player.getEyePos(), xp);
             return;
         }
-        XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
+        boolean awarded = false;
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
                 EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             ItemStack armor = player.getEquippedStack(slot);
             if (!armor.isEmpty() && EquipmentCategory.isEquipment(armor)) {
-                EquipmentComponent.addXp(armor, xp);
+                awarded |= EquipmentComponent.addXp(armor, xp);
             }
         }
+        if (awarded) XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
     }
 }

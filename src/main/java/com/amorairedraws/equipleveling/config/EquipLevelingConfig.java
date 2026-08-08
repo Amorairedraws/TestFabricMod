@@ -118,6 +118,10 @@ public class EquipLevelingConfig {
 			xpMultiplier = Double.isFinite(xpMultiplier) ? Math.max(1.0, Math.min(10.0, xpMultiplier)) : 1.2;
 			xpDisplayThreshold = Math.max(0, xpDisplayThreshold);
 			durabilityRestorePercent = Math.max(0, Math.min(100, durabilityRestorePercent));
+			coalXp = Math.max(0, coalXp);
+			ironXp = Math.max(0, ironXp);
+			goldXp = Math.max(0, goldXp);
+			rareOreXp = Math.max(0, rareOreXp);
 			legendaryUpgradeProbability = Double.isFinite(legendaryUpgradeProbability)
 					? Math.max(0, Math.min(1, legendaryUpgradeProbability)) : 0.05;
 			upgradeWeight = Double.isFinite(upgradeWeight) ? Math.max(0, upgradeWeight) : 0.6;
@@ -127,6 +131,13 @@ public class EquipLevelingConfig {
 			for (int i = 0; i < rerollCosts.length; i++) rerollCosts[i] = Math.max(0, rerollCosts[i]);
 			if (materialTiers == null || materialTiers.length == 0) {
 				materialTiers = new String[]{"wood", "stone", "iron", "diamond", "netherite"};
+			} else {
+				materialTiers = java.util.Arrays.stream(materialTiers)
+						.filter(s -> s != null && !s.isBlank())
+						.map(s -> s.trim().toLowerCase()).toArray(String[]::new);
+				if (materialTiers.length == 0) {
+					materialTiers = new String[]{"wood", "stone", "iron", "diamond", "netherite"};
+				}
 			}
 			LOGGER.info("Config loaded successfully");
 		} catch (IOException | RuntimeException e) {
@@ -281,7 +292,8 @@ public class EquipLevelingConfig {
 
 	public static void setMaterialTiers(String[] tiers) {
 		if (tiers == null || tiers.length == 0) throw new IllegalArgumentException("At least one material tier is required");
-		materialTiers = java.util.Arrays.stream(tiers).filter(s -> s != null && !s.isBlank()).map(String::toLowerCase).toArray(String[]::new);
+		materialTiers = java.util.Arrays.stream(tiers).filter(s -> s != null && !s.isBlank())
+				.map(s -> s.trim().toLowerCase()).toArray(String[]::new);
 		if (materialTiers.length == 0) throw new IllegalArgumentException("At least one material tier is required");
 		save();
 	}

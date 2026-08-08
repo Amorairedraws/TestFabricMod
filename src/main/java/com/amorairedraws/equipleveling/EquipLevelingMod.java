@@ -56,9 +56,12 @@ public class EquipLevelingMod implements ModInitializer {
 		// The vanilla table is deliberately reused: no resource pack or custom
 		// block is needed. Only qualifying equipment opens our handler.
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
+			var held = player.getStackInHand(hand);
 			if (hit.getBlockPos() == null
 					|| world.getBlockState(hit.getBlockPos()).getBlock() != Blocks.ENCHANTING_TABLE
-					|| !EquipmentComponent.isTracked(player.getStackInHand(hand))) return ActionResult.PASS;
+					|| !EquipmentComponent.isTracked(held)) return ActionResult.PASS;
+			var heldData = held.get(EquipmentComponent.EQUIPMENT_TYPE);
+			if (heldData != null && heldData.broken) return ActionResult.FAIL;
 			// Consume the interaction on both logical sides.  Returning PASS on the
 			// client would open the vanilla enchanting screen before the server packet
 			// for our handler arrives.
@@ -67,10 +70,12 @@ public class EquipLevelingMod implements ModInitializer {
 				SimpleInventory input = new SimpleInventory(1);
 				// Initialize lazily, but before the handler generates offers. The same
 				// stack object is retained so component mutations persist in inventory.
-				EquipmentComponent.getOrCreate(player.getStackInHand(hand));
-				input.setStack(0, player.getStackInHand(hand));
+				EquipmentComponent.getOrCreate(held);
+				EquipmentComponent.restoreEnchantments(held, serverPlayer.getEntityWorld().getRegistryManager());
+				input.setStack(0, held);
 				serverPlayer.openHandledScreen(new SimpleNamedScreenHandlerFactory(
-					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input, p, hand),
+					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input, p, hand,
+							hit.getBlockPos()),
 					Text.translatable("equip_leveling.title")));
 			}
 			return ActionResult.SUCCESS;
@@ -79,14 +84,13 @@ public class EquipLevelingMod implements ModInitializer {
 		// Hoe tilling is a block-use action rather than a block break. Award it
 		// here; crop harvesting continues to use PlayerBlockBreakEvents.
 		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
+			var hoeStack = player.getStackInHand(hand);
+			var hoeData = hoeStack.get(EquipmentComponent.EQUIPMENT_TYPE);
 			if (world.getBlockState(hit.getBlockPos()).isIn(net.minecraft.registry.tag.BlockTags.DIRT)
-					&& "hoe".equals(com.amorairedraws.equipleveling.util.EquipmentCategory.getCategory(player.getStackInHand(hand)))) {
+					&& "hoe".equals(com.amorairedraws.equipleveling.util.EquipmentCategory.getCategory(hoeStack))
+					&& (hoeData == null || !hoeData.broken)) {
 				int xp = 3;
-				if (world.isClient()) {
-					com.amorairedraws.equipleveling.event.XpDisplay.show(
-							net.minecraft.util.math.Vec3d.ofCenter(hit.getBlockPos()), xp);
-				} else {
-					EquipmentComponent.addXp(player.getStackInHand(hand), xp);
+				if (!world.isClient() && EquipmentComponent.addXp(player.getStackInHand(hand), xp)) {
 					com.amorairedraws.equipleveling.event.XpDisplay.showForPlayer(player,
 							net.minecraft.util.math.Vec3d.ofCenter(hit.getBlockPos()), xp);
 				}
@@ -153,9 +157,9 @@ public class EquipLevelingMod implements ModInitializer {
 
 		// XP accrual events
 		PlayerBlockBreakEvents.AFTER.register(new EquipmentXpEvents.BlockBreakXpHandler());
-		// AttackEntityCallback is used only for the client-side floating label. The
-		// authoritative reward is granted from AFTER_DEATH below, once the kill is
-		// known to have succeeded.
+		// AttackEntityCallback is used only to observe attempted attacks and never
+		// mutates progression. The authoritative reward is granted from AFTER_DEATH
+		// below, once the kill is known to have succeeded.
 		AttackEntityCallback.EVENT.register(new EquipmentXpEvents.EntityKillXpHandler());
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			// Durability is applied after most Fabric action callbacks. Scan once per

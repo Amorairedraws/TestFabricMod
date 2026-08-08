@@ -27,6 +27,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	private final Inventory inventory;
 	private final PlayerEntity sourcePlayer;
 	private final net.minecraft.util.Hand sourceHand;
+	private final net.minecraft.util.math.BlockPos sourcePos;
 	private final net.minecraft.util.math.random.Random random = net.minecraft.util.math.random.Random.create();
 	
 	public EquipmentEnchantingOffer[] offers = new EquipmentEnchantingOffer[3];
@@ -46,19 +47,26 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 	};
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory) {
-		this(syncId, playerInventory, new SimpleInventory(1), playerInventory.player, null);
+		this(syncId, playerInventory, new SimpleInventory(1), playerInventory.player, null, null);
 	}
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory) {
-		this(syncId, playerInventory, inventory, playerInventory.player, null);
+		this(syncId, playerInventory, inventory, playerInventory.player, null, null);
 	}
 
 	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory,
 			PlayerEntity sourcePlayer, net.minecraft.util.Hand sourceHand) {
+		this(syncId, playerInventory, inventory, sourcePlayer, sourceHand, null);
+	}
+
+	public EquipmentEnchantingScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory,
+			PlayerEntity sourcePlayer, net.minecraft.util.Hand sourceHand,
+			net.minecraft.util.math.BlockPos sourcePos) {
 		super(TYPE, syncId);
 		this.inventory = inventory;
 		this.sourcePlayer = sourcePlayer;
 		this.sourceHand = sourceHand;
+		this.sourcePos = sourcePos;
 
 		// The item is supplied by the hand that opened the table. It is a
 		// deliberately fixed slot: allowing the generic Slot implementation to
@@ -305,7 +313,10 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 
 	@Override
 	public boolean canUse(PlayerEntity player) {
-		return this.inventory.canPlayerUse(player);
+		if (!this.inventory.canPlayerUse(player)) return false;
+		if (sourcePos == null) return true; // client-side constructor has no block context
+		return player.getEntityWorld().getBlockState(sourcePos).isOf(net.minecraft.block.Blocks.ENCHANTING_TABLE)
+				&& player.squaredDistanceTo(net.minecraft.util.math.Vec3d.ofCenter(sourcePos)) <= 64.0;
 	}
 
 	@Override
@@ -354,6 +365,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		EquipmentComponent.EquipmentData data = itemStack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		EquipmentEnchantingOffer offer = offers[index];
 		if (!data.readyToLevelUp || data.broken || data.maxed) return;
+		boolean applied = false;
 
 		if (offer instanceof EquipmentEnchantingOffer.NewEnchantment newEnch) {
 			if (data.getFilledSlots() < 4) {
@@ -363,12 +375,18 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 					newEnch.enchantmentId, newEnch.level
 				);
 				for (int i = 0; i < data.slots.size(); i++) {
-					if (data.slots.get(i).isEmpty()) { data.slots.set(i, slot); break; }
+					if (data.slots.get(i).isEmpty()) {
+						data.slots.set(i, slot);
+						applied = true;
+						break;
+					}
 				}
 			}
 		} else if (offer instanceof EquipmentEnchantingOffer.Upgrade upgrade) {
-			if (upgrade.slot.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(upgrade.slot)) {
+			if (upgrade.slot.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(
+					upgrade.slot, player.getEntityWorld().getRegistryManager())) {
 				upgrade.slot.enchantmentLevel++;
+				applied = true;
 			}
 		} else if (offer instanceof EquipmentEnchantingOffer.LegendaryUpgrade) {
 			// Promote the actual stack, retaining every custom and vanilla component.
@@ -377,7 +395,9 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 			if (promoted == itemStack) return;
 			this.inventory.setStack(0, promoted);
 			itemStack = promoted;
+			applied = true;
 		}
+		if (!applied) return;
 
 		// Restore durability
 		int durableRestore = (int) (itemStack.getMaxDamage() * 
