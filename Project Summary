@@ -75,17 +75,17 @@ Custom tooltip renderer using Fabric's tooltip rendering hook. Anchored at the t
 ---
 
 ### Enchanting Table
-Custom screen handler and screen class, visually identical to vanilla. No new art assets — uses vanilla texture atlas and font throughout. Heavily inspired by the base enchanting table UI.
+Hijacks the enchanting table UI, disables the Lapis lazuli slot and replaces it with a square "reroll" button.
 
 **Behavior when a qualifying item is placed in the item slot:**
-Generates 3 offers. Each offer is one of:
+Generates 3 offers in place of the vanilla enchantment offerings (enchanting table language is replaced by name of enchantment or upgrade offered). Each offer is one of:
 - A new enchantment at level 1 for an empty standard slot (if any exist) (can only offer enchantments that are compatible with that item) (Mending is exempt)
 - An upgrade (+1 level) to an existing standard or bonus slot enchantment (if any are below max level)
 - A legendary upgrade (material tier promotion) — rare, configurable probability, functionally doesn't count towards max level, as max level is reached when all enchantments are fully upgraded.
 
 Offer weights slightly favor upgrades to existing slots over new enchantments. Weights configurable.
 
-A **"Reroll" button** (text only, vanilla button style) replaces the lapis slot. Displays the level cost beneath it. Spends player XP levels to regenerate 3 new offers.
+A **"Reroll" button** (U+21BA, ↺, vanilla button style) replaces the lapis slot. Displays the level cost next to it. Spends player XP levels to regenerate 3 new offers.
 
 **Reroll cost by number of filled standard slots:**
 - 0 filled: 1 levels
@@ -99,7 +99,7 @@ The reroll cost is then further increased by the Vanilla cost/weight value of th
 All values configurable.
 
 **On selecting an offer:**
-- Enchantment written to the appropriate slot in the component
+- Enchantment written to item in the slot
 - Item durability restored by a configurable percentage (default 25%)
 - If all 4 standard slots are now filled, Mending is automatically added as a bonus slot separate from the 2 loot based bonus slots (💎, cyan text) at the far top of the enchantment slots.
 - `readyToLevelUp` resets to false, XP resets to 0, level increments by 1
@@ -158,7 +158,7 @@ Found enchanted loot is therefore always meaningfully ahead of freshly crafted g
 
 ---
 
-### Config (Mod Menu, hand-rolled screen)
+### Config (Mod Menu, cloth config)
 - `baseXP` per item category (Sword, Axe, Pickaxe, Shovel, Hoe, Helmet, Chestplate, Leggings, Boots, Fishing Rod, and a default fallback)
 - XP scaling multiplier (default 1.2, global)
 - XP display threshold (minimum gain to show floating number)
