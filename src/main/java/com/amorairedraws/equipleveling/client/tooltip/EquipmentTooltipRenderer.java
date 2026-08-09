@@ -33,7 +33,9 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		lines.add(insertIndex++, renderXpBar(data));
 
 		if (data.maxed) {
-			lines.add(insertIndex++, Text.literal("\u2728 MAX LEVEL \u2728").formatted(Formatting.GOLD));
+			// Issue 9: only one MAX LEVEL line. The level line below is skipped
+			// when maxed, so the sparkle banner is the single completion marker.
+			lines.add(insertIndex++, Text.literal("\u2728\u2728 MAX LEVEL \u2728\u2728").formatted(Formatting.GOLD));
 		} else if (data.readyToLevelUp) {
 			lines.add(insertIndex++, Text.literal("Ready to level up!").formatted(Formatting.GREEN));
 			// Issue 13: point new players toward the enchanting table.
@@ -42,10 +44,8 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			lines.add(insertIndex++, Text.literal(String.format("(%d/%d) XP", data.xp, data.xpRequired)).formatted(Formatting.GRAY));
 		}
 
-		// Level or MAX LEVEL
-		if (data.maxed) {
-			lines.add(insertIndex++, Text.literal("\u2728\u2728 MAX LEVEL \u2728\u2728").formatted(Formatting.GOLD));
-		} else {
+		// Level (skipped when maxed; the MAX LEVEL banner above is the marker).
+		if (!data.maxed) {
 			lines.add(insertIndex++, Text.literal(String.format("Level %d", data.level)).formatted(Formatting.YELLOW));
 		}
 
@@ -78,7 +78,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 	}
 
 	private Text renderXpBar(EquipmentComponent.EquipmentData data) {
-		int barLength = 10;
+		int barLength = 15;
 		int filled = data.xpRequired > 0 ? (data.xp * barLength) / data.xpRequired : 0;
 		filled = Math.min(filled, barLength);
 

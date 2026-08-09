@@ -30,6 +30,14 @@ public class EquipLevelingConfig {
 	private static int durabilityRestorePercent = 25;
 	// Ore/action rewards are configurable independently of equipment material.
 	private static int coalXp = 3, ironXp = 8, goldXp = 20, rareOreXp = 40;
+	// Per-action XP rewards (Issue 5/6). These let players tune how much XP each
+	// activity grants without editing code.
+	private static int entityKillXp = 10;   // base XP per kill (scaled by health)
+	private static int logXp = 4;           // per log/stem broken with an axe
+	private static int shovelXp = 1;        // per dirt/sand/gravel/snow block
+	private static int hoeXp = 3;           // per mature crop harvested
+	private static int stoneXp = 1;         // per stone-type block broken with a pickaxe
+	private static int clayXp = 5;          // per clay block broken with a shovel
 	// Cost is indexed by the number of filled standard slots (0..4).
 	// Defaults match the documented 5 / 10 / 15 / 20 / 25 level progression.
 	private static int[] rerollCosts = {5, 10, 15, 20, 25};
@@ -120,6 +128,12 @@ public class EquipLevelingConfig {
 			ironXp = json.has("ironXp") ? json.get("ironXp").getAsInt() : 8;
 			goldXp = json.has("goldXp") ? json.get("goldXp").getAsInt() : 20;
 			rareOreXp = json.has("rareOreXp") ? json.get("rareOreXp").getAsInt() : 40;
+			entityKillXp = json.has("entityKillXp") ? json.get("entityKillXp").getAsInt() : 10;
+			logXp = json.has("logXp") ? json.get("logXp").getAsInt() : 4;
+			shovelXp = json.has("shovelXp") ? json.get("shovelXp").getAsInt() : 1;
+			hoeXp = json.has("hoeXp") ? json.get("hoeXp").getAsInt() : 3;
+			stoneXp = json.has("stoneXp") ? json.get("stoneXp").getAsInt() : 1;
+			clayXp = json.has("clayXp") ? json.get("clayXp").getAsInt() : 5;
 			
 			if (json.has("rerollCosts")) {
 				int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
@@ -215,6 +229,12 @@ public class EquipLevelingConfig {
 			json.addProperty("ironXp", ironXp);
 			json.addProperty("goldXp", goldXp);
 			json.addProperty("rareOreXp", rareOreXp);
+			json.addProperty("entityKillXp", entityKillXp);
+			json.addProperty("logXp", logXp);
+			json.addProperty("shovelXp", shovelXp);
+			json.addProperty("hoeXp", hoeXp);
+			json.addProperty("stoneXp", stoneXp);
+			json.addProperty("clayXp", clayXp);
 			json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
 			json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
 			json.add("materialTiers", GSON.toJsonTree(materialTiers));
@@ -271,6 +291,20 @@ public class EquipLevelingConfig {
 		coalXp = Math.max(0, coal); ironXp = Math.max(0, iron);
 		goldXp = Math.max(0, gold); rareOreXp = Math.max(0, rare); save();
 	}
+
+	public static int getEntityKillXp() { return entityKillXp; }
+	public static int getLogXp() { return logXp; }
+	public static int getShovelXp() { return shovelXp; }
+	public static int getHoeXp() { return hoeXp; }
+	public static int getStoneXp() { return stoneXp; }
+	public static int getClayXp() { return clayXp; }
+
+	public static void setEntityKillXp(int v) { entityKillXp = Math.max(0, v); save(); }
+	public static void setLogXp(int v) { logXp = Math.max(0, v); save(); }
+	public static void setShovelXp(int v) { shovelXp = Math.max(0, v); save(); }
+	public static void setHoeXp(int v) { hoeXp = Math.max(0, v); save(); }
+	public static void setStoneXp(int v) { stoneXp = Math.max(0, v); save(); }
+	public static void setClayXp(int v) { clayXp = Math.max(0, v); save(); }
 
 	public static int[] getRerollCosts() {
 		return java.util.Arrays.copyOf(rerollCosts, rerollCosts.length);

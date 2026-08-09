@@ -49,22 +49,32 @@ public final class MaterialTierUpgrader {
         Item next = itemFor(category, ladder[index + 1], old.getItem());
         if (next == null) return old;
 
-        // applyComponentsFrom is important: custom progression, custom names,
-        // trim data and every other component survive a legendary promotion.
+        // A legendary promotion must keep the new material's own combat, tool,
+        // armor, durability and repair defaults. Copying the old item's full
+        // component set would overwrite those defaults with the previous
+        // material's stats (e.g. a diamond item retaining iron stats), and
+        // removing them afterwards would strip the new item of its TOOL/WEAPON/
+        // MAX_DAMAGE entirely, leaving it to act like an empty hand. Instead we
+        // start from the new item's pristine defaults and copy over only the
+        // player-facing / custom progression data.
         ItemStack result = new ItemStack(next, old.getCount());
-        result.applyComponentsFrom(old.getComponents());
-        // Keep player-facing/custom data (including the Equip Leveling
-        // component, name and trim), but restore the promoted item's own combat,
-        // tool, armor, durability and repair defaults. Copying those old default
-        // components would make a diamond item retain iron stats.
-        result.remove(net.minecraft.component.DataComponentTypes.MAX_DAMAGE);
-        result.remove(net.minecraft.component.DataComponentTypes.DAMAGE);
-        result.remove(net.minecraft.component.DataComponentTypes.ATTRIBUTE_MODIFIERS);
-        result.remove(net.minecraft.component.DataComponentTypes.TOOL);
-        result.remove(net.minecraft.component.DataComponentTypes.WEAPON);
-        result.remove(net.minecraft.component.DataComponentTypes.EQUIPPABLE);
-        result.remove(net.minecraft.component.DataComponentTypes.REPAIRABLE);
-        if (result.isDamageable()) result.setDamage(0); // legendary upgrades fully restore durability
+        // Equip Leveling progression data (level, XP, slots, etc.).
+        if (old.contains(com.amorairedraws.equipleveling.component.EquipmentComponent.EQUIPMENT_TYPE)) {
+            result.set(com.amorairedraws.equipleveling.component.EquipmentComponent.EQUIPMENT_TYPE,
+                    old.get(com.amorairedraws.equipleveling.component.EquipmentComponent.EQUIPMENT_TYPE));
+        }
+        // Custom display name.
+        if (old.contains(net.minecraft.component.DataComponentTypes.CUSTOM_NAME)) {
+            result.set(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,
+                    old.get(net.minecraft.component.DataComponentTypes.CUSTOM_NAME));
+        }
+        // Armor trim.
+        if (old.contains(net.minecraft.component.DataComponentTypes.TRIM)) {
+            result.set(net.minecraft.component.DataComponentTypes.TRIM,
+                    old.get(net.minecraft.component.DataComponentTypes.TRIM));
+        }
+        // Legendary upgrades fully restore durability.
+        if (result.isDamageable()) result.setDamage(0);
         return result;
     }
 

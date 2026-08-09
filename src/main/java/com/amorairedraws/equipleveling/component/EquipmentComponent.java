@@ -210,21 +210,34 @@ public final class EquipmentComponent {
             Codec.BOOL.fieldOf("ready_to_level_up").forGetter(d -> d.readyToLevelUp),
             Codec.BOOL.fieldOf("broken").forGetter(d -> d.broken),
             Codec.BOOL.fieldOf("maxed").forGetter(d -> d.maxed),
-            Codec.INT.optionalFieldOf("max_slots", 4).forGetter(d -> d.maxSlots)
+            Codec.INT.optionalFieldOf("max_slots", 4).forGetter(d -> d.maxSlots),
+            Codec.BOOL.optionalFieldOf("slots_complete", false).forGetter(d -> d.slotsComplete)
         ).apply(i, EquipmentData::new));
 
         public int level, xp, xpRequired;
         public int maxSlots;
         public boolean mending, readyToLevelUp, broken, maxed;
+        /** True when no more compatible enchantments can be added to the standard
+         * slots, so the item is "slot complete" even if not every configured slot
+         * is filled. This lets tools with few compatible enchantments still earn
+         * mending and reach MAX LEVEL. */
+        public boolean slotsComplete;
         public List<EquipmentSlot> slots, bonusSlots;
 
         public EquipmentData(int level, int xp, int xpRequired, boolean mending,
                 List<EquipmentSlot> slots, List<EquipmentSlot> bonusSlots,
                 boolean ready, boolean broken, boolean maxed, int maxSlots) {
+            this(level, xp, xpRequired, mending, slots, bonusSlots, ready, broken, maxed, maxSlots, false);
+        }
+
+        public EquipmentData(int level, int xp, int xpRequired, boolean mending,
+                List<EquipmentSlot> slots, List<EquipmentSlot> bonusSlots,
+                boolean ready, boolean broken, boolean maxed, int maxSlots, boolean slotsComplete) {
             this.level = Math.max(0, level); this.xp = Math.max(0, xp);
             this.xpRequired = Math.max(1, xpRequired); this.mending = mending;
             this.slots = new ArrayList<>(slots); this.bonusSlots = new ArrayList<>(bonusSlots);
             this.readyToLevelUp = ready; this.broken = broken; this.maxed = maxed;
+            this.slotsComplete = slotsComplete;
             this.maxSlots = Math.min(4, Math.max(1, maxSlots));
             while (this.slots.size() < this.maxSlots) this.slots.add(new EquipmentSlot(null, 0));
             if (this.slots.size() > this.maxSlots) this.slots = new ArrayList<>(this.slots.subList(0, this.maxSlots));
@@ -275,8 +288,9 @@ public final class EquipmentComponent {
                 while (slots.size() < maxSlots) slots.add(new EquipmentSlot(null, 0));
                 if (slots.size() > maxSlots) slots = new ArrayList<>(slots.subList(0, maxSlots));
             }
-            // Mending is awarded once the configured standard-slot cap is reached.
-            mending = getFilledSlots() >= maxSlots;
+            // Mending is awarded once the configured standard-slot cap is reached,
+            // or when no more compatible enchantments can be added (slotsComplete).
+            mending = getFilledSlots() >= maxSlots || slotsComplete;
             while (bonusSlots.size() > 2) bonusSlots.remove(bonusSlots.size() - 1);
             updateMaxed();
         }
@@ -304,7 +318,7 @@ public final class EquipmentComponent {
         }
 
         public void updateMaxed(boolean tierLevelSatisfied) {
-            maxed = getFilledSlots() >= maxSlots && mending && tierLevelSatisfied
+            maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending && tierLevelSatisfied
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
         }
@@ -319,7 +333,7 @@ public final class EquipmentComponent {
         }
 
         public void updateMaxed(RegistryWrapper.WrapperLookup lookup, boolean tierLevelSatisfied) {
-            maxed = getFilledSlots() >= maxSlots && mending && tierLevelSatisfied
+            maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending && tierLevelSatisfied
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup));
         }
@@ -360,7 +374,7 @@ public final class EquipmentComponent {
         public EquipmentData copy() {
             List<EquipmentSlot> a = new ArrayList<>(), b = new ArrayList<>();
             slots.forEach(s -> a.add(s.copy())); bonusSlots.forEach(s -> b.add(s.copy()));
-            return new EquipmentData(level, xp, xpRequired, mending, a, b, readyToLevelUp, broken, maxed, maxSlots);
+            return new EquipmentData(level, xp, xpRequired, mending, a, b, readyToLevelUp, broken, maxed, maxSlots, slotsComplete);
         }
 
         @Override
@@ -370,12 +384,13 @@ public final class EquipmentComponent {
             return level == d.level && xp == d.xp && xpRequired == d.xpRequired
                     && mending == d.mending && readyToLevelUp == d.readyToLevelUp
                     && broken == d.broken && maxed == d.maxed && maxSlots == d.maxSlots
+                    && slotsComplete == d.slotsComplete
                     && slots.equals(d.slots) && bonusSlots.equals(d.bonusSlots);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(level, xp, xpRequired, mending, readyToLevelUp, broken, maxed, maxSlots, slots, bonusSlots);
+            return java.util.Objects.hash(level, xp, xpRequired, mending, readyToLevelUp, broken, maxed, maxSlots, slotsComplete, slots, bonusSlots);
         }
     }
 

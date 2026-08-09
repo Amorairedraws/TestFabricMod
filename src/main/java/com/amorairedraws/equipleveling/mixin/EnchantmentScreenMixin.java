@@ -71,9 +71,15 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
                         rowX, rowY, 108, 19);
             }
 
-            if (active && client.world != null) {
-                var registry = client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
-                String label = VanillaEnchantingTableLogic.describeOffer(handler, row, registry);
+            if (active) {
+                String label;
+                if (client.world != null) {
+                    var registry = client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
+                    label = VanillaEnchantingTableLogic.describeOffer(handler, row, registry);
+                } else {
+                    label = VanillaEnchantingTableLogic.describeOfferFallback(handler, row);
+                }
+                if (label == null || label.isEmpty()) label = "Unknown offer";
                 String clipped = textRenderer.trimToWidth(label, 84);
                 context.drawTextWithShadow(textRenderer, clipped, rowX + 12, rowY + 6, 0xFFFFFF);
             }

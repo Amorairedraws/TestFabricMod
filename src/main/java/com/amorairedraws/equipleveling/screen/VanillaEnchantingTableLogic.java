@@ -71,6 +71,7 @@ public final class VanillaEnchantingTableLogic {
 
         // Issue 8: never offer the same enchantment twice across the three rows.
         java.util.Set<String> usedEnchantments = new java.util.HashSet<>();
+        List<GeneratedOffer> offers = new ArrayList<>();
         for (int index = 0; index < 3; index++) {
             GeneratedOffer offer = generateOffer(data, stack, enchantments, registries, random, usedEnchantments);
             if (offer == null) continue;
@@ -80,9 +81,42 @@ public final class VanillaEnchantingTableLogic {
                             .flatMap(e -> e.getKey().map(k -> k.getValue().toString())).orElse(null)
                     : null;
             if (offeredId != null) usedEnchantments.add(offeredId);
-            handler.enchantmentPower[index] = 1; // active marker; leveling itself has no XP-level cost
-            handler.enchantmentId[index] = offer.enchantmentRawId;
-            handler.enchantmentLevel[index] = offer.encodedLevel;
+            offers.add(offer);
+        }
+
+        // Issue 8: if no more compatible enchantments can be added, mark the
+        // standard slots complete so mending / MAX LEVEL can still be reached
+        // even when the configured slot cap is higher than what the item supports.
+        if (data.getFilledSlots() < data.maxSlots && !canAddAnyMore(data, stack, enchantments)) {
+            data.slotsComplete = true;
+            data.refresh(EquipmentCategory.getCategory(stack));
+            data.updateMaxed(registries, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
+                    EquipLevelingConfig.getMaterialTiers()));
+            stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
+        }
+
+        // Issue 11: legendary is a flat percentage pass that replaces one offer,
+        // independent of the weight pool. This keeps it a rare, separate event
+        // rather than competing with upgrade/new weights.
+        boolean canLegendary = MaterialTierUpgrader.canPromote(stack, EquipmentCategory.getCategory(stack),
+                EquipLevelingConfig.getMaterialTiers());
+        if (canLegendary && !offers.isEmpty()
+                && random.nextDouble() < EquipLevelingConfig.getLegendaryUpgradeProbability()) {
+            offers.set(random.nextInt(offers.size()), new GeneratedOffer(-1, LEGENDARY));
+        }
+
+        // Issue 2: shuffle the offer positions so it's random which slot holds
+        // which offer, avoiding a bias where later slots are more likely to be
+        // new enchantments or upgrades.
+        java.util.Collections.shuffle(offers, new java.util.Random(random.nextLong()));
+
+        for (int index = 0; index < 3; index++) {
+            if (index < offers.size()) {
+                GeneratedOffer offer = offers.get(index);
+                handler.enchantmentPower[index] = 1; // active marker; leveling itself has no XP-level cost
+                handler.enchantmentId[index] = offer.enchantmentRawId;
+                handler.enchantmentLevel[index] = offer.encodedLevel;
+            }
         }
         handler.sendContentUpdates();
     }
@@ -177,6 +211,17 @@ public final class VanillaEnchantingTableLogic {
         return Math.max(0, base + extra);
     }
 
+    /** Fallback label that needs no registry, used when the client world is not
+     * available during rendering. Produces a readable description from the
+     * encoded offer data alone. */
+    public static String describeOfferFallback(EnchantmentScreenHandler handler, int index) {
+        OfferKind kind = getOfferKind(handler, index);
+        if (kind == OfferKind.LEGENDARY) return "Legendary tier upgrade";
+        if (kind == OfferKind.NONE) return "";
+        if (kind == OfferKind.UPGRADE) return "Upgrade enchantment";
+        return "New enchantment";
+    }
+
     public static String describeOffer(EnchantmentScreenHandler handler, int index,
             Registry<Enchantment> enchantments) {
         OfferKind kind = getOfferKind(handler, index);
@@ -205,25 +250,21 @@ public final class VanillaEnchantingTableLogic {
         additions.removeIf(id -> usedEnchantments.contains(id.toString()) || !canAdd(id, data, stack, enchantments));
         boolean canUpgrade = !upgradeable.isEmpty();
         boolean canAdd = data.getFilledSlots() < data.maxSlots && !additions.isEmpty();
-        boolean canLegendary = MaterialTierUpgrader.canPromote(stack, EquipmentCategory.getCategory(stack),
-                EquipLevelingConfig.getMaterialTiers());
-        if (!canUpgrade && !canAdd && !canLegendary) return null;
+        if (!canUpgrade && !canAdd) return null;
 
-        // Weighted selection across the three offer types. If a type is not
-        // currently possible, its weight is simply excluded from the pool.
+        // Weighted selection between upgrade and new-enchantment offers only.
+        // Legendary is handled separately as a flat percentage pass in
+        // generateOffers (Issue 11), so it never competes with these weights.
         double upgradeWeight = Math.max(0.0, EquipLevelingConfig.getUpgradeWeight());
         double newWeight = Math.max(0.0, EquipLevelingConfig.getNewSlotWeight());
-        double legendaryWeight = Math.max(0.0, EquipLevelingConfig.getLegendaryWeight());
 
         double total = 0.0;
         if (canUpgrade) total += upgradeWeight;
         if (canAdd) total += newWeight;
-        if (canLegendary) total += legendaryWeight;
         if (total <= 0.0) {
             // No weights configured; fall back to any available offer type.
             if (canUpgrade) return pickUpgrade(upgradeable, enchantments, random);
-            if (canAdd) return pickNew(additions, enchantments, random);
-            return new GeneratedOffer(-1, LEGENDARY);
+            return pickNew(additions, enchantments, random);
         }
 
         double roll = random.nextDouble() * total;
@@ -231,11 +272,7 @@ public final class VanillaEnchantingTableLogic {
             roll -= upgradeWeight;
             if (roll < 0.0) return pickUpgrade(upgradeable, enchantments, random);
         }
-        if (canAdd) {
-            roll -= newWeight;
-            if (roll < 0.0) return pickNew(additions, enchantments, random);
-        }
-        return new GeneratedOffer(-1, LEGENDARY);
+        return pickNew(additions, enchantments, random);
     }
 
     private static GeneratedOffer pickUpgrade(List<EquipmentComponent.EquipmentSlot> upgradeable,
@@ -249,6 +286,17 @@ public final class VanillaEnchantingTableLogic {
             Registry<Enchantment> enchantments, Random random) {
         Identifier id = additions.get(random.nextInt(additions.size()));
         return new GeneratedOffer(enchantments.getRawId(enchantments.get(id)), NEW_SLOT);
+    }
+
+    /** Returns true if at least one compatible enchantment can still be added to
+     * a currently-empty standard slot. Used to mark slotsComplete (Issue 8). */
+    private static boolean canAddAnyMore(EquipmentComponent.EquipmentData data, ItemStack stack,
+            Registry<Enchantment> enchantments) {
+        if (data.getFilledSlots() >= data.maxSlots) return false;
+        for (Identifier id : enchantments.getIds()) {
+            if (canAdd(id, data, stack, enchantments)) return true;
+        }
+        return false;
     }
 
     private static boolean canAdd(Identifier id, EquipmentComponent.EquipmentData data, ItemStack stack,

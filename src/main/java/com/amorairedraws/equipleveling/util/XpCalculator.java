@@ -13,10 +13,13 @@ import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 public final class XpCalculator {
     private XpCalculator() {}
 
-    /** Entity kill XP scales gently with the killed entity's maximum health.
-     * A zombie (20 HP) awards 10 XP, so a sword needs ~40 kills to level up. */
+    /** Entity kill XP scales gently with the killed entity's maximum health,
+     * anchored on the configurable base value. A zombie (20 HP) awards the base
+     * value, and tougher mobs award proportionally more. */
     public static int calculateEntityKillXp(LivingEntity entity) {
-        return Math.max(1, (int) Math.ceil(entity.getMaxHealth() / 2.0));
+        int base = EquipLevelingConfig.getEntityKillXp();
+        // Scale by health relative to a zombie's 20 HP, so a 40 HP mob gives 2x.
+        return Math.max(1, (int) Math.ceil(base * (entity.getMaxHealth() / 20.0)));
     }
 
     /**
@@ -51,26 +54,38 @@ public final class XpCalculator {
         if (block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE) {
             return EquipLevelingConfig.getCoalXp();
         }
+        // Issue 6: menial blocks like stone also grant a small amount of XP so
+        // pickaxe users aren't punished for mining common stone.
+        if (block == Blocks.STONE || block == Blocks.DEEPSLATE || block == Blocks.COBBLESTONE
+                || block == Blocks.ANDESITE
+                || block == Blocks.DIORITE || block == Blocks.GRANITE
+                || block == Blocks.TUFF || block == Blocks.BASALT
+                || block == Blocks.BLACKSTONE || block == Blocks.NETHERRACK) {
+            return EquipLevelingConfig.getStoneXp();
+        }
         return 0;
     }
 
     /** Every log/stem in the vanilla LOGS tag is an axe action. */
     public static int calculateLogXp(BlockState state) {
-        return state.isIn(BlockTags.LOGS) ? 4 : 0;
+        return state.isIn(BlockTags.LOGS) ? EquipLevelingConfig.getLogXp() : 0;
     }
 
-    /** Shovel XP is tag based so modded dirt, sand, gravel and snow work too. */
+    /** Shovel XP is tag based so modded dirt, sand, gravel and snow work too.
+     * Clay is a denser, rarer material and grants more XP (Issue 6). */
     public static int calculateShovelXp(BlockState state) {
+        if (state.isOf(Blocks.CLAY)) return EquipLevelingConfig.getClayXp();
         return state.isIn(BlockTags.DIRT) || state.isIn(BlockTags.SAND)
-                || state.isIn(BlockTags.SNOW) || state.isOf(Blocks.GRAVEL) ? 1 : 0;
+                || state.isIn(BlockTags.SNOW) || state.isOf(Blocks.GRAVEL)
+                ? EquipLevelingConfig.getShovelXp() : 0;
     }
 
     /** XP is awarded for harvesting mature crop blocks, not destroying seedlings. */
     public static int calculateHoeXp(BlockState state) {
         if (state.getBlock() instanceof CropBlock crop) {
-            return crop.isMature(state) ? 3 : 0;
+            return crop.isMature(state) ? EquipLevelingConfig.getHoeXp() : 0;
         }
-        if (state.isIn(BlockTags.CROPS)) return 3;
-        return state.isOf(Blocks.NETHER_WART) ? 3 : 0;
+        if (state.isIn(BlockTags.CROPS)) return EquipLevelingConfig.getHoeXp();
+        return state.isOf(Blocks.NETHER_WART) ? EquipLevelingConfig.getHoeXp() : 0;
     }
 }

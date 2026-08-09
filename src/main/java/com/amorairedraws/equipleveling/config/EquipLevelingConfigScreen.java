@@ -7,19 +7,20 @@ import java.util.List;
 import java.util.Map;
 
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
+import me.shedaniel.clothconfig2.api.ConfigCategory;
+import me.shedaniel.clothconfig2.impl.builders.SubCategoryBuilder;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 /**
- * Cloth Config screen exposed through Mod Menu.  Organised into clear,
- * plain-language categories.  Offer generation is tuned through simple weight
- * fields (upgrade / new enchant / legendary) rather than confusing percentages,
- * and each item category has an editable max-slot count.
+ * Cloth Config screen exposed through Mod Menu. Organised into three clear
+ * tabs (General / XP Rewards / Enchanting), each with collapsible sub-categories
+ * so everything is discoverable and nothing is buried in a wall of fields.
  */
 public final class EquipLevelingConfigScreen {
     private static final String[] CATEGORIES = {
             "sword", "axe", "pickaxe", "shovel", "hoe", "fishing_rod",
-            "helmet", "chestplate", "leggings", "boots", "default"
+            "helmet", "chestplate", "leggings", "boots"
     };
 
     private EquipLevelingConfigScreen() { }
@@ -32,9 +33,17 @@ public final class EquipLevelingConfigScreen {
                 .setSavingRunnable(EquipLevelingConfig::save);
         var entries = builder.entryBuilder();
 
-        // ------------------------------------------------------------------
-        // General
-        // ------------------------------------------------------------------
+        buildGeneral(builder, entries);
+        buildXpRewards(builder, entries);
+        buildEnchanting(builder, entries);
+
+        return builder.build();
+    }
+
+    // ------------------------------------------------------------------
+    // General
+    // ------------------------------------------------------------------
+    private static void buildGeneral(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
         var general = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.general"));
         general.addEntry(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.category.general.desc")).build());
@@ -69,97 +78,105 @@ public final class EquipLevelingConfigScreen {
                 .setTooltip(Text.translatable("equip_leveling.config.broken_mechanic.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setBrokenMechanicEnabled).build());
 
-        // Anvil
-        general.addEntry(entries.startIntField(
+        // Anvil costs
+        var anvil = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.anvil"));
+        anvil.add(entries.startIntField(
                 Text.translatable("equip_leveling.config.anvil_base"), EquipLevelingConfig.getAnvilBaseCost())
                 .setDefaultValue(1).setMin(0)
                 .setTooltip(Text.translatable("equip_leveling.config.anvil_base.tooltip"))
                 .setSaveConsumer(value -> EquipLevelingConfig.setAnvilCosts(value, EquipLevelingConfig.getAnvilPerLevelCost())).build());
-        general.addEntry(entries.startIntField(
+        anvil.add(entries.startIntField(
                 Text.translatable("equip_leveling.config.anvil_per_level"), EquipLevelingConfig.getAnvilPerLevelCost())
                 .setDefaultValue(1).setMin(0)
                 .setTooltip(Text.translatable("equip_leveling.config.anvil_per_level.tooltip"))
                 .setSaveConsumer(value -> EquipLevelingConfig.setAnvilCosts(EquipLevelingConfig.getAnvilBaseCost(), value)).build());
+        general.addEntry(anvil.setExpanded(false).build());
+    }
 
-        // ------------------------------------------------------------------
-        // Offer weights (Issue 14: clear weight fields, not confusing %)
-        // ------------------------------------------------------------------
-        var offers = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.offers"));
-        offers.addEntry(entries.startTextDescription(
-                Text.translatable("equip_leveling.config.category.offers.desc")).build());
-
-        offers.addEntry(entries.startIntField(
-                Text.translatable("equip_leveling.config.upgrade_weight"),
-                (int) Math.round(EquipLevelingConfig.getUpgradeWeight()))
-                .setDefaultValue(60).setMin(0)
-                .setTooltip(Text.translatable("equip_leveling.config.upgrade_weight.tooltip"))
-                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(v, EquipLevelingConfig.getNewSlotWeight(), EquipLevelingConfig.getLegendaryWeight())).build());
-        offers.addEntry(entries.startIntField(
-                Text.translatable("equip_leveling.config.new_slot_weight"),
-                (int) Math.round(EquipLevelingConfig.getNewSlotWeight()))
-                .setDefaultValue(40).setMin(0)
-                .setTooltip(Text.translatable("equip_leveling.config.new_slot_weight.tooltip"))
-                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(EquipLevelingConfig.getUpgradeWeight(), v, EquipLevelingConfig.getLegendaryWeight())).build());
-        offers.addEntry(entries.startIntField(
-                Text.translatable("equip_leveling.config.legendary_probability"),
-                (int) Math.round(EquipLevelingConfig.getLegendaryWeight()))
-                .setDefaultValue(5).setMin(0)
-                .setTooltip(Text.translatable("equip_leveling.config.legendary_probability.tooltip"))
-                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(EquipLevelingConfig.getUpgradeWeight(), EquipLevelingConfig.getNewSlotWeight(), v)).build());
-
-        // ------------------------------------------------------------------
-        // Max slots per category (Issue 7)
-        // ------------------------------------------------------------------
-        var maxSlotsCat = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.max_slots"));
-        maxSlotsCat.addEntry(entries.startTextDescription(
-                Text.translatable("equip_leveling.config.category.max_slots.desc")).build());
-        for (String category : CATEGORIES) {
-            maxSlotsCat.addEntry(entries.startIntSlider(
-                    Text.translatable("equip_leveling.config.max_slots", pretty(category)),
-                    EquipLevelingConfig.getMaxSlotsForCategory(category), 1, 4)
-                    .setDefaultValue(defaultMaxSlots(category))
-                    .setTooltip(Text.translatable("equip_leveling.config.max_slots.tooltip", pretty(category)))
-                    .setSaveConsumer(value -> EquipLevelingConfig.setMaxSlotsForCategory(category, value)).build());
-        }
-
-        // ------------------------------------------------------------------
-        // XP per action
-        // ------------------------------------------------------------------
-        var xp = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.base_xp"));
+    // ------------------------------------------------------------------
+    // XP Rewards
+    // ------------------------------------------------------------------
+    private static void buildXpRewards(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
+        var xp = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.xp_rewards"));
         xp.addEntry(entries.startTextDescription(
-                Text.translatable("equip_leveling.config.category.base_xp.desc")).build());
+                Text.translatable("equip_leveling.config.category.xp_rewards.desc")).build());
+
+        // Level-up requirements (base XP per item type)
+        var requirements = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.requirements"));
+        requirements.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.requirements.desc")).build());
         for (String category : CATEGORIES) {
-            xp.addEntry(entries.startIntField(
+            requirements.add(entries.startIntField(
                     Text.translatable("equip_leveling.config.base_xp", pretty(category)),
                     EquipLevelingConfig.getBaseXpForCategory(category))
                     .setDefaultValue(defaultBaseXp(category)).setMin(1)
                     .setTooltip(Text.translatable("equip_leveling.config.base_xp.tooltip", pretty(category)))
                     .setSaveConsumer(value -> EquipLevelingConfig.setBaseXpForCategory(category, value)).build());
         }
+        xp.addEntry(requirements.setExpanded(true).build());
 
-        // ------------------------------------------------------------------
-        // Ore / block rewards
-        // ------------------------------------------------------------------
-        var ore = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.ore_xp"));
-        ore.addEntry(entries.startTextDescription(
-                Text.translatable("equip_leveling.config.category.ore_xp.desc")).build());
-        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.coal_xp"), EquipLevelingConfig.getCoalXp())
+        // Per-action rewards
+        var actions = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.actions"));
+        actions.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.actions.desc")).build());
+        actions.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.entity_kill_xp"), EquipLevelingConfig.getEntityKillXp())
+                .setDefaultValue(10).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.entity_kill_xp.tooltip"))
+                .setSaveConsumer(EquipLevelingConfig::setEntityKillXp).build());
+        actions.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.log_xp"), EquipLevelingConfig.getLogXp())
+                .setDefaultValue(4).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.log_xp.tooltip"))
+                .setSaveConsumer(EquipLevelingConfig::setLogXp).build());
+        actions.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.shovel_xp"), EquipLevelingConfig.getShovelXp())
+                .setDefaultValue(1).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.shovel_xp.tooltip"))
+                .setSaveConsumer(EquipLevelingConfig::setShovelXp).build());
+        actions.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.clay_xp"), EquipLevelingConfig.getClayXp())
+                .setDefaultValue(5).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.clay_xp.tooltip"))
+                .setSaveConsumer(EquipLevelingConfig::setClayXp).build());
+        actions.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.hoe_xp"), EquipLevelingConfig.getHoeXp())
+                .setDefaultValue(3).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.hoe_xp.tooltip"))
+                .setSaveConsumer(EquipLevelingConfig::setHoeXp).build());
+        actions.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.stone_xp"), EquipLevelingConfig.getStoneXp())
+                .setDefaultValue(1).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.stone_xp.tooltip"))
+                .setSaveConsumer(EquipLevelingConfig::setStoneXp).build());
+        xp.addEntry(actions.setExpanded(true).build());
+
+        // Ore & block rewards
+        var ore = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.ore"));
+        ore.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.ore.desc")).build());
+        ore.add(entries.startIntField(Text.translatable("equip_leveling.config.coal_xp"), EquipLevelingConfig.getCoalXp())
                 .setDefaultValue(3).setMin(0).setTooltip(Text.translatable("equip_leveling.config.coal_xp.tooltip"))
                 .setSaveConsumer(value -> saveOre(value, EquipLevelingConfig.getIronXp(), EquipLevelingConfig.getGoldXp(), EquipLevelingConfig.getRareOreXp())).build());
-        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.iron_xp"), EquipLevelingConfig.getIronXp())
+        ore.add(entries.startIntField(Text.translatable("equip_leveling.config.iron_xp"), EquipLevelingConfig.getIronXp())
                 .setDefaultValue(8).setMin(0).setTooltip(Text.translatable("equip_leveling.config.iron_xp.tooltip"))
                 .setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), value, EquipLevelingConfig.getGoldXp(), EquipLevelingConfig.getRareOreXp())).build());
-        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.gold_xp"), EquipLevelingConfig.getGoldXp())
+        ore.add(entries.startIntField(Text.translatable("equip_leveling.config.gold_xp"), EquipLevelingConfig.getGoldXp())
                 .setDefaultValue(20).setMin(0).setTooltip(Text.translatable("equip_leveling.config.gold_xp.tooltip"))
                 .setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), EquipLevelingConfig.getIronXp(), value, EquipLevelingConfig.getRareOreXp())).build());
-        ore.addEntry(entries.startIntField(Text.translatable("equip_leveling.config.rare_ore_xp"), EquipLevelingConfig.getRareOreXp())
+        ore.add(entries.startIntField(Text.translatable("equip_leveling.config.rare_ore_xp"), EquipLevelingConfig.getRareOreXp())
                 .setDefaultValue(40).setMin(0).setTooltip(Text.translatable("equip_leveling.config.rare_ore_xp.tooltip"))
                 .setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), EquipLevelingConfig.getIronXp(), EquipLevelingConfig.getGoldXp(), value)).build());
+        xp.addEntry(ore.setExpanded(true).build());
 
-        List<String> custom = new ArrayList<>();
-        EquipLevelingConfig.getCustomBlockXp().forEach((id, v) -> custom.add(id + ":" + v));
-        ore.addEntry(entries.startStrList(
-                Text.translatable("equip_leveling.config.custom_block_xp"), custom)
+        // Custom block rewards
+        var custom = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.custom"));
+        custom.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.custom.desc")).build());
+        List<String> customList = new ArrayList<>();
+        EquipLevelingConfig.getCustomBlockXp().forEach((id, v) -> customList.add(id + ":" + v));
+        custom.add(entries.startStrList(
+                Text.translatable("equip_leveling.config.custom_block_xp"), customList)
                 .setDefaultValue(List.of())
                 .setExpanded(true)
                 .setAddButtonTooltip(Text.translatable("equip_leveling.config.custom_block_xp.add"))
@@ -167,34 +184,49 @@ public final class EquipLevelingConfigScreen {
                 .setTooltip(Text.translatable("equip_leveling.config.custom_block_xp.tooltip"))
                 .setCellErrorSupplier(EquipLevelingConfigScreen::validateBlockXpEntry)
                 .setSaveConsumer(EquipLevelingConfigScreen::saveCustomBlockXp).build());
+        xp.addEntry(custom.setExpanded(true).build());
+    }
 
-        // ------------------------------------------------------------------
-        // Material tiers
-        // ------------------------------------------------------------------
-        var tiers = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.tiers"));
-        tiers.addEntry(entries.startTextDescription(
-                Text.translatable("equip_leveling.config.category.tiers.desc")).build());
-        tiers.addEntry(entries.startStrList(
-                Text.translatable("equip_leveling.config.material_tiers"),
-                Arrays.asList(EquipLevelingConfig.getMaterialTiers()))
-                .setDefaultValue(List.of("wood", "stone", "iron", "diamond", "netherite"))
-                .setExpanded(true)
-                .setAddButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.add"))
-                .setRemoveButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.remove"))
-                .setTooltip(Text.translatable("equip_leveling.config.material_tiers.tooltip"))
-                .setSaveConsumer(list -> EquipLevelingConfig.setMaterialTiers(
-                        list == null ? new String[0] : list.toArray(new String[0]))).build());
+    // ------------------------------------------------------------------
+    // Enchanting
+    // ------------------------------------------------------------------
+    private static void buildEnchanting(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
+        var ench = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.enchanting"));
+        ench.addEntry(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.category.enchanting.desc")).build());
 
-        // ------------------------------------------------------------------
+        // Offer weights
+        var weights = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.weights"));
+        weights.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.weights.desc")).build());
+        weights.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.upgrade_weight"),
+                (int) Math.round(EquipLevelingConfig.getUpgradeWeight()))
+                .setDefaultValue(60).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.upgrade_weight.tooltip"))
+                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(v, EquipLevelingConfig.getNewSlotWeight(), EquipLevelingConfig.getLegendaryWeight())).build());
+        weights.add(entries.startIntField(
+                Text.translatable("equip_leveling.config.new_slot_weight"),
+                (int) Math.round(EquipLevelingConfig.getNewSlotWeight()))
+                .setDefaultValue(40).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.new_slot_weight.tooltip"))
+                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(EquipLevelingConfig.getUpgradeWeight(), v, EquipLevelingConfig.getLegendaryWeight())).build());
+        weights.add(entries.startIntSlider(
+                Text.translatable("equip_leveling.config.legendary_chance"),
+                (int) Math.round(EquipLevelingConfig.getLegendaryUpgradeProbability() * 100), 0, 100)
+                .setDefaultValue(5)
+                .setTooltip(Text.translatable("equip_leveling.config.legendary_chance.tooltip"))
+                .setSaveConsumer(v -> EquipLevelingConfig.setLegendaryUpgradeProbability(v / 100.0)).build());
+        ench.addEntry(weights.setExpanded(true).build());
+
         // Reroll costs
-        // ------------------------------------------------------------------
-        var reroll = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.reroll"));
-        reroll.addEntry(entries.startTextDescription(
-                Text.translatable("equip_leveling.config.category.reroll.desc")).build());
+        var reroll = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.reroll"));
+        reroll.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.reroll.desc")).build());
         int[] costs = EquipLevelingConfig.getRerollCosts();
         for (int i = 0; i < costs.length; i++) {
             final int slotCount = i;
-            reroll.addEntry(entries.startIntField(
+            reroll.add(entries.startIntField(
                     Text.translatable("equip_leveling.config.reroll_cost", i), costs[i])
                     .setDefaultValue((i + 1) * 5).setMin(0)
                     .setTooltip(Text.translatable("equip_leveling.config.reroll_cost.tooltip", i))
@@ -204,8 +236,37 @@ public final class EquipLevelingConfigScreen {
                         EquipLevelingConfig.setRerollCosts(updated);
                     }).build());
         }
+        ench.addEntry(reroll.setExpanded(true).build());
 
-        return builder.build();
+        // Material tiers
+        var tiers = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.tiers"));
+        tiers.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.tiers.desc")).build());
+        tiers.add(entries.startStrList(
+                Text.translatable("equip_leveling.config.material_tiers"),
+                Arrays.asList(EquipLevelingConfig.getMaterialTiers()))
+                .setDefaultValue(List.of("wood", "stone", "iron", "diamond", "netherite"))
+                .setExpanded(true)
+                .setAddButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.add"))
+                .setRemoveButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.remove"))
+                .setTooltip(Text.translatable("equip_leveling.config.material_tiers.tooltip"))
+                .setSaveConsumer(list -> EquipLevelingConfig.setMaterialTiers(
+                        list == null ? new String[0] : list.toArray(new String[0]))).build());
+        ench.addEntry(tiers.setExpanded(true).build());
+
+        // Max slots per item
+        var maxSlots = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.max_slots"));
+        maxSlots.add(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.sub.max_slots.desc")).build());
+        for (String category : CATEGORIES) {
+            maxSlots.add(entries.startIntSlider(
+                    Text.translatable("equip_leveling.config.max_slots", pretty(category)),
+                    EquipLevelingConfig.getMaxSlotsForCategory(category), 1, 4)
+                    .setDefaultValue(defaultMaxSlots(category))
+                    .setTooltip(Text.translatable("equip_leveling.config.max_slots.tooltip", pretty(category)))
+                    .setSaveConsumer(value -> EquipLevelingConfig.setMaxSlotsForCategory(category, value)).build());
+        }
+        ench.addEntry(maxSlots.setExpanded(true).build());
     }
 
     private static java.util.Optional<Text> validateBlockXpEntry(String value) {
@@ -259,7 +320,7 @@ public final class EquipLevelingConfigScreen {
 
     private static int defaultMaxSlots(String category) {
         return switch (category) {
-            case "sword", "helmet", "chestplate", "leggings", "boots", "default" -> 4;
+            case "sword", "helmet", "chestplate", "leggings", "boots" -> 4;
             case "axe", "pickaxe", "fishing_rod" -> 3;
             case "shovel", "hoe" -> 2;
             default -> 4;
