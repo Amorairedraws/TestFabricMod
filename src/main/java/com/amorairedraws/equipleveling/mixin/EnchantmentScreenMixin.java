@@ -115,24 +115,23 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
                 // together, with a lighter subtitle.
                 String clippedTitle = textRenderer.trimToWidth(title, 130);
                 String clippedSubtitle = textRenderer.trimToWidth(subtitle, 130);
-                drawScaledText(context, clippedTitle, rowX + 18, rowY + 2, 0.75f, titleColor);
+                drawScaledText(context, clippedTitle, rowX + 18, rowY + 4, 0.75f, titleColor);
                 drawScaledText(context, clippedSubtitle, rowX + 18, rowY + 11, 0.65f, 0xFFA0A0A0);
             }
         }
 
-        // Reroll cost: a unicode filled circle followed by the number, drawn at
-        // the reroll button's vertical level, just to the left of the button
-        // (button at x+34/y+46, so its left edge is x+34 and its centre line is
-        // y+55). The circle shares the number's colour.
+        // Reroll cost: a unicode filled circle followed by the number, drawn
+        // directly under the reroll button (button at x+34/y+46, 18x18, so it
+        // spans y+46..y+64). The left edge of the circle+number is aligned with
+        // the button's left edge (x+34). The circle shares the number's colour.
         if (tracked && client.world != null && client.player != null) {
             var registry = client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
             int cost = VanillaEnchantingTableLogic.getRerollCost(input.stack(), handler, registry);
             boolean affordable = client.player.isInCreativeMode() || client.player.experienceLevel >= cost;
             int color = affordable ? GREEN : RED;
             String costText = "\u25CF " + cost;
-            int costWidth = (int) (textRenderer.getWidth(costText) * 0.8f);
-            int costX = (i + 34) - costWidth; // right-align to the button's left edge
-            int costY = j + 51;               // vertically centred with the button
+            int costX = i + 34; // left-aligned with the button's left edge
+            int costY = j + 66; // just under the button
             drawScaledText(context, costText, costX, costY, 0.8f, color);
         }
     }
