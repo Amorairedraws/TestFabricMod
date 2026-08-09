@@ -103,12 +103,23 @@ public final class EquipmentComponent {
                     net.minecraft.sound.SoundEvents.BLOCK_AMETHYST_BLOCK_FALL,
                     net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
         }
-        // The server mutated the stack's data component, but the client's copy of
-        // the item is not refreshed until the inventory resyncs. Mark the
-        // inventory dirty so the updated XP/level-up state reaches the client
-        // immediately instead of only after the item is re-picked-up.
+        // The server mutated the stack's data component, but the client holds its
+        // own copy of the item that only refreshes when a slot-update packet
+        // arrives (drop/pickup/chest). markDirty() does not reliably emit one for
+        // the survival inventory, which is why a stack can visibly "freeze" until
+        // any resync action. Push the mutated slot(s) to the client explicitly so
+        // the updated XP/level-up state always reaches the client immediately.
         if (player != null && !player.getEntityWorld().isClient()) {
-            player.getInventory().markDirty();
+            // sendContentUpdates() walks the tracked slots and emits a slot-update
+            // packet for any whose stack changed. Push on both the currently open
+            // container and the survival inventory so the client is updated no
+            // matter which is active.
+            if (player.currentScreenHandler != null) {
+                player.currentScreenHandler.sendContentUpdates();
+            }
+            if (player.playerScreenHandler != null) {
+                player.playerScreenHandler.sendContentUpdates();
+            }
         }
         return data.xp != before;
     }

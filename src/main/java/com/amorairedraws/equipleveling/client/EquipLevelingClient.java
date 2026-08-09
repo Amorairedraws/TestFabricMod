@@ -37,6 +37,16 @@ public class EquipLevelingClient implements ClientModInitializer {
                     EquipmentComponent.getOrCreate(stack, lookup);
                 }
             }
+            // Armor and offhand are outside inventory.size() (the 36 main slots).
+            // They earn XP too, so refresh them as well or an equipped piece can
+            // appear stale until it is picked up or a slot resyncs.
+            for (net.minecraft.entity.EquipmentSlot slot : new net.minecraft.entity.EquipmentSlot[]{
+                    net.minecraft.entity.EquipmentSlot.HEAD, net.minecraft.entity.EquipmentSlot.CHEST,
+                    net.minecraft.entity.EquipmentSlot.LEGS, net.minecraft.entity.EquipmentSlot.FEET,
+                    net.minecraft.entity.EquipmentSlot.OFFHAND}) {
+                var equippedStack = client.player.getEquippedStack(slot);
+                if (EquipmentComponent.isTracked(equippedStack)) EquipmentComponent.getOrCreate(equippedStack, lookup);
+            }
         });
 
         // The original lapis-slot coordinates are x+35/y+47. Cloth/Fabric's
