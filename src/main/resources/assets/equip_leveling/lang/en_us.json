@@ -19,6 +19,7 @@
   "equip_leveling.config.sub.custom": "Extra blocks that give XP",
   "equip_leveling.config.sub.custom.desc": "Give XP for blocks the mod does not know about yet. Use the big button to browse every block in the game, or type entries by hand below.",
   "equip_leveling.config.open_block_list": "Open the big list of blocks",
+  "equip_leveling.config.open_ladder_editor": "Edit the material upgrade order",
   "equip_leveling.config.sub.weights": "How often each reward appears",
   "equip_leveling.config.sub.weights.desc": "These numbers decide how likely each reward is. Higher number = that reward shows up more often.",
   "equip_leveling.config.sub.reroll": "Price to reroll (Advanced)",

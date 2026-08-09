@@ -191,7 +191,8 @@ public final class EquipLevelingConfigScreen {
         var custom = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.custom"));
         custom.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.custom.desc")).build());
-        custom.add(new OpenBlockListEntry());
+        custom.add(new OpenScreenEntry(Text.translatable("equip_leveling.config.open_block_list"),
+                BlockXpScreen::new));
         List<String> customList = new ArrayList<>();
         EquipLevelingConfig.getCustomBlockXp().forEach((id, v) -> customList.add(id + ":" + v));
         custom.add(entries.startStrList(
@@ -261,6 +262,8 @@ public final class EquipLevelingConfigScreen {
         var tiers = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.tiers"));
         tiers.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.tiers.desc")).build());
+        tiers.add(new OpenScreenEntry(Text.translatable("equip_leveling.config.open_ladder_editor"),
+                MaterialLadderScreen::new));
         List<String> detected = MaterialLadderDetector.detectLadder();
         // Start from the configured ladder (if the player customized it), otherwise
         // the auto-detected one.
@@ -292,12 +295,16 @@ public final class EquipLevelingConfigScreen {
     }
 
     /**
-     * A single clickable row that opens the full block-XP browser.  Rendered
-     * as a button-like bar so it stands out from the surrounding text rows.
+     * A single clickable row that opens a sub-screen (block XP browser, material
+     * ladder editor, ...).  Rendered as a button-like bar so it stands out from
+     * the surrounding text rows.
      */
-    private static final class OpenBlockListEntry extends AbstractConfigListEntry<String> {
-        private OpenBlockListEntry() {
-            super(Text.translatable("equip_leveling.config.open_block_list"), false);
+    private static final class OpenScreenEntry extends AbstractConfigListEntry<String> {
+        private final java.util.function.Function<Screen, Screen> factory;
+
+        private OpenScreenEntry(Text label, java.util.function.Function<Screen, Screen> factory) {
+            super(label, false);
+            this.factory = factory;
         }
 
         @Override public String getValue() { return ""; }
@@ -323,7 +330,7 @@ public final class EquipLevelingConfigScreen {
         public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean onlyIncludeWithin) {
             if (click.button() == 0) {
                 Screen current = MinecraftClient.getInstance().currentScreen;
-                MinecraftClient.getInstance().setScreen(new BlockXpScreen(current));
+                MinecraftClient.getInstance().setScreen(factory.apply(current));
                 return true;
             }
             return false;
