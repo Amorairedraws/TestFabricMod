@@ -1,40 +1,30 @@
 package com.amorairedraws.equipleveling.event;
 
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
-import com.amorairedraws.equipleveling.network.XpGainPayload;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
 
-import java.util.function.BiConsumer;
-
-/** Side-neutral bridge for server-authoritative floating XP labels. */
+/**
+ * Lightweight XP feedback. A vanilla action-bar message is reliable on every
+ * renderer and avoids the fragile custom world-text render pass that previously
+ * made the floating number invisible.
+ */
 public final class XpDisplay {
-    private static BiConsumer<Vec3d, Integer> sink = (position, amount) -> {};
-    private XpDisplay() {}
+    private XpDisplay() { }
 
-    public static void install(BiConsumer<Vec3d, Integer> clientSink) {
-        sink = clientSink;
-    }
-
-    /** Local/client-only presentation path, retained for client-side callbacks. */
+    /** Retained for callers that only have a local presentation path. */
     public static void show(Vec3d position, int amount) {
-        if (amount >= EquipLevelingConfig.getXpDisplayThreshold()) {
-            sink.accept(position, amount);
-        }
+        // Progression is server-authoritative; there is no client prediction.
     }
 
-    /**
-     * Sends a reward notification only after the server has awarded the XP.
-     * This avoids showing a kill label for an attack that did not kill its target.
-     */
     public static void showForPlayer(PlayerEntity player, Vec3d position, int amount) {
         if (amount < EquipLevelingConfig.getXpDisplayThreshold()) return;
         if (player instanceof ServerPlayerEntity serverPlayer) {
-            ServerPlayNetworking.send(serverPlayer, new XpGainPayload(position, amount));
-        } else {
-            show(position, amount);
+            serverPlayer.sendMessage(Text.literal("+" + amount + " equipment XP")
+                    .formatted(Formatting.AQUA), true);
         }
     }
 }

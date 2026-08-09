@@ -21,7 +21,7 @@ public final class ArmorXpHandler {
             float actual, boolean blocked) {
         if (!(entity instanceof PlayerEntity player) || blocked || actual <= 0.0f) return;
 
-        int xp = Math.max(1, (int) Math.ceil(actual * 5.0f));
+        int xp = Math.max(1, (int) Math.ceil(actual * 2.0f));
         // The server owns progression and sends the floating label only after
         // each eligible armor stack accepts the reward. Client-side prediction
         // would show duplicate labels on versions that mirror the event.

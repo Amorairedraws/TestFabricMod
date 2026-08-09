@@ -1,33 +1,51 @@
 package com.amorairedraws.equipleveling.client;
 
+import com.amorairedraws.equipleveling.client.render.BrokenItemRenderer;
+import com.amorairedraws.equipleveling.client.tooltip.EquipmentTooltipRenderer;
+import com.amorairedraws.equipleveling.component.EquipmentComponent;
+import com.amorairedraws.equipleveling.screen.VanillaEnchantingTableLogic;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreens;
-import com.amorairedraws.equipleveling.screen.EquipmentEnchantingScreenHandler;
-import com.amorairedraws.equipleveling.client.screen.EquipmentEnchantingScreen;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.gui.screen.ingame.EnchantmentScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.screen.EnchantmentScreenHandler;
+import net.minecraft.text.Text;
 
-import com.amorairedraws.equipleveling.client.tooltip.EquipmentTooltipRenderer;
-import com.amorairedraws.equipleveling.client.render.BrokenItemRenderer;
-import com.amorairedraws.equipleveling.client.render.FloatingXpRenderer;
-import com.amorairedraws.equipleveling.event.XpDisplay;
-import com.amorairedraws.equipleveling.network.XpGainPayload;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-
+/** Client-only presentation hooks. The enchanting screen itself remains vanilla. */
 public class EquipLevelingClient implements ClientModInitializer {
+    @Override
+    public void onInitializeClient() {
+        new EquipmentTooltipRenderer().register();
+        new BrokenItemRenderer().register();
 
-	@Override
-	public void onInitializeClient() {
-		HandledScreens.register(EquipmentEnchantingScreenHandler.TYPE, EquipmentEnchantingScreen::new);
-		ClientPlayNetworking.registerGlobalReceiver(XpGainPayload.ID,
-				(payload, context) -> XpDisplay.show(payload.position(), payload.amount()));
+        // The original lapis-slot coordinates are x+35/y+47. Cloth/Fabric's
+        // screen API adds a normal vanilla button there without replacing the
+        // EnchantmentScreen texture, inventory, book, or option hit boxes.
+        ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
+            if (!(screen instanceof EnchantmentScreen enchanting)) return;
+            EnchantmentScreenHandler handler = enchanting.getScreenHandler();
+            int left = (width - 176) / 2;
+            int top = (height - 166) / 2;
+            ButtonWidget reroll = ButtonWidget.builder(Text.literal("↺"), button -> {
+                if (client.interactionManager != null) {
+                    client.interactionManager.clickButton(handler.syncId, 3);
+                }
+            }).dimensions(left + 35, top + 47, 18, 18).build();
+            Screens.getButtons(screen).add(reroll);
+            ScreenEvents.afterTick(screen).register(ignored -> reroll.active = canReroll(client, handler));
+        });
+    }
 
-		// Register tooltip renderer
-		new EquipmentTooltipRenderer().register();
-		
-		// Register item renderer modifications
-		new BrokenItemRenderer().register();
-		FloatingXpRenderer.register();
-		XpDisplay.install(FloatingXpRenderer::show);
-	}
+    private static boolean canReroll(net.minecraft.client.MinecraftClient client,
+            EnchantmentScreenHandler handler) {
+        if (client.player == null || client.world == null) return false;
+        var stack = handler.getSlot(0).getStack();
+        var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+        if (data == null || !data.readyToLevelUp || data.broken || data.maxed) return false;
+        int cost = VanillaEnchantingTableLogic.getRerollCost(stack, handler,
+                client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT));
+        return client.player.isInCreativeMode() || client.player.experienceLevel >= cost;
+    }
 }

@@ -29,7 +29,7 @@ public class EquipLevelingConfig {
 	private static int xpDisplayThreshold = 10;
 	private static int durabilityRestorePercent = 25;
 	// Ore/action rewards are configurable independently of equipment material.
-	private static int coalXp = 5, ironXp = 40, goldXp = 80, rareOreXp = 150;
+	private static int coalXp = 3, ironXp = 8, goldXp = 20, rareOreXp = 40;
 	// Cost is indexed by the number of filled standard slots (0..4).
 	// Defaults match the documented 5 / 10 / 15 / 20 / 25 level progression.
 	private static int[] rerollCosts = {5, 10, 15, 20, 25};
@@ -41,20 +41,28 @@ public class EquipLevelingConfig {
 	private static int anvilPerLevelCost = 1;
 	private static boolean keepEquipOnDeath = false;
 	private static boolean enableBrokenMechanic = true;
+	// Custom block -> XP rewards added by the player through the config screen.
+	// Keyed by block id (e.g. "minecraft:deepslate"), value is the XP granted
+	// when that block is broken with a pickaxe.
+	private static Map<String, Integer> customBlockXp = new HashMap<>();
 
 	static {
-		// Initialize base XP values
-		baseXp.put("sword", 100);
-		baseXp.put("axe", 120);
-		baseXp.put("pickaxe", 80);
-		baseXp.put("shovel", 70);
-		baseXp.put("hoe", 60);
-		baseXp.put("fishing_rod", 90);
-		baseXp.put("helmet", 80);
-		baseXp.put("chestplate", 100);
-		baseXp.put("leggings", 100);
-		baseXp.put("boots", 80);
-		baseXp.put("default", 100);
+		// Initialize base XP values. These represent how much focused play is
+		// needed before an item is ready to level up. Tools used constantly
+		// (pickaxe, axe) have higher requirements; tools used rarely (hoe) are
+		// quicker so they still feel rewarding. Values are tuned so a level-up
+		// lands around 15-30 minutes of that item's normal use.
+		baseXp.put("sword", 400);
+		baseXp.put("axe", 450);
+		baseXp.put("pickaxe", 500);
+		baseXp.put("shovel", 300);
+		baseXp.put("hoe", 200);
+		baseXp.put("fishing_rod", 300);
+		baseXp.put("helmet", 350);
+		baseXp.put("chestplate", 400);
+		baseXp.put("leggings", 400);
+		baseXp.put("boots", 350);
+		baseXp.put("default", 350);
 	}
 
 	public static void load() {
@@ -88,10 +96,10 @@ public class EquipLevelingConfig {
 			xpMultiplier = json.has("xpMultiplier") ? json.get("xpMultiplier").getAsDouble() : 1.2;
 			xpDisplayThreshold = json.has("xpDisplayThreshold") ? json.get("xpDisplayThreshold").getAsInt() : 10;
 			durabilityRestorePercent = json.has("durabilityRestorePercent") ? json.get("durabilityRestorePercent").getAsInt() : 25;
-			coalXp = json.has("coalXp") ? json.get("coalXp").getAsInt() : 5;
-			ironXp = json.has("ironXp") ? json.get("ironXp").getAsInt() : 40;
-			goldXp = json.has("goldXp") ? json.get("goldXp").getAsInt() : 80;
-			rareOreXp = json.has("rareOreXp") ? json.get("rareOreXp").getAsInt() : 150;
+			coalXp = json.has("coalXp") ? json.get("coalXp").getAsInt() : 3;
+			ironXp = json.has("ironXp") ? json.get("ironXp").getAsInt() : 8;
+			goldXp = json.has("goldXp") ? json.get("goldXp").getAsInt() : 20;
+			rareOreXp = json.has("rareOreXp") ? json.get("rareOreXp").getAsInt() : 40;
 			
 			if (json.has("rerollCosts")) {
 				int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
@@ -112,6 +120,19 @@ public class EquipLevelingConfig {
 			anvilPerLevelCost = json.has("anvilPerLevelCost") ? json.get("anvilPerLevelCost").getAsInt() : 1;
 			keepEquipOnDeath = json.has("keepEquipOnDeath") ? json.get("keepEquipOnDeath").getAsBoolean() : false;
 			enableBrokenMechanic = json.has("enableBrokenMechanic") ? json.get("enableBrokenMechanic").getAsBoolean() : true;
+
+			// Custom block XP list. Each entry maps a block id to a positive XP
+			// reward. Invalid or non-positive entries are dropped on load.
+			customBlockXp.clear();
+			if (json.has("customBlockXp") && json.get("customBlockXp").isJsonObject()) {
+				JsonObject custom = json.getAsJsonObject("customBlockXp");
+				custom.entrySet().forEach(entry -> {
+					try {
+						int v = entry.getValue().getAsInt();
+						if (v > 0) customBlockXp.put(entry.getKey(), v);
+					} catch (RuntimeException ignored) { }
+				});
+			}
 			
 			// Treat hand-edited config files as untrusted input.  Invalid values
 			// should never make XP requirements, costs, or weighted offers unusable.
@@ -170,6 +191,10 @@ public class EquipLevelingConfig {
 			json.addProperty("anvilPerLevelCost", anvilPerLevelCost);
 			json.addProperty("keepEquipOnDeath", keepEquipOnDeath);
 			json.addProperty("enableBrokenMechanic", enableBrokenMechanic);
+
+			JsonObject custom = new JsonObject();
+			customBlockXp.forEach(custom::addProperty);
+			json.add("customBlockXp", custom);
 			
 			try (FileWriter writer = new FileWriter(CONFIG_FILE.toFile())) {
 				GSON.toJson(json, writer);
@@ -243,6 +268,39 @@ public class EquipLevelingConfig {
 
 	public static boolean isBrokenMechanicEnabled() {
 		return enableBrokenMechanic;
+	}
+
+	/** Returns an immutable copy of the custom block -> XP map. */
+	public static java.util.Map<String, Integer> getCustomBlockXp() {
+		return java.util.Collections.unmodifiableMap(new HashMap<>(customBlockXp));
+	}
+
+	/** Sets the whole custom block XP map (validated) and saves. */
+	public static void setCustomBlockXp(java.util.Map<String, Integer> map) {
+		customBlockXp.clear();
+		if (map != null) {
+			map.forEach((k, v) -> {
+				if (k != null && !k.isBlank() && v != null && v > 0) {
+					customBlockXp.put(k.trim().toLowerCase(), v);
+				}
+			});
+		}
+		save();
+	}
+
+	/** Adds or updates one custom block XP entry. */
+	public static void addCustomBlockXp(String blockId, int xp) {
+		if (blockId == null || blockId.isBlank() || xp <= 0) return;
+		customBlockXp.put(blockId.trim().toLowerCase(), xp);
+		save();
+	}
+
+	/** Removes a custom block XP entry; returns true if it existed. */
+	public static boolean removeCustomBlockXp(String blockId) {
+		if (blockId == null) return false;
+		boolean removed = customBlockXp.remove(blockId.trim().toLowerCase()) != null;
+		if (removed) save();
+		return removed;
 	}
 
 	// Setters

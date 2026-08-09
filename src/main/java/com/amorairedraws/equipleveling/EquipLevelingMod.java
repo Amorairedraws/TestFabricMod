@@ -2,8 +2,6 @@ package com.amorairedraws.equipleveling;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import com.amorairedraws.equipleveling.network.XpGainPayload;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
@@ -17,18 +15,6 @@ import com.amorairedraws.equipleveling.event.ArmorXpHandler;
 import com.amorairedraws.equipleveling.event.DeathEventHandler;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import com.amorairedraws.equipleveling.loot.EquipmentLootModifier;
-import com.amorairedraws.equipleveling.screen.EquipmentEnchantingScreenHandler;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.util.Identifier;
-import net.minecraft.text.Text;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
-import net.minecraft.util.ActionResult;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 
 public class EquipLevelingMod implements ModInitializer {
@@ -41,36 +27,10 @@ public class EquipLevelingMod implements ModInitializer {
 		
 		// Load config
 		EquipLevelingConfig.load();
-		// Register the server-authoritative notification used for floating XP.
-		// The client registers the same payload type before it joins a world.
-		PayloadTypeRegistry.playS2C().register(XpGainPayload.ID, XpGainPayload.CODEC);
-		
-		// Register custom component and the real handler type used by both server
-		// and client.  Passing null to ScreenHandler's constructor prevents the
-		// handler from being opened by vanilla networking.
+		// The component is attached to all qualifying equipment as it enters the
+		// game. Enchanting-table behavior is mixed into Minecraft's own handler,
+		// so opening a table now keeps the original screen and inventory intact.
 		EquipmentComponent.register();
-		EquipmentEnchantingScreenHandler.TYPE = Registry.register(Registries.SCREEN_HANDLER,
-			Identifier.of(MOD_ID, "equipment_enchanting"),
-			new ScreenHandlerType<>(EquipmentEnchantingScreenHandler::new, net.minecraft.resource.featuretoggle.FeatureFlags.VANILLA_FEATURES));
-		
-		// Always intercept the vanilla enchanting table. The custom screen starts
-		// with an empty, real input slot, so it works regardless of what is held.
-		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
-			if (world.getBlockState(hit.getBlockPos()).getBlock() != Blocks.ENCHANTING_TABLE) {
-				return ActionResult.PASS;
-			}
-			// Consume the interaction on both logical sides so vanilla never opens
-			// its own handler first.
-			if (world.isClient()) return ActionResult.SUCCESS;
-			if (player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer) {
-				SimpleInventory input = new SimpleInventory(1);
-				serverPlayer.openHandledScreen(new SimpleNamedScreenHandlerFactory(
-					(syncId, inventory, p) -> new EquipmentEnchantingScreenHandler(syncId, inventory, input, p,
-							hit.getBlockPos()),
-					Text.translatable("equip_leveling.title")));
-			}
-			return ActionResult.SUCCESS;
-		});
 
 
 		// Copy only our leveled equipment across the vanilla player clone created
@@ -93,7 +53,8 @@ public class EquipLevelingMod implements ModInitializer {
 		// for stripping enchanted books and converting enchanted equipment.
 		LootTableEvents.MODIFY_DROPS.register((entry, context, drops) -> {
 			for (int i = drops.size() - 1; i >= 0; i--) {
-				net.minecraft.item.ItemStack processed = EquipmentLootModifier.processLootItem(drops.get(i));
+				net.minecraft.item.ItemStack processed = EquipmentLootModifier.processLootItem(drops.get(i),
+						context.getWorld().getRegistryManager(), context.getWorld().getRandom());
 				if (processed.isEmpty()) drops.remove(i);
 				else drops.set(i, processed);
 			}

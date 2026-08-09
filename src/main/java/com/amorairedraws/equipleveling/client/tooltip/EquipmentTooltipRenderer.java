@@ -32,8 +32,9 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		// XP bar and its numeric readout occupy separate tooltip rows, matching
 		// the vanilla durability-bar presentation.
 		lines.add(insertIndex++, renderXpBar(data));
-		lines.add(insertIndex++, Text.literal(String.format("(%d/%d) XP", data.xp, data.xpRequired))
-				.formatted(Formatting.GRAY));
+		lines.add(insertIndex++, data.readyToLevelUp
+				? Text.literal("Ready to level up!").formatted(Formatting.GREEN)
+				: Text.literal(String.format("(%d/%d) XP", data.xp, data.xpRequired)).formatted(Formatting.GRAY));
 
 		// Level or MAX LEVEL
 		if (data.maxed) {
@@ -46,27 +47,25 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		// the two loot-derived bonus slots. It appears at the top of the slot
 		// section, before the four standard slots.
 		if (data.mending) {
-			lines.add(insertIndex++, Text.literal("\uD83D\uDC8E Mending 1").formatted(Formatting.AQUA));
+			lines.add(insertIndex++, Text.literal("  \uD83D\uDC8E Mending").formatted(Formatting.AQUA));
 		}
 
 		// Standard slots
-		renderSlots(lines, insertIndex, data.slots, "Standard");
+		renderSlots(lines, insertIndex, data.slots, context);
 		insertIndex += data.slots.size() + 1;
 
 		// Bonus slots
 		if (!data.bonusSlots.isEmpty()) {
-			lines.add(insertIndex++, Text.literal(""));
 			for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
 				if (slot.isEmpty()) {
-					lines.add(insertIndex++, Text.literal("★ [Empty]").formatted(Formatting.GOLD));
+					lines.add(insertIndex++, Text.literal("  ★ [Empty]").formatted(Formatting.GOLD));
 				} else {
-					String enchName = formatEnchantmentName(slot.enchantmentId);
+					String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
 					// Every entry in bonusSlots is loot-derived, even if the loot
 					// happened to contain Mending. Automatic completion Mending is
 					// rendered separately above and remains cyan.
 					lines.add(insertIndex++,
-						Text.literal(String.format("★ %s %d", enchName,
-							slot.enchantmentLevel)).formatted(Formatting.GOLD));
+						Text.literal(String.format("  ★ %s", enchName)).formatted(Formatting.GOLD));
 				}
 			}
 		}
@@ -95,7 +94,16 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		return Text.of(bar.toString());
 	}
 
-	private static String formatEnchantmentName(String id) {
+	private static String formatEnchantmentName(String id, int level, TooltipContext context) {
+		try {
+			if (id != null && context.getRegistryLookup() != null) {
+				var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.ENCHANTMENT,
+						net.minecraft.util.Identifier.of(id));
+				var entry = context.getRegistryLookup().getOrThrow(net.minecraft.registry.RegistryKeys.ENCHANTMENT)
+						.getOptional(key).orElse(null);
+				if (entry != null) return net.minecraft.enchantment.Enchantment.getName(entry, level).getString();
+			}
+		} catch (RuntimeException ignored) { }
 		String name = id == null ? "Unknown" : id.substring(id.indexOf(':') + 1)
 				.replace('_', ' ').replace('-', ' ');
 		StringBuilder result = new StringBuilder();
@@ -104,23 +112,23 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			if (result.length() > 0) result.append(' ');
 			result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
 		}
-		return result.toString();
+		return result + " " + level;
 	}
 
-	private void renderSlots(List<Text> lines, int startIndex, List<EquipmentComponent.EquipmentSlot> slots, 
-							 String slotType) {
+	private void renderSlots(List<Text> lines, int startIndex, List<EquipmentComponent.EquipmentSlot> slots,
+			TooltipContext context) {
 		if (slots.isEmpty()) {
-			lines.add(startIndex, Text.literal(slotType + " Slots: None").formatted(Formatting.GRAY));
+			lines.add(startIndex, Text.literal("Enchantments: None").formatted(Formatting.GRAY));
 		} else {
-			lines.add(startIndex, Text.literal(slotType + " Slots:").formatted(Formatting.GRAY));
+			lines.add(startIndex, Text.literal("Enchantments:").formatted(Formatting.GRAY));
 			for (int i = 0; i < slots.size(); i++) {
 				EquipmentComponent.EquipmentSlot slot = slots.get(i);
 				if (slot.isEmpty()) {
 					lines.add(startIndex + i + 1, Text.literal("  [Empty]").formatted(Formatting.DARK_GRAY));
 				} else {
-					String enchName = formatEnchantmentName(slot.enchantmentId);
+					String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
 					lines.add(startIndex + i + 1,
-						Text.literal(String.format("  %s %d", enchName, slot.enchantmentLevel)).formatted(Formatting.WHITE));
+						Text.literal(String.format("  %s", enchName)).formatted(Formatting.WHITE));
 				}
 			}
 		}

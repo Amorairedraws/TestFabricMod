@@ -78,10 +78,20 @@ public final class EquipmentComponent {
         // those vanilla enchantments instead of silently deleting them when the
         // server refreshes the component for the first time.
         if (data.getFilledSlots() == 0 && data.bonusSlots.isEmpty()) {
+            var enchantmentLookup = lookup.getOrThrow(RegistryKeys.ENCHANTMENT);
             for (var entry : stack.getEnchantments().getEnchantmentEntries()) {
                 if (data.bonusSlots.size() >= 2) break;
-                String id = entry.getKey().getKey().map(Object::toString).orElse(null);
-                if (id != null) data.bonusSlots.add(new EquipmentSlot(id, entry.getIntValue()));
+                String id = entry.getKey().getKey().map(key -> key.getValue().toString()).orElse(null);
+                if (id == null || "minecraft:mending".equals(id)) continue;
+                // Curses are never allowed on equipment; bonus slots always start
+                // at level 1 regardless of the vanilla enchantment's level.
+                try {
+                    var key = RegistryKey.of(RegistryKeys.ENCHANTMENT, Identifier.of(id));
+                    boolean curse = enchantmentLookup.getOptional(key)
+                            .map(e -> e.isIn(net.minecraft.registry.tag.EnchantmentTags.CURSE)).orElse(false);
+                    if (curse) continue;
+                } catch (RuntimeException ignored) { continue; }
+                data.bonusSlots.add(new EquipmentSlot(id, 1));
             }
         }
         data.refresh(EquipmentCategory.getCategory(stack));
@@ -190,7 +200,9 @@ public final class EquipmentComponent {
         public void addXp(int amount) {
             // Never allow a broken item, a capped item, or a maxed item to accrue XP.
             if (amount <= 0 || broken || readyToLevelUp || maxed) return;
-            xp = (int) Math.min(Integer.MAX_VALUE, (long) xp + amount);
+            // A full bar is a state, not overflow storage. Capping at the
+            // requirement makes it impossible to render values such as 132/120.
+            xp = (int) Math.min(xpRequired, Math.min((long) Integer.MAX_VALUE, (long) xp + amount));
             readyToLevelUp = xp >= xpRequired;
         }
 
