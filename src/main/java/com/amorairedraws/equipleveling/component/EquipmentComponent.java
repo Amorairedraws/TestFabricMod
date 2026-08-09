@@ -320,7 +320,14 @@ public final class EquipmentComponent {
         }
 
         public void updateMaxed(boolean tierLevelSatisfied) {
-            maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending && tierLevelSatisfied
+            // Issue 7: maxed is driven purely by enchantment completion - every
+            // standard slot filled (or no more compatible enchantments) plus every
+            // enchantment at its max level plus Mending awarded. The material tier
+            // (legendary promotion) is an optional extra and must not block MAX.
+            // Mending is recomputed here so a freshly filled last slot immediately
+            // reflects the completed cap without waiting for a later refresh().
+            mending = getFilledSlots() >= maxSlots || slotsComplete;
+            maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
         }
@@ -335,7 +342,10 @@ public final class EquipmentComponent {
         }
 
         public void updateMaxed(RegistryWrapper.WrapperLookup lookup, boolean tierLevelSatisfied) {
-            maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending && tierLevelSatisfied
+            // Material tier is not part of MAX (Issue 7); enchantment completion
+            // alone determines maxed state. Mending is recomputed here too.
+            mending = getFilledSlots() >= maxSlots || slotsComplete;
+            maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup));
         }

@@ -70,12 +70,14 @@ public class EquipLevelingClient implements ClientModInitializer {
             int color = this.active ? 0xFFFFFFFF : 0xFFA0A0A0;
             var matrices = context.getMatrices();
             matrices.pushMatrix();
-            // Center the glyph in the box, then scale it up ~1.9x.
+            // Center the glyph in the box, then scale it up ~2.2x (Issue 1). The
+            // draw offset is nudged +2px right and -4px up in screen space, which
+            // in the scaled frame becomes roughly (+1, -6).
             matrices.translate(this.getX() + this.getWidth() / 2f, this.getY() + this.getHeight() / 2f);
-            matrices.scale(1.9f, 1.9f);
+            matrices.scale(2.2f, 2.2f);
             context.drawCenteredTextWithShadow(
                     net.minecraft.client.MinecraftClient.getInstance().textRenderer,
-                    "\u21BA", 0, -4, color);
+                    "\u21BA", 1, -6, color);
             matrices.popMatrix();
         }
     }

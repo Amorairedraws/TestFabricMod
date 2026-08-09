@@ -63,12 +63,13 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		renderSlots(lines, insertIndex, data.slots, context);
 		insertIndex += data.slots.size() + 1;
 
-		// Bonus slots. Empty bonus slots are hidden entirely (Issue: they can
-		// never be filled organically, so advertising them as empty is noise).
+		// Bonus slots. Empty bonus slots are hidden entirely (they can never be
+		// filled organically, so advertising them as empty is noise). Bonus
+		// enchantments render in gold (Issue 6) - no star prefix, just the name.
 		for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
 			if (slot.isEmpty()) continue;
 			String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
-			lines.add(insertIndex++, Text.literal(String.format("  %s", enchName)).formatted(Formatting.WHITE));
+			lines.add(insertIndex++, Text.literal(String.format("  %s", enchName)).formatted(Formatting.GOLD));
 		}
 
 		// Broken state

@@ -64,7 +64,15 @@ public final class VanillaEnchantingTableLogic {
         data.updateMaxed(registries, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
                 EquipLevelingConfig.getMaterialTiers()));
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
-        if (data.maxed || data.broken || !data.readyToLevelUp) {
+        // A maxed item still shows offers if a legendary (material) promotion is
+        // available - MAX reflects enchantment completion, promotion is separate
+        // (Issue 7). Otherwise no offers are shown once maxed.
+        if (data.broken || !data.readyToLevelUp) {
+            handler.sendContentUpdates();
+            return;
+        }
+        if (data.maxed && !MaterialTierUpgrader.canPromote(stack, EquipmentCategory.getCategory(stack),
+                EquipLevelingConfig.getMaterialTiers())) {
             handler.sendContentUpdates();
             return;
         }
@@ -100,9 +108,15 @@ public final class VanillaEnchantingTableLogic {
         // rather than competing with upgrade/new weights.
         boolean canLegendary = MaterialTierUpgrader.canPromote(stack, EquipmentCategory.getCategory(stack),
                 EquipLevelingConfig.getMaterialTiers());
-        if (canLegendary && !offers.isEmpty()
-                && random.nextDouble() < EquipLevelingConfig.getLegendaryUpgradeProbability()) {
-            offers.set(random.nextInt(offers.size()), new GeneratedOffer(-1, LEGENDARY));
+        if (canLegendary && random.nextDouble() < EquipLevelingConfig.getLegendaryUpgradeProbability()) {
+            if (offers.isEmpty()) {
+                // A maxed item has no upgrade/new offers left, but a legendary
+                // (material) promotion is still available - offer it directly
+                // (Issue 7).
+                offers.add(new GeneratedOffer(-1, LEGENDARY));
+            } else {
+                offers.set(random.nextInt(offers.size()), new GeneratedOffer(-1, LEGENDARY));
+            }
         }
 
         // Issue 2: shuffle the offer positions so it's random which slot holds
@@ -134,7 +148,11 @@ public final class VanillaEnchantingTableLogic {
         Registry<Enchantment> enchantments = registries.getOrThrow(RegistryKeys.ENCHANTMENT);
         data.updateMaxed(registries, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
                 EquipLevelingConfig.getMaterialTiers()));
-        if (!data.readyToLevelUp || data.broken || data.maxed) return false;
+        // A maxed item can still accept a legendary (material) upgrade - MAX
+        // reflects enchantment completion, while promotion is a separate path
+        // (Issue 7). Only non-legendary offers are blocked once maxed.
+        if (!data.readyToLevelUp || data.broken) return false;
+        if (data.maxed && kind != OfferKind.LEGENDARY) return false;
 
         boolean applied = switch (kind) {
             case NEW_ENCHANTMENT -> addNewSlot(data, idAt(handler, index, enchantments));
@@ -192,23 +210,33 @@ public final class VanillaEnchantingTableLogic {
     }
 
     /**
-     * Base cost follows filled standard slots. The one displayed number adds the
-     * highest offered enchantment's vanilla anvil weight once, rather than
-     * summing all three rows and turning a simple reroll into a surprise tax.
+     * Reroll cost is priced off the current offers (Issue 5). Each offer
+     * contributes its vanilla anvil value - the enchantment's anvil cost times
+     * its level for upgrades, the base anvil cost for a new enchantment, and a
+     * flat 10 for a legendary (material) upgrade. The displayed number is the
+     * sum across all three rows.
      */
     public static int getRerollCost(ItemStack stack, EnchantmentScreenHandler handler,
             Registry<Enchantment> enchantments) {
         if (!EquipmentComponent.isTracked(stack) || !stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return 0;
-        EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-        int[] baseCosts = EquipLevelingConfig.getRerollCosts();
-        int base = baseCosts[Math.min(4, data.getFilledSlots())];
-        int extra = 0;
-        for (int rawId : handler.enchantmentId) {
-            if (rawId < 0) continue;
-            extra = Math.max(extra, enchantments.getEntry(rawId)
-                    .map(entry -> Math.max(0, entry.value().getAnvilCost())).orElse(0));
+        int total = 0;
+        for (int i = 0; i < 3; i++) {
+            OfferKind kind = getOfferKind(handler, i);
+            if (kind == OfferKind.NONE) continue;
+            if (kind == OfferKind.LEGENDARY) {
+                total += 10; // material upgrade fixed cost
+                continue;
+            }
+            int rawId = handler.enchantmentId[i];
+            int weight = enchantments.getEntry(rawId)
+                    .map(entry -> Math.max(0, entry.value().getAnvilCost())).orElse(0);
+            if (kind == OfferKind.UPGRADE) {
+                total += weight * getUpgradeTargetLevel(handler, i);
+            } else { // NEW_ENCHANTMENT
+                total += weight;
+            }
         }
-        return Math.max(0, base + extra);
+        return Math.max(1, total);
     }
 
     /** Fallback label that needs no registry, used when the client world is not
@@ -216,22 +244,31 @@ public final class VanillaEnchantingTableLogic {
      * encoded offer data alone. */
     public static String describeOfferFallback(EnchantmentScreenHandler handler, int index) {
         OfferKind kind = getOfferKind(handler, index);
-        if (kind == OfferKind.LEGENDARY) return "Legendary tier upgrade";
+        if (kind == OfferKind.LEGENDARY) return "Material Upgrade";
         if (kind == OfferKind.NONE) return "";
-        if (kind == OfferKind.UPGRADE) return "Upgrade enchantment";
-        return "New enchantment";
+        if (kind == OfferKind.UPGRADE) return "Upgrade Enchantment";
+        return "New Enchantment";
     }
 
     public static String describeOffer(EnchantmentScreenHandler handler, int index,
             Registry<Enchantment> enchantments) {
         OfferKind kind = getOfferKind(handler, index);
-        if (kind == OfferKind.LEGENDARY) return "Legendary tier upgrade";
+        if (kind == OfferKind.LEGENDARY) return "Material Upgrade";
         if (kind == OfferKind.NONE) return "";
         String name = enchantments.getEntry(handler.enchantmentId[index])
                 .map(entry -> Enchantment.getName(entry,
                         kind == OfferKind.UPGRADE ? getUpgradeTargetLevel(handler, index) : 1).getString())
                 .orElse("Unknown enchantment");
-        return kind == OfferKind.UPGRADE ? "Upgrade " + name : name;
+        return name;
+    }
+
+    /** The darker second line shown under the offer title (Issue 2). */
+    public static String describeOfferSubtitle(EnchantmentScreenHandler handler, int index) {
+        OfferKind kind = getOfferKind(handler, index);
+        if (kind == OfferKind.LEGENDARY) return "Legendary Upgrade";
+        if (kind == OfferKind.UPGRADE) return "Upgrade Enchantment";
+        if (kind == OfferKind.NEW_ENCHANTMENT) return "New Enchantment";
+        return "";
     }
 
     private static GeneratedOffer generateOffer(EquipmentComponent.EquipmentData data, ItemStack stack,
