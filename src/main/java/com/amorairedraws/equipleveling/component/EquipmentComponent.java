@@ -109,24 +109,45 @@ public final class EquipmentComponent {
         // The server mutated the stack's data component, but the client holds its
         // own copy of the item that only refreshes when a slot-update packet
         // arrives (drop/pickup/chest). markDirty() does not reliably emit one for
-        // the survival inventory, which is why a stack can visibly "freeze" until
-        // any resync action. Push the mutated slot(s) to the client explicitly so
-        // the updated XP/level-up state always reaches the client immediately.
+        // the survival inventory, and sendContentUpdates() relies on a hash-based
+        // change detector that does not reliably detect a change to a custom data
+        // component (observed: a held item's XP can lag several seconds behind the
+        // server until a durability change or resync action forces a re-read, and
+        // with Unbreaking a durability change may not even occur). Push the mutated
+        // slot directly so the client is always brought up to date immediately.
         if (player != null && !player.getEntityWorld().isClient()) {
-            // sendContentUpdates() walks the tracked slots and emits a slot-update
-            // packet for any whose stack changed. Push on both the currently open
-            // container and the survival inventory so the client is updated no
-            // matter which is active.
-            if (player.currentScreenHandler != null) {
-                player.currentScreenHandler.sendContentUpdates();
-            }
-            if (player.playerScreenHandler != null) {
-                player.playerScreenHandler.sendContentUpdates();
-            }
+            forceClientSync((net.minecraft.server.network.ServerPlayerEntity) player, stack);
             DiagnosticLogger.serverSyncPush(stack, -1);
         }
         DiagnosticLogger.serverAddXp(stack, -1, amount, null, data);
         return data.xp != before;
+    }
+
+    /**
+     * Reliably pushes an item's slot to the client. Unlike sendContentUpdates(),
+     * which only emits a packet when its change detector decides the slot differs
+     * from the last-sent state (and which does not reliably detect a change to a
+     * custom data component), this sends a ScreenHandlerSlotUpdateS2CPacket
+     * directly for the screen-handler slot that currently holds {@code stack}.
+     * This bypasses all change-detection heuristics, so the client's copy of the
+     * item is always brought up to date immediately.
+     */
+    public static void forceClientSync(net.minecraft.server.network.ServerPlayerEntity player, ItemStack stack) {
+        if (player == null || stack == null) return;
+        // The item is always in the player's own inventory (main hand, offhand or
+        // armor), so sync it through the survival inventory screen handler (syncId 0).
+        net.minecraft.screen.PlayerScreenHandler handler = player.playerScreenHandler;
+        if (handler == null) return;
+        for (int i = 0; i < handler.slots.size(); i++) {
+            net.minecraft.screen.slot.Slot slot = handler.slots.get(i);
+            if (slot != null && slot.getStack() == stack) {
+                int revision = handler.nextRevision();
+                player.networkHandler.sendPacket(
+                    new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
+                        handler.syncId, revision, i, stack));
+                return;
+            }
+        }
     }
 
     /** Rehydrates vanilla's enchantment component from custom slot IDs. Loot
