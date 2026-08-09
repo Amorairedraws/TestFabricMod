@@ -27,7 +27,9 @@ public class ItemStackMixin {
             EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
             // Broken equipment has no active enchantment effects and should not
             // advertise a ready-to-level-up state with a glint.
-            cir.setReturnValue(data != null && data.readyToLevelUp && !data.broken);
+            boolean glint = data != null && data.readyToLevelUp && !data.broken;
+            cir.setReturnValue(glint);
+            com.amorairedraws.equipleveling.util.DiagnosticLogger.clientGlint(stack, glint);
         }
     }
 

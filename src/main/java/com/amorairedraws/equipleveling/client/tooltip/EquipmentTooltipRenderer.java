@@ -31,6 +31,9 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		EquipmentComponent.EquipmentData data = context.getRegistryLookup() != null
 				? EquipmentComponent.getOrCreate(stack, context.getRegistryLookup())
 				: EquipmentComponent.getOrCreate(stack);
+		if (com.amorairedraws.equipleveling.util.DiagnosticLogger.enabled()) {
+			com.amorairedraws.equipleveling.util.DiagnosticLogger.clientTooltipChanged(stack, null, data);
+		}
 
 		// Insert at the top (after the item name)
 		int insertIndex = Math.min(1, lines.size());

@@ -6,6 +6,7 @@ import com.amorairedraws.equipleveling.EquipLevelingMod;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 import com.amorairedraws.equipleveling.util.MaterialTierUpgrader;
+import com.amorairedraws.equipleveling.util.DiagnosticLogger;
 import net.minecraft.component.ComponentType;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.ItemEnchantmentsComponent;
@@ -54,6 +55,7 @@ public final class EquipmentComponent {
         // Issue 4: avoid marking the stack dirty every tick when nothing changed.
         if (before == null || !before.equals(data)) {
             stack.set(EQUIPMENT_TYPE, data);
+            DiagnosticLogger.serverGetOrCreateChanged(stack, -1, before, data);
         }
         return data;
     }
@@ -76,6 +78,7 @@ public final class EquipmentComponent {
                 EquipLevelingConfig.getMaterialTiers()));
         if (before == null || !before.equals(data)) {
             stack.set(EQUIPMENT_TYPE, data);
+            DiagnosticLogger.clientRefreshChanged(stack, -1, before, data);
         }
         return data;
     }
@@ -120,7 +123,9 @@ public final class EquipmentComponent {
             if (player.playerScreenHandler != null) {
                 player.playerScreenHandler.sendContentUpdates();
             }
+            DiagnosticLogger.serverSyncPush(stack, -1);
         }
+        DiagnosticLogger.serverAddXp(stack, -1, amount, null, data);
         return data.xp != before;
     }
 
@@ -192,6 +197,7 @@ public final class EquipmentComponent {
         EquipmentData stored = stack.get(EQUIPMENT_TYPE);
         if (stored == null || !stored.equals(data)) {
             stack.set(EQUIPMENT_TYPE, data);
+            DiagnosticLogger.serverMutate("restoreEnchantments", stack, -1, stored, data);
         }
     }
 
@@ -215,6 +221,7 @@ public final class EquipmentComponent {
             // that inspect components directly from applying an effect.
             stack.remove(DataComponentTypes.ENCHANTMENTS);
             stack.set(EQUIPMENT_TYPE, data);
+            DiagnosticLogger.serverMutate("markBroken", stack, -1, null, data);
         }
     }
 
