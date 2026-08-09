@@ -103,6 +103,21 @@ public class ItemStackMixin {
         }
     }
 
+    /**
+     * A broken tool must not count as a "correct" tool for any block, otherwise
+     * it would keep enabling block-specific drops (e.g. cobblestone from stone)
+     * that a bare hand cannot produce. Returning false makes the broken item
+     * behave exactly like an empty hand for loot purposes.
+     */
+    @Inject(method = "isSuitableFor", at = @At("HEAD"), cancellable = true)
+    private void suppressBrokenToolSuitability(BlockState state, CallbackInfoReturnable<Boolean> cir) {
+        ItemStack stack = (ItemStack) (Object) this;
+        if (stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+            EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+            if (data != null && data.broken) cir.setReturnValue(false);
+        }
+    }
+
     @Inject(method = "getName", at = @At("RETURN"), cancellable = true)
     private void addBrokenPrefix(CallbackInfoReturnable<Text> cir) {
         ItemStack stack = (ItemStack) (Object) this;
