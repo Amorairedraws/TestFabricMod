@@ -64,15 +64,7 @@ public final class VanillaEnchantingTableLogic {
         data.updateMaxed(registries, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
                 EquipLevelingConfig.getMaterialTiers()));
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
-        // A maxed item still shows offers if a legendary (material) promotion is
-        // available - MAX reflects enchantment completion, promotion is separate
-        // (Issue 7). Otherwise no offers are shown once maxed.
-        if (data.broken || !data.readyToLevelUp) {
-            handler.sendContentUpdates();
-            return;
-        }
-        if (data.maxed && !MaterialTierUpgrader.canPromote(stack, EquipmentCategory.getCategory(stack),
-                EquipLevelingConfig.getMaterialTiers())) {
+        if (data.maxed || data.broken || !data.readyToLevelUp) {
             handler.sendContentUpdates();
             return;
         }
@@ -108,15 +100,9 @@ public final class VanillaEnchantingTableLogic {
         // rather than competing with upgrade/new weights.
         boolean canLegendary = MaterialTierUpgrader.canPromote(stack, EquipmentCategory.getCategory(stack),
                 EquipLevelingConfig.getMaterialTiers());
-        if (canLegendary && random.nextDouble() < EquipLevelingConfig.getLegendaryUpgradeProbability()) {
-            if (offers.isEmpty()) {
-                // A maxed item has no upgrade/new offers left, but a legendary
-                // (material) promotion is still available - offer it directly
-                // (Issue 7).
-                offers.add(new GeneratedOffer(-1, LEGENDARY));
-            } else {
-                offers.set(random.nextInt(offers.size()), new GeneratedOffer(-1, LEGENDARY));
-            }
+        if (canLegendary && !offers.isEmpty()
+                && random.nextDouble() < EquipLevelingConfig.getLegendaryUpgradeProbability()) {
+            offers.set(random.nextInt(offers.size()), new GeneratedOffer(-1, LEGENDARY));
         }
 
         // Issue 2: shuffle the offer positions so it's random which slot holds
@@ -148,11 +134,7 @@ public final class VanillaEnchantingTableLogic {
         Registry<Enchantment> enchantments = registries.getOrThrow(RegistryKeys.ENCHANTMENT);
         data.updateMaxed(registries, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
                 EquipLevelingConfig.getMaterialTiers()));
-        // A maxed item can still accept a legendary (material) upgrade - MAX
-        // reflects enchantment completion, while promotion is a separate path
-        // (Issue 7). Only non-legendary offers are blocked once maxed.
-        if (!data.readyToLevelUp || data.broken) return false;
-        if (data.maxed && kind != OfferKind.LEGENDARY) return false;
+        if (!data.readyToLevelUp || data.broken || data.maxed) return false;
 
         boolean applied = switch (kind) {
             case NEW_ENCHANTMENT -> addNewSlot(data, idAt(handler, index, enchantments));
@@ -211,10 +193,11 @@ public final class VanillaEnchantingTableLogic {
 
     /**
      * Reroll cost is priced off the current offers (Issue 5). Each offer
-     * contributes its vanilla anvil value - the enchantment's anvil cost times
-     * its level for upgrades, the base anvil cost for a new enchantment, and a
-     * flat 10 for a legendary (material) upgrade. The displayed number is the
-     * sum across all three rows.
+     * contributes its vanilla base anvil cost (weight) - both for upgrades and
+     * new enchantments - plus a flat 10 for a legendary (material) upgrade. The
+     * weapon's current level is then added on top, so rerolling gets more
+     * expensive as the weapon levels up. The displayed number is the sum across
+     * all three rows plus the weapon level.
      */
     public static int getRerollCost(ItemStack stack, EnchantmentScreenHandler handler,
             Registry<Enchantment> enchantments) {
@@ -230,12 +213,13 @@ public final class VanillaEnchantingTableLogic {
             int rawId = handler.enchantmentId[i];
             int weight = enchantments.getEntry(rawId)
                     .map(entry -> Math.max(0, entry.value().getAnvilCost())).orElse(0);
-            if (kind == OfferKind.UPGRADE) {
-                total += weight * getUpgradeTargetLevel(handler, i);
-            } else { // NEW_ENCHANTMENT
-                total += weight;
-            }
+            // Issue 5: use the base anvil cost for both upgrades and new
+            // enchantments - no multiplication by target level.
+            total += weight;
         }
+        // The weapon's level is added onto the reroll price (Issue 5).
+        EquipmentComponent.EquipmentData data = EquipmentComponent.getOrCreate(stack);
+        total += Math.max(0, data.level);
         return Math.max(1, total);
     }
 
