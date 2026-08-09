@@ -34,13 +34,7 @@ public class EquipLevelingClient implements ClientModInitializer {
             for (int i = 0; i < inventory.size(); i++) {
                 var stack = inventory.getStack(i);
                 if (EquipmentComponent.isTracked(stack)) {
-                    var before = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-                    var beforeCopy = before == null ? null : before.copy();
                     EquipmentComponent.getOrCreate(stack, lookup);
-                    var after = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-                    if (beforeCopy == null || !beforeCopy.equals(after)) {
-                        com.amorairedraws.equipleveling.util.DiagnosticLogger.clientRefreshChanged(stack, i, beforeCopy, after);
-                    }
                 }
             }
             // Armor and offhand are outside inventory.size() (the 36 main slots).
@@ -52,13 +46,7 @@ public class EquipLevelingClient implements ClientModInitializer {
                     net.minecraft.entity.EquipmentSlot.OFFHAND}) {
                 var equippedStack = client.player.getEquippedStack(slot);
                 if (EquipmentComponent.isTracked(equippedStack)) {
-                    var before = equippedStack.get(EquipmentComponent.EQUIPMENT_TYPE);
-                    var beforeCopy = before == null ? null : before.copy();
                     EquipmentComponent.getOrCreate(equippedStack, lookup);
-                    var after = equippedStack.get(EquipmentComponent.EQUIPMENT_TYPE);
-                    if (beforeCopy == null || !beforeCopy.equals(after)) {
-                        com.amorairedraws.equipleveling.util.DiagnosticLogger.clientRefreshChanged(equippedStack, 100 + slot.getEntitySlotId(), beforeCopy, after);
-                    }
                 }
             }
         });

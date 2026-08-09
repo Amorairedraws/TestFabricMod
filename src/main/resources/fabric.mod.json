@@ -3,7 +3,7 @@
   "id": "equip_leveling",
   "version": "${version}",
   "name": "Equip Leveling",
-  "description": "A comprehensive equipment leveling system for Minecraft",
+  "description": "Lightweight equip leveling + enchantment rework.\n\nTHIS IS AI SLOP. \nI did put in time and effort to architect all the behavior, diagnose and fix bugs, etc, but at the end of the day this was made with AI as a coding buddy, because i don't know the syntax.",
   "authors": [
     "Amorairedraws"
   ],

@@ -29,7 +29,6 @@ public class ItemStackMixin {
             // advertise a ready-to-level-up state with a glint.
             boolean glint = data != null && data.readyToLevelUp && !data.broken;
             cir.setReturnValue(glint);
-            com.amorairedraws.equipleveling.util.DiagnosticLogger.clientGlint(stack, glint);
         }
     }
 

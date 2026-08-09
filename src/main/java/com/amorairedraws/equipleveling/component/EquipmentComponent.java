@@ -6,7 +6,6 @@ import com.amorairedraws.equipleveling.EquipLevelingMod;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 import com.amorairedraws.equipleveling.util.MaterialTierUpgrader;
-import com.amorairedraws.equipleveling.util.DiagnosticLogger;
 import net.minecraft.component.ComponentType;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.ItemEnchantmentsComponent;
@@ -38,6 +37,13 @@ public final class EquipmentComponent {
         return !stack.isEmpty() && EquipmentCategory.isEquipment(stack);
     }
 
+    /** Returns whether the stack is a tracked item currently in the broken state. */
+    public static boolean isBroken(ItemStack stack) {
+        if (stack == null || stack.isEmpty() || !stack.contains(EQUIPMENT_TYPE)) return false;
+        EquipmentData data = stack.get(EQUIPMENT_TYPE);
+        return data != null && data.broken;
+    }
+
     /** Adds the component lazily; this avoids mutating every ordinary item in a world. */
     public static EquipmentData getOrCreate(ItemStack stack) {
         EquipmentData data = stack.get(EQUIPMENT_TYPE);
@@ -55,7 +61,6 @@ public final class EquipmentComponent {
         // Issue 4: avoid marking the stack dirty every tick when nothing changed.
         if (before == null || !before.equals(data)) {
             stack.set(EQUIPMENT_TYPE, data);
-            DiagnosticLogger.serverGetOrCreateChanged(stack, -1, before, data);
         }
         return data;
     }
@@ -78,7 +83,6 @@ public final class EquipmentComponent {
                 EquipLevelingConfig.getMaterialTiers()));
         if (before == null || !before.equals(data)) {
             stack.set(EQUIPMENT_TYPE, data);
-            DiagnosticLogger.clientRefreshChanged(stack, -1, before, data);
         }
         return data;
     }
@@ -117,9 +121,7 @@ public final class EquipmentComponent {
         // slot directly so the client is always brought up to date immediately.
         if (player != null && !player.getEntityWorld().isClient()) {
             forceClientSync((net.minecraft.server.network.ServerPlayerEntity) player, stack);
-            DiagnosticLogger.serverSyncPush(stack, -1);
         }
-        DiagnosticLogger.serverAddXp(stack, -1, amount, null, data);
         return data.xp != before;
     }
 
@@ -195,12 +197,7 @@ public final class EquipmentComponent {
             stack.remove(DataComponentTypes.ENCHANTMENTS);
             return;
         }
-        ItemEnchantmentsComponent.Builder builder = new ItemEnchantmentsComponent.Builder(ItemEnchantmentsComponent.DEFAULT);
-        for (EquipmentSlot slot : data.slots) addEnchantment(builder, enchantmentLookup, slot);
-        for (EquipmentSlot slot : data.bonusSlots) addEnchantment(builder, enchantmentLookup, slot);
-        if (data.mending) addEnchantment(builder, enchantmentLookup,
-                new EquipmentSlot("minecraft:mending", 1));
-        ItemEnchantmentsComponent mirrored = builder.build();
+        ItemEnchantmentsComponent mirrored = buildEnchantmentsComponent(data, enchantmentLookup);
         // Issue 4: avoid recreating identical components every tick. Only write
         // when the mirrored enchantments actually differ from what is stored.
         ItemEnchantmentsComponent current = stack.getOrDefault(DataComponentTypes.ENCHANTMENTS,
@@ -218,8 +215,35 @@ public final class EquipmentComponent {
         EquipmentData stored = stack.get(EQUIPMENT_TYPE);
         if (stored == null || !stored.equals(data)) {
             stack.set(EQUIPMENT_TYPE, data);
-            DiagnosticLogger.serverMutate("restoreEnchantments", stack, -1, stored, data);
         }
+    }
+
+    /** Builds the mirrored vanilla ENCHANTMENTS component from the custom slot
+     * data, regardless of the broken flag. Used by the anvil so a broken item
+     * can be repaired (vanilla bails out of updateResult when canHaveEnchantments
+     * is false, which the broken mechanic otherwise makes true by removing the
+     * component). */
+    private static ItemEnchantmentsComponent buildEnchantmentsComponent(EquipmentData data,
+            net.minecraft.registry.RegistryEntryLookup<net.minecraft.enchantment.Enchantment> enchantmentLookup) {
+        ItemEnchantmentsComponent.Builder builder = new ItemEnchantmentsComponent.Builder(ItemEnchantmentsComponent.DEFAULT);
+        for (EquipmentSlot slot : data.slots) addEnchantment(builder, enchantmentLookup, slot);
+        for (EquipmentSlot slot : data.bonusSlots) addEnchantment(builder, enchantmentLookup, slot);
+        if (data.mending) addEnchantment(builder, enchantmentLookup,
+                new EquipmentSlot("minecraft:mending", 1));
+        return builder.build();
+    }
+
+    /** Temporarily restores the vanilla ENCHANTMENTS component on a broken item
+     * so vanilla's anvil repair path (which requires canHaveEnchantments() to be
+     * true) can run. The broken flag is left intact; onTakeOutput clears it and
+     * rebuilds the component properly. */
+    public static void restoreEnchantmentsForRepair(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
+        if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE)) return;
+        EquipmentData data = stack.get(EQUIPMENT_TYPE);
+        if (data == null) return;
+        var enchantmentLookup = lookup.getOrThrow(RegistryKeys.ENCHANTMENT);
+        ItemEnchantmentsComponent mirrored = buildEnchantmentsComponent(data, enchantmentLookup);
+        stack.set(DataComponentTypes.ENCHANTMENTS, mirrored);
     }
 
     private static void addEnchantment(ItemEnchantmentsComponent.Builder builder,
@@ -242,7 +266,6 @@ public final class EquipmentComponent {
             // that inspect components directly from applying an effect.
             stack.remove(DataComponentTypes.ENCHANTMENTS);
             stack.set(EQUIPMENT_TYPE, data);
-            DiagnosticLogger.serverMutate("markBroken", stack, -1, null, data);
         }
     }
 

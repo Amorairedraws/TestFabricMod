@@ -39,15 +39,28 @@ public abstract class AnvilScreenHandlerMixin {
         }
     }
 
+    @Shadow @Final private net.minecraft.screen.ScreenHandlerContext context;
+
     @Inject(method = "updateResult", at = @At("HEAD"), cancellable = true)
     private void equipLeveling$blockEquipmentCombining(CallbackInfo ci) {
         AnvilScreenHandler handler = (AnvilScreenHandler)(Object)this;
         ItemStack left = handler.getSlot(0).getStack();
         ItemStack right = handler.getSlot(1).getStack();
-        if (EquipmentComponent.isTracked(left) && !right.isEmpty()
-                && (EquipmentComponent.isTracked(right) || isEnchantedBook(right))) {
-            handler.getSlot(2).setStack(ItemStack.EMPTY);
-            ci.cancel();
+        if (EquipmentComponent.isTracked(left) && !right.isEmpty()) {
+            // A broken item being repaired with its material must be allowed
+            // through vanilla's repair path. Vanilla bails out early when
+            // canHaveEnchantments() is false, which our broken mechanic makes
+            // true by removing the ENCHANTMENTS component. Temporarily restore
+            // it so the repair proceeds; onTakeOutput clears the broken flag.
+            if (EquipmentComponent.isBroken(left) && left.canRepairWith(right)) {
+                this.context.get((world, pos) -> world.getRegistryManager())
+                        .ifPresent(lookup -> EquipmentComponent.restoreEnchantmentsForRepair(left, lookup));
+                return; // do not cancel; let vanilla repair the item
+            }
+            if (EquipmentComponent.isTracked(right) || isEnchantedBook(right)) {
+                handler.getSlot(2).setStack(ItemStack.EMPTY);
+                ci.cancel();
+            }
         }
     }
 

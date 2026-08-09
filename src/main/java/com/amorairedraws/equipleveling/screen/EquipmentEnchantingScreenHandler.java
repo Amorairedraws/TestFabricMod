@@ -122,6 +122,20 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 				this.offerLevels[i] = calculateOfferCost(data, this.offers[i], player);
 			}
 		}
+
+		// Issue: the legendary upgrade is a single global roll per offering, not
+		// three independent rolls. If it hits, replace one random offer with the
+		// legendary upgrade so the displayed chance matches the configured value.
+		if (MaterialTierUpgrader.canPromote(itemStack,
+				EquipmentCategory.getCategory(itemStack), EquipLevelingConfig.getMaterialTiers())) {
+			double legendaryProbability = Math.max(0, Math.min(1,
+					EquipLevelingConfig.getLegendaryUpgradeProbability()));
+			if (random.nextDouble() < legendaryProbability) {
+				int target = random.nextInt(3);
+				this.offers[target] = new EquipmentEnchantingOffer.LegendaryUpgrade();
+				this.offerLevels[target] = calculateOfferCost(data, this.offers[target], player);
+			}
+		}
 		syncOfferProperties(player);
 	}
 
@@ -149,12 +163,12 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		boolean canAdd = data.getFilledSlots() < 4 && !newEnchantmentIds.isEmpty();
 		if (!canLegendary && !canUpgrade && !canAdd) return null;
 
-		// Legendary is an independent rare roll. If ordinary offers are impossible,
-		// it becomes the deterministic fallback so a non-max-tier item never gets
-		// an empty offer list merely because the probability roll missed.
-		double legendaryProbability = Math.max(0, Math.min(1,
-				EquipLevelingConfig.getLegendaryUpgradeProbability()));
-		if (canLegendary && (random.nextDouble() < legendaryProbability || (!canUpgrade && !canAdd))) {
+		// The legendary upgrade is rolled ONCE per offering (in generateOffers),
+		// not per offer, so a 5% chance stays a 5% chance instead of effectively
+		// becoming ~14% across three independent rolls. Here it is only used as a
+		// deterministic fallback so a non-max-tier item never gets an empty offer
+		// list merely because no ordinary offer was possible.
+		if (canLegendary && !canUpgrade && !canAdd) {
 			return new EquipmentEnchantingOffer.LegendaryUpgrade();
 		}
 
@@ -426,7 +440,14 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		// Completing all four standard slots grants the separate mending
 		// completion effect. It is deliberately not inserted into bonusSlots:
 		// that list is reserved for the maximum of two loot slots.
+		boolean wasMending = data.mending;
 		if (data.getFilledSlots() == 4) data.mending = true;
+		// Issue: play a distinctive sound the moment Mending is awarded.
+		if (!wasMending && data.mending && !player.getEntityWorld().isClient()) {
+			player.getEntityWorld().playSound(null, player.getX(), player.getY(), player.getZ(),
+					net.minecraft.sound.SoundEvents.ITEM_TRIDENT_THUNDER,
+					net.minecraft.sound.SoundCategory.MASTER, 1.0F, 2.0F);
+		}
 
 		// Keep the custom slot data authoritative, but also apply its effects as
 		// vanilla enchantments. This makes both vanilla and modded enchantments
