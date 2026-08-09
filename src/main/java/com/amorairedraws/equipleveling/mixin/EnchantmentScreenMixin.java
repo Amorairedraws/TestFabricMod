@@ -37,14 +37,12 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
     private static final Identifier ENABLED_ROW = Identifier.ofVanilla("container/enchanting_table/enchantment_slot");
     private static final Identifier DISABLED_ROW = Identifier.ofVanilla("container/enchanting_table/enchantment_slot_disabled");
     private static final Identifier HIGHLIGHTED_ROW = Identifier.ofVanilla("container/enchanting_table/enchantment_slot_highlighted");
-    private static final Identifier LEVEL_ICON_DISABLED = Identifier.ofVanilla("container/enchanting_table/level_1_disabled");
     private static final Identifier TEXTURE = Identifier.ofVanilla("textures/gui/container/enchanting_table.png");
 
     private static final int WHITE = 0xFFFFFFFF;
     private static final int GOLD = 0xFFFFD700;
     private static final int GREEN = 0xFF55FF55;
     private static final int RED = 0xFFFF5555;
-    private static final int DARK_GREY = 0xFF808080;
 
     @Shadow
     private void drawBook(DrawContext context, int x, int y) { }
@@ -67,9 +65,10 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
         ItemStackView input = new ItemStackView(handler.getSlot(0).getStack());
         boolean tracked = input.isTracked();
 
-        // Draw the three offer rows, each expanded a little to the right so the
-        // two-line label fits (Issue 2).
-        int rowW = 124;
+        // The offer-row background panels stay at the vanilla width (108) so they
+        // don't poke out of the UI. The text box (trim width) is widened instead
+        // so the two-line label can extend further right without being cut off.
+        int rowW = 108;
         for (int row = 0; row < 3; row++) {
             int rowX = i + 60;
             int rowY = j + 14 + row * 19;
@@ -110,26 +109,31 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
                 if (title == null || title.isEmpty()) title = "Unknown offer";
 
                 int titleColor = legendary ? GOLD : WHITE;
-                // Trim against the wider row (Issue 2) so long names don't spill
-                // out of the box, then render smaller so more fits comfortably.
-                String clippedTitle = textRenderer.trimToWidth(title, 96);
-                String clippedSubtitle = textRenderer.trimToWidth(subtitle, 96);
-                drawScaledText(context, clippedTitle, rowX + 18, rowY + 2, 0.7f, titleColor);
-                drawScaledText(context, clippedSubtitle, rowX + 18, rowY + 12, 0.6f, DARK_GREY);
+                // The text box (trim width) is widened so long names extend
+                // further right than the panel without being cut off early. The
+                // title and subtitle are drawn slightly larger and closer
+                // together, with a lighter subtitle.
+                String clippedTitle = textRenderer.trimToWidth(title, 130);
+                String clippedSubtitle = textRenderer.trimToWidth(subtitle, 130);
+                drawScaledText(context, clippedTitle, rowX + 18, rowY + 2, 0.75f, titleColor);
+                drawScaledText(context, clippedSubtitle, rowX + 18, rowY + 11, 0.65f, 0xFFA0A0A0);
             }
         }
 
-        // Reroll cost (Issue 3): an experience orb (unlit, no number) followed by
-        // the cost number, drawn just below the reroll button (button at x+34/y+46).
+        // Reroll cost: a unicode filled circle followed by the number, drawn at
+        // the reroll button's vertical level, just to the left of the button
+        // (button at x+34/y+46, so its left edge is x+34 and its centre line is
+        // y+55). The circle shares the number's colour.
         if (tracked && client.world != null && client.player != null) {
             var registry = client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
             int cost = VanillaEnchantingTableLogic.getRerollCost(input.stack(), handler, registry);
             boolean affordable = client.player.isInCreativeMode() || client.player.experienceLevel >= cost;
-            int costX = i + 34;
-            int costY = j + 47 + 18 + 1; // just under the button, nudged up
-            context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, LEVEL_ICON_DISABLED, costX, costY, 11, 11);
-            drawScaledText(context, String.valueOf(cost), costX + 13, costY + 2, 0.8f,
-                    affordable ? GREEN : RED);
+            int color = affordable ? GREEN : RED;
+            String costText = "\u25CF " + cost;
+            int costWidth = (int) (textRenderer.getWidth(costText) * 0.8f);
+            int costX = (i + 34) - costWidth; // right-align to the button's left edge
+            int costY = j + 51;               // vertically centred with the button
+            drawScaledText(context, costText, costX, costY, 0.8f, color);
         }
     }
 

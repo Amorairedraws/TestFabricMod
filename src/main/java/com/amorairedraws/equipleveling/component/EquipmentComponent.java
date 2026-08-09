@@ -81,6 +81,13 @@ public final class EquipmentComponent {
                     net.minecraft.sound.SoundEvents.BLOCK_AMETHYST_BLOCK_FALL,
                     net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
         }
+        // The server mutated the stack's data component, but the client's copy of
+        // the item is not refreshed until the inventory resyncs. Mark the
+        // inventory dirty so the updated XP/level-up state reaches the client
+        // immediately instead of only after the item is re-picked-up.
+        if (player != null && !player.getEntityWorld().isClient()) {
+            player.getInventory().markDirty();
+        }
         return data.xp != before;
     }
 
@@ -330,6 +337,10 @@ public final class EquipmentComponent {
             maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
+            // A maxed item is no longer "ready to level up" - there are no more
+            // upgrades to gather, so clear the flag or the tooltip would keep
+            // advertising a level-up that can never happen.
+            if (maxed) readyToLevelUp = false;
         }
 
         /** Uses the live world registry when deciding whether a modded
@@ -348,6 +359,9 @@ public final class EquipmentComponent {
             maxed = (getFilledSlots() >= maxSlots || slotsComplete) && mending
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup));
+            // A maxed item is no longer "ready to level up" - clear the flag so
+            // the tooltip and enchanting table stop advertising a level-up.
+            if (maxed) readyToLevelUp = false;
         }
 
         /** Returns the registered maximum, including maxima supplied by modded
