@@ -163,7 +163,7 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
         matrices.translate((float) x, (float) y);
         matrices.scale(scale, scale);
         // Lighter shadow: a translucent dark copy offset by 1px.
-        int shadowColor = (color & 0x00FFFFFF) | 0x66000000;
+        int shadowColor = (color & 0x00FFFFFF) | 0x80000000;
         context.drawText(textRenderer, text, 1, 1, shadowColor, false);
         context.drawText(textRenderer, text, 0, 0, color, false);
         matrices.popMatrix();
