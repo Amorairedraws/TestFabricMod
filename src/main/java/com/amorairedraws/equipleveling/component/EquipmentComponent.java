@@ -235,15 +235,13 @@ public final class EquipmentComponent {
 
     /** Temporarily restores the vanilla ENCHANTMENTS component on a broken item
      * so vanilla's anvil repair path (which requires canHaveEnchantments() to be
-     * true) can run. The broken flag is left intact; onTakeOutput clears it and
-     * rebuilds the component properly. */
-    public static void restoreEnchantmentsForRepair(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
+     * true) can run. We only need the component to be *present* for the repair
+     * branch to be reached; the actual enchantments are rebuilt by onTakeOutput
+     * after the material repair completes. Using an empty component avoids the
+     * need for a registry lookup here. */
+    public static void restoreEnchantmentsForRepair(ItemStack stack) {
         if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE)) return;
-        EquipmentData data = stack.get(EQUIPMENT_TYPE);
-        if (data == null) return;
-        var enchantmentLookup = lookup.getOrThrow(RegistryKeys.ENCHANTMENT);
-        ItemEnchantmentsComponent mirrored = buildEnchantmentsComponent(data, enchantmentLookup);
-        stack.set(DataComponentTypes.ENCHANTMENTS, mirrored);
+        stack.set(DataComponentTypes.ENCHANTMENTS, ItemEnchantmentsComponent.DEFAULT);
     }
 
     private static void addEnchantment(ItemEnchantmentsComponent.Builder builder,
