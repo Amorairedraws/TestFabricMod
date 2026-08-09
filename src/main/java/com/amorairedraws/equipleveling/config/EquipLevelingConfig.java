@@ -184,7 +184,7 @@ public class EquipLevelingConfig {
 
 			// Treat hand-edited config files as untrusted input.  Invalid values
 			// should never make XP requirements, costs, or weighted offers unusable.
-			xpMultiplier = Double.isFinite(xpMultiplier) ? Math.max(1.0, Math.min(10.0, xpMultiplier)) : 1.2;
+			xpMultiplier = Double.isFinite(xpMultiplier) ? Math.max(0.1, Math.min(10.0, xpMultiplier)) : 1.2;
 			xpDisplayThreshold = Math.max(0, xpDisplayThreshold);
 			durabilityRestorePercent = Math.max(0, Math.min(100, durabilityRestorePercent));
 			coalXp = Math.max(0, coalXp);
@@ -404,7 +404,7 @@ public class EquipLevelingConfig {
 
 	public static void setXpMultiplier(double multiplier) {
 		if (!Double.isFinite(multiplier)) return;
-		xpMultiplier = Math.max(1.0, Math.min(10.0, multiplier));
+		xpMultiplier = Math.max(0.1, Math.min(10.0, multiplier));
 		save();
 	}
 

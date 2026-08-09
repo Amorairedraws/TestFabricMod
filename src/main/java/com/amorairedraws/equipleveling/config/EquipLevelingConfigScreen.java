@@ -1,21 +1,36 @@
 package com.amorairedraws.equipleveling.config;
 
+import com.amorairedraws.equipleveling.util.MaterialLadderDetector;
+import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
+import me.shedaniel.clothconfig2.api.ConfigBuilder;
+import me.shedaniel.clothconfig2.api.ConfigCategory;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import me.shedaniel.clothconfig2.api.ConfigBuilder;
-import me.shedaniel.clothconfig2.api.ConfigCategory;
-import me.shedaniel.clothconfig2.impl.builders.SubCategoryBuilder;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
-
 /**
- * Cloth Config screen exposed through Mod Menu. Organised into three clear
- * tabs (General / XP Rewards / Enchanting), each with collapsible sub-categories
- * so everything is discoverable and nothing is buried in a wall of fields.
+ * Mod Menu config screen, structured so a third grader could navigate it:
+ *
+ * <ul>
+ *   <li><b>Start Here</b> - one big slider (global XP speed) plus the few
+ *       other on/off switches most people will care about.  The fine-tuning
+ *       is tucked inside collapsed "Advanced ..." groups.</li>
+ *   <li><b>Earning XP</b> - how much XP each item needs to level up, and how
+ *       much every action/mining reward gives.  The full block browser is one
+ *       click away.</li>
+ *   <li><b>Leveling Up</b> - what the enchanting table offers (chances,
+ *       reroll cost, material ladder, enchantment slots).</li>
+ * </ul>
+ *
+ * Every sub-category is collapsible, so the screen reads as a short list of
+ * plain-language switches unless you deliberately open an "Advanced" group.
  */
 public final class EquipLevelingConfigScreen {
     private static final String[] CATEGORIES = {
@@ -33,75 +48,78 @@ public final class EquipLevelingConfigScreen {
                 .setSavingRunnable(EquipLevelingConfig::save);
         var entries = builder.entryBuilder();
 
-        buildGeneral(builder, entries);
-        buildXpRewards(builder, entries);
-        buildEnchanting(builder, entries);
+        buildStartHere(builder, entries);
+        buildEarningXp(builder, entries);
+        buildLevelingUp(builder, entries);
 
         return builder.build();
     }
 
-    // ------------------------------------------------------------------
-    // General
-    // ------------------------------------------------------------------
-    private static void buildGeneral(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
-        var general = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.general"));
-        general.addEntry(entries.startTextDescription(
+    // ======================================================================
+    // Tab 1 - Start Here
+    // ======================================================================
+    private static void buildStartHere(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
+        var tab = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.general"));
+        tab.addEntry(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.category.general.desc")).build());
 
-        general.addEntry(entries.startDoubleField(
+        // The one setting most people change: global XP speed.
+        tab.addEntry(entries.startDoubleField(
                 Text.translatable("equip_leveling.config.xp_multiplier"), EquipLevelingConfig.getXpMultiplier())
-                .setDefaultValue(1.2).setMin(1.0).setMax(10.0)
+                .setDefaultValue(1.2).setMin(0.1).setMax(10.0)
                 .setTooltip(Text.translatable("equip_leveling.config.xp_multiplier.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setXpMultiplier).build());
 
-        general.addEntry(entries.startIntField(
-                Text.translatable("equip_leveling.config.xp_threshold"), EquipLevelingConfig.getXpDisplayThreshold())
-                .setDefaultValue(10).setMin(0)
+        var advanced = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.general_advanced"));
+
+        advanced.add(entries.startIntSlider(
+                Text.translatable("equip_leveling.config.xp_threshold"), EquipLevelingConfig.getXpDisplayThreshold(), 0, 100)
+                .setDefaultValue(10)
                 .setTooltip(Text.translatable("equip_leveling.config.xp_threshold.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setXpDisplayThreshold).build());
 
-        general.addEntry(entries.startIntSlider(
+        advanced.add(entries.startIntSlider(
                 Text.translatable("equip_leveling.config.durability_restore"), EquipLevelingConfig.getDurabilityRestorePercent(), 0, 100)
                 .setDefaultValue(25)
                 .setTooltip(Text.translatable("equip_leveling.config.durability_restore.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setDurabilityRestorePercent).build());
 
-        general.addEntry(entries.startBooleanToggle(
+        advanced.add(entries.startBooleanToggle(
                 Text.translatable("equip_leveling.config.keep_on_death"), EquipLevelingConfig.isKeepEquipOnDeath())
                 .setDefaultValue(false)
                 .setTooltip(Text.translatable("equip_leveling.config.keep_on_death.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setKeepEquipOnDeath).build());
 
-        general.addEntry(entries.startBooleanToggle(
+        advanced.add(entries.startBooleanToggle(
                 Text.translatable("equip_leveling.config.broken_mechanic"), EquipLevelingConfig.isBrokenMechanicEnabled())
                 .setDefaultValue(true)
                 .setTooltip(Text.translatable("equip_leveling.config.broken_mechanic.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setBrokenMechanicEnabled).build());
 
-        // Anvil costs
-        var anvil = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.anvil"));
-        anvil.add(entries.startIntField(
+        advanced.add(entries.startIntField(
                 Text.translatable("equip_leveling.config.anvil_base"), EquipLevelingConfig.getAnvilBaseCost())
                 .setDefaultValue(1).setMin(0)
                 .setTooltip(Text.translatable("equip_leveling.config.anvil_base.tooltip"))
                 .setSaveConsumer(value -> EquipLevelingConfig.setAnvilCosts(value, EquipLevelingConfig.getAnvilPerLevelCost())).build());
-        anvil.add(entries.startIntField(
+
+        advanced.add(entries.startIntField(
                 Text.translatable("equip_leveling.config.anvil_per_level"), EquipLevelingConfig.getAnvilPerLevelCost())
                 .setDefaultValue(1).setMin(0)
                 .setTooltip(Text.translatable("equip_leveling.config.anvil_per_level.tooltip"))
                 .setSaveConsumer(value -> EquipLevelingConfig.setAnvilCosts(EquipLevelingConfig.getAnvilBaseCost(), value)).build());
-        general.addEntry(anvil.setExpanded(false).build());
+
+        tab.addEntry(advanced.setExpanded(false).build());
     }
 
-    // ------------------------------------------------------------------
-    // XP Rewards
-    // ------------------------------------------------------------------
-    private static void buildXpRewards(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
-        var xp = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.xp_rewards"));
-        xp.addEntry(entries.startTextDescription(
+    // ======================================================================
+    // Tab 2 - Earning XP
+    // ======================================================================
+    private static void buildEarningXp(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
+        var tab = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.xp_rewards"));
+        tab.addEntry(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.category.xp_rewards.desc")).build());
 
-        // Level-up requirements (base XP per item type)
+        // How much XP each item needs to level up.
         var requirements = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.requirements"));
         requirements.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.requirements.desc")).build());
@@ -113,9 +131,9 @@ public final class EquipLevelingConfigScreen {
                     .setTooltip(Text.translatable("equip_leveling.config.base_xp.tooltip", pretty(category)))
                     .setSaveConsumer(value -> EquipLevelingConfig.setBaseXpForCategory(category, value)).build());
         }
-        xp.addEntry(requirements.setExpanded(true).build());
+        tab.addEntry(requirements.setExpanded(false).build());
 
-        // Per-action rewards
+        // XP for doing things.
         var actions = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.actions"));
         actions.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.actions.desc")).build());
@@ -149,9 +167,9 @@ public final class EquipLevelingConfigScreen {
                 .setDefaultValue(1).setMin(0)
                 .setTooltip(Text.translatable("equip_leveling.config.stone_xp.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setStoneXp).build());
-        xp.addEntry(actions.setExpanded(true).build());
+        tab.addEntry(actions.setExpanded(false).build());
 
-        // Ore & block rewards
+        // XP for mining ores.
         var ore = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.ore"));
         ore.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.ore.desc")).build());
@@ -167,12 +185,13 @@ public final class EquipLevelingConfigScreen {
         ore.add(entries.startIntField(Text.translatable("equip_leveling.config.rare_ore_xp"), EquipLevelingConfig.getRareOreXp())
                 .setDefaultValue(40).setMin(0).setTooltip(Text.translatable("equip_leveling.config.rare_ore_xp.tooltip"))
                 .setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), EquipLevelingConfig.getIronXp(), EquipLevelingConfig.getGoldXp(), value)).build());
-        xp.addEntry(ore.setExpanded(true).build());
+        tab.addEntry(ore.setExpanded(false).build());
 
-        // Custom block rewards
+        // Extra blocks that give XP - with the full block browser one click away.
         var custom = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.custom"));
         custom.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.custom.desc")).build());
+        custom.add(new OpenBlockListEntry());
         List<String> customList = new ArrayList<>();
         EquipLevelingConfig.getCustomBlockXp().forEach((id, v) -> customList.add(id + ":" + v));
         custom.add(entries.startStrList(
@@ -184,18 +203,18 @@ public final class EquipLevelingConfigScreen {
                 .setTooltip(Text.translatable("equip_leveling.config.custom_block_xp.tooltip"))
                 .setCellErrorSupplier(EquipLevelingConfigScreen::validateBlockXpEntry)
                 .setSaveConsumer(EquipLevelingConfigScreen::saveCustomBlockXp).build());
-        xp.addEntry(custom.setExpanded(true).build());
+        tab.addEntry(custom.setExpanded(true).build());
     }
 
-    // ------------------------------------------------------------------
-    // Enchanting
-    // ------------------------------------------------------------------
-    private static void buildEnchanting(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
-        var ench = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.enchanting"));
-        ench.addEntry(entries.startTextDescription(
+    // ======================================================================
+    // Tab 3 - Leveling Up
+    // ======================================================================
+    private static void buildLevelingUp(ConfigBuilder builder, me.shedaniel.clothconfig2.api.ConfigEntryBuilder entries) {
+        var tab = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.enchanting"));
+        tab.addEntry(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.category.enchanting.desc")).build());
 
-        // Offer weights
+        // How often each reward appears.
         var weights = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.weights"));
         weights.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.weights.desc")).build());
@@ -217,9 +236,9 @@ public final class EquipLevelingConfigScreen {
                 .setDefaultValue(5)
                 .setTooltip(Text.translatable("equip_leveling.config.legendary_chance.tooltip"))
                 .setSaveConsumer(v -> EquipLevelingConfig.setLegendaryUpgradeProbability(v / 100.0)).build());
-        ench.addEntry(weights.setExpanded(true).build());
+        tab.addEntry(weights.setExpanded(true).build());
 
-        // Reroll costs
+        // Reroll prices.
         var reroll = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.reroll"));
         reroll.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.reroll.desc")).build());
@@ -236,25 +255,28 @@ public final class EquipLevelingConfigScreen {
                         EquipLevelingConfig.setRerollCosts(updated);
                     }).build());
         }
-        ench.addEntry(reroll.setExpanded(true).build());
+        tab.addEntry(reroll.setExpanded(false).build());
 
-        // Material tiers
+        // Material upgrade order - auto-detected from the registry, editable.
         var tiers = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.tiers"));
         tiers.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.tiers.desc")).build());
+        List<String> detected = MaterialLadderDetector.detectLadder();
+        // Start from the configured ladder (if the player customized it), otherwise
+        // the auto-detected one.
+        List<String> currentTiers = new ArrayList<>(Arrays.asList(EquipLevelingConfig.getMaterialTiers()));
         tiers.add(entries.startStrList(
-                Text.translatable("equip_leveling.config.material_tiers"),
-                Arrays.asList(EquipLevelingConfig.getMaterialTiers()))
-                .setDefaultValue(List.of("wood", "stone", "iron", "diamond", "netherite"))
+                Text.translatable("equip_leveling.config.material_tiers"), currentTiers)
+                .setDefaultValue(detected)
                 .setExpanded(true)
                 .setAddButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.add"))
                 .setRemoveButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.remove"))
                 .setTooltip(Text.translatable("equip_leveling.config.material_tiers.tooltip"))
                 .setSaveConsumer(list -> EquipLevelingConfig.setMaterialTiers(
                         list == null ? new String[0] : list.toArray(new String[0]))).build());
-        ench.addEntry(tiers.setExpanded(true).build());
+        tab.addEntry(tiers.setExpanded(true).build());
 
-        // Max slots per item
+        // Enchantment slots per item.
         var maxSlots = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.max_slots"));
         maxSlots.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.max_slots.desc")).build());
@@ -266,7 +288,56 @@ public final class EquipLevelingConfigScreen {
                     .setTooltip(Text.translatable("equip_leveling.config.max_slots.tooltip", pretty(category)))
                     .setSaveConsumer(value -> EquipLevelingConfig.setMaxSlotsForCategory(category, value)).build());
         }
-        ench.addEntry(maxSlots.setExpanded(true).build());
+        tab.addEntry(maxSlots.setExpanded(true).build());
+    }
+
+    /**
+     * A single clickable row that opens the full block-XP browser.  Rendered
+     * as a button-like bar so it stands out from the surrounding text rows.
+     */
+    private static final class OpenBlockListEntry extends AbstractConfigListEntry<String> {
+        private OpenBlockListEntry() {
+            super(Text.translatable("equip_leveling.config.open_block_list"), false);
+        }
+
+        @Override public String getValue() { return ""; }
+        public void setValue(String value) { }
+        @Override public java.util.Optional<String> getDefaultValue() { return java.util.Optional.empty(); }
+        @Override public boolean isRequiresRestart() { return false; }
+        @Override public void setRequiresRestart(boolean requiresRestart) { }
+        @Override public int getItemHeight() { return 22; }
+
+        @Override
+        public void render(DrawContext matrices, int index, int y, int x, int entryWidth,
+                int entryHeight, int mouseX, int mouseY, boolean isHovered, float delta) {
+            int left = x + 2;
+            int right = x + entryWidth - 2;
+            matrices.fill(left, y + 1, right, y + getItemHeight() - 1, isHovered ? 0xFF3A5A7A : 0xFF2A3A4A);
+            // Draw a fake button border
+            matrices.fill(left, y + 1, right, y + 2, 0xFF6A9AC0);
+            matrices.fill(left, y + getItemHeight() - 2, right, y + getItemHeight() - 1, 0xFF101018);
+            matrices.drawCenteredTextWithShadow(MinecraftClient.getInstance().textRenderer,
+                    this.getDisplayedFieldName(), left + (right - left) / 2, y + 6, 0xFFFFFF);
+        }
+
+        public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean onlyIncludeWithin) {
+            if (click.button() == 0) {
+                Screen current = MinecraftClient.getInstance().currentScreen;
+                MinecraftClient.getInstance().setScreen(new BlockXpScreen(current));
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public java.util.List<? extends net.minecraft.client.gui.Selectable> narratables() {
+            return java.util.List.of();
+        }
+
+        @Override
+        public java.util.List<? extends net.minecraft.client.gui.Element> children() {
+            return java.util.List.of();
+        }
     }
 
     private static java.util.Optional<Text> validateBlockXpEntry(String value) {
