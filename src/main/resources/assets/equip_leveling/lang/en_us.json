@@ -79,10 +79,8 @@
 
   "equip_leveling.config.reroll_cost": "%d full slots",
   "equip_leveling.config.reroll_cost.tooltip": "XP levels spent to reroll when %d standard slots are filled.",
-  "equip_leveling.config.material_tiers": "Upgrade order",
-  "equip_leveling.config.material_tiers.tooltip": "Materials upgrade in this order. The list starts with the materials the game detected automatically; delete a row to leave it out, type a name to add one.",
-  "equip_leveling.config.material_tiers.add": "Add a material",
-  "equip_leveling.config.material_tiers.remove": "Remove this material",
+  "equip_leveling.config.material_tier": "Tier %d material",
+  "equip_leveling.config.material_tier.tooltip": "The material used for tier %d of the upgrade ladder. Pick one from the list, or type a custom modded material name. Leave a tier empty to stop the ladder there.",
   "equip_leveling.config.max_slots": "%s",
   "equip_leveling.config.max_slots.tooltip": "The maximum number of enchantment slots a %s can hold. Raise it up to 8 if you use enchantment mods that add many more options.",
 

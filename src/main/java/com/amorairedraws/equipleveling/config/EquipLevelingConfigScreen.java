@@ -249,20 +249,29 @@ public final class EquipLevelingConfigScreen {
         }
         tab.addEntry(reroll.setExpanded(false).build());
 
-        // Material upgrade order - a simple editable list.
+        // Material upgrade order - one dropdown per tier, so players pick from
+        // known materials instead of typing names by hand.  Each dropdown also
+        // allows free typing (suggestion mode) for custom modded materials.
         var tiers = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.tiers"));
         tiers.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.tiers.desc")).build());
-        List<String> currentTiers = new ArrayList<>(Arrays.asList(EquipLevelingConfig.getMaterialTiers()));
-        tiers.add(entries.startStrList(
-                Text.translatable("equip_leveling.config.material_tiers"), currentTiers)
-                .setDefaultValue(List.of("wood", "stone", "iron", "diamond", "netherite"))
-                .setExpanded(true)
-                .setAddButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.add"))
-                .setRemoveButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.remove"))
-                .setTooltip(Text.translatable("equip_leveling.config.material_tiers.tooltip"))
-                .setSaveConsumer(list -> EquipLevelingConfig.setMaterialTiers(
-                        list == null ? new String[0] : list.toArray(new String[0]))).build());
+        String[] currentTiers = EquipLevelingConfig.getMaterialTiers();
+        List<String> knownMaterials = knownMaterials(currentTiers);
+        // Present a fixed number of tier slots covering the vanilla ladder plus
+        // room for one extra modded tier.  Empty slots are trimmed on save.
+        int tierSlots = 6;
+        for (int i = 0; i < tierSlots; i++) {
+            final int index = i;
+            String value = i < currentTiers.length ? currentTiers[i] : "";
+            var dropdown = entries.startStringDropdownMenu(
+                    Text.translatable("equip_leveling.config.material_tier", i + 1), value)
+                    .setSelections(knownMaterials)
+                    .setSuggestionMode(true)
+                    .setDefaultValue(i < 5 ? new String[]{"wood", "stone", "iron", "diamond", "netherite"}[i] : "")
+                    .setTooltip(Text.translatable("equip_leveling.config.material_tier.tooltip", i + 1))
+                    .setSaveConsumer(selected -> saveTier(index, selected));
+            tiers.add(dropdown.build());
+        }
         tab.addEntry(tiers.setExpanded(true).build());
 
         // Enchantment slots per item.
@@ -343,5 +352,36 @@ public final class EquipLevelingConfigScreen {
         return Arrays.stream(value.split("_"))
                 .map(part -> part.isEmpty() ? part : Character.toUpperCase(part.charAt(0)) + part.substring(1))
                 .reduce((a, b) -> a + " " + b).orElse(value);
+    }
+
+    /** Materials offered in each tier dropdown: the common vanilla materials
+     * plus anything the player has already configured, so existing setups
+     * (including modded materials) stay selectable. */
+    private static List<String> knownMaterials(String[] current) {
+        List<String> known = new ArrayList<>(Arrays.asList(
+                "wood", "stone", "copper", "gold", "iron", "diamond", "netherite"));
+        if (current != null) {
+            for (String tier : current) {
+                if (tier != null && !tier.isBlank() && !known.contains(tier.trim().toLowerCase())) {
+                    known.add(tier.trim().toLowerCase());
+                }
+            }
+        }
+        return known;
+    }
+
+    /** Saves one tier slot back into the ladder, trimming any trailing empty
+     * slots so the stored ladder stays compact. */
+    private static void saveTier(int index, String selected) {
+        String[] current = EquipLevelingConfig.getMaterialTiers();
+        int len = Math.max(current.length, index + 1);
+        String[] updated = new String[len];
+        System.arraycopy(current, 0, updated, 0, current.length);
+        for (int i = current.length; i < len; i++) updated[i] = "";
+        updated[index] = selected == null ? "" : selected.trim().toLowerCase();
+        // Trim trailing empty slots.
+        int last = updated.length;
+        while (last > 0 && (updated[last - 1] == null || updated[last - 1].isBlank())) last--;
+        EquipLevelingConfig.setMaterialTiers(Arrays.copyOf(updated, last));
     }
 }
