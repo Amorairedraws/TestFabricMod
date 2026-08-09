@@ -29,23 +29,27 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		// Insert at the top (after the item name)
 		int insertIndex = Math.min(1, lines.size());
 
-		// XP bar and its numeric readout occupy separate tooltip rows, matching
-		// the vanilla durability-bar presentation.
+		// XP bar and its numeric readout occupy separate tooltip rows.
 		lines.add(insertIndex++, renderXpBar(data));
-		lines.add(insertIndex++, data.readyToLevelUp
-				? Text.literal("Ready to level up!").formatted(Formatting.GREEN)
-				: Text.literal(String.format("(%d/%d) XP", data.xp, data.xpRequired)).formatted(Formatting.GRAY));
+
+		if (data.maxed) {
+			lines.add(insertIndex++, Text.literal("\u2728 MAX LEVEL \u2728").formatted(Formatting.GOLD));
+		} else if (data.readyToLevelUp) {
+			lines.add(insertIndex++, Text.literal("Ready to level up!").formatted(Formatting.GREEN));
+			// Issue 13: point new players toward the enchanting table.
+			lines.add(insertIndex++, Text.literal("Level up at an Enchanting Table").formatted(Formatting.DARK_GREEN));
+		} else {
+			lines.add(insertIndex++, Text.literal(String.format("(%d/%d) XP", data.xp, data.xpRequired)).formatted(Formatting.GRAY));
+		}
 
 		// Level or MAX LEVEL
 		if (data.maxed) {
-			lines.add(insertIndex++, Text.literal("§6MAX LEVEL"));
+			lines.add(insertIndex++, Text.literal("\u2728\u2728 MAX LEVEL \u2728\u2728").formatted(Formatting.GOLD));
 		} else {
 			lines.add(insertIndex++, Text.literal(String.format("Level %d", data.level)).formatted(Formatting.YELLOW));
 		}
 
-		// Mending is the completion reward and is intentionally distinct from
-		// the two loot-derived bonus slots. It appears at the top of the slot
-		// section, before the four standard slots.
+		// Mending is the completion reward.
 		if (data.mending) {
 			lines.add(insertIndex++, Text.literal("  \uD83D\uDC8E Mending").formatted(Formatting.AQUA));
 		}
@@ -58,21 +62,18 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		if (!data.bonusSlots.isEmpty()) {
 			for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
 				if (slot.isEmpty()) {
-					lines.add(insertIndex++, Text.literal("  ★ [Empty]").formatted(Formatting.GOLD));
+					lines.add(insertIndex++, Text.literal("  \u2605 [Empty]").formatted(Formatting.GOLD));
 				} else {
 					String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
-					// Every entry in bonusSlots is loot-derived, even if the loot
-					// happened to contain Mending. Automatic completion Mending is
-					// rendered separately above and remains cyan.
 					lines.add(insertIndex++,
-						Text.literal(String.format("  ★ %s", enchName)).formatted(Formatting.GOLD));
+						Text.literal(String.format("  \u2605 %s", enchName)).formatted(Formatting.GOLD));
 				}
 			}
 		}
 
 		// Broken state
 		if (data.broken) {
-			lines.add(insertIndex, Text.literal("Broken — repair at an Anvil").formatted(Formatting.RED));
+			lines.add(insertIndex, Text.literal("Broken \u2014 repair at an Anvil").formatted(Formatting.RED));
 		}
 	}
 
@@ -81,15 +82,17 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		int filled = data.xpRequired > 0 ? (data.xp * barLength) / data.xpRequired : 0;
 		filled = Math.min(filled, barLength);
 
-		StringBuilder bar = new StringBuilder("§8[");
+		// A flowing bar: empty segments are low block glyphs in grey, filled ones
+		// are taller block glyphs in green, wrapped in vertical bars.
+		StringBuilder bar = new StringBuilder("\u00a78\u2016");
 		for (int i = 0; i < barLength; i++) {
 			if (i < filled) {
-				bar.append("§a█");
+				bar.append("\u00a7a\u2586");
 			} else {
-				bar.append("§7█");
+				bar.append("\u00a77\u2582");
 			}
 		}
-		bar.append("§8]");
+		bar.append("\u00a78\u2016");
 
 		return Text.of(bar.toString());
 	}

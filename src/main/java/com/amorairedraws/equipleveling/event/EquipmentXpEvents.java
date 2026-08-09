@@ -26,7 +26,7 @@ public class EquipmentXpEvents {
         String category = EquipmentCategory.getCategory(held);
         if (("sword".equals(category) || "axe".equals(category))) {
             int xp = XpCalculator.calculateEntityKillXp(entity);
-            if (EquipmentComponent.addXp(held, xp)) {
+            if (EquipmentComponent.addXp(held, xp, player)) {
                 XpDisplay.showForPlayer(player, entity.getEntityPos(), xp);
             }
         }
@@ -73,7 +73,7 @@ public class EquipmentXpEvents {
 				// Progression and its notification are server-authoritative.
 				// Showing a client-side prediction here would duplicate the packet
 				// emitted after the server accepts the reward.
-				if (xp > 0 && !world.isClient() && EquipmentComponent.addXp(heldItem, xp)) {
+				if (xp > 0 && !world.isClient() && EquipmentComponent.addXp(heldItem, xp, player)) {
 					XpDisplay.showForPlayer(player, net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
 				}
 			}

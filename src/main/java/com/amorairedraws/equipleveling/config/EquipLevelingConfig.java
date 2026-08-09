@@ -37,6 +37,7 @@ public class EquipLevelingConfig {
 	private static String[] materialTiers = {"wood", "stone", "iron", "diamond", "netherite"};
 	private static double upgradeWeight = 0.6;
 	private static double newSlotWeight = 0.4;
+	private static double legendaryWeight = 0.05;
 	private static int anvilBaseCost = 1;
 	private static int anvilPerLevelCost = 1;
 	private static boolean keepEquipOnDeath = false;
@@ -45,6 +46,11 @@ public class EquipLevelingConfig {
 	// Keyed by block id (e.g. "minecraft:deepslate"), value is the XP granted
 	// when that block is broken with a pickaxe.
 	private static Map<String, Integer> customBlockXp = new HashMap<>();
+	// Maximum number of standard enchantment slots per item category. Some tools
+	// (pickaxes, shovels, hoes) simply don't have enough compatible enchantments
+	// to fill all 4 slots, so this lets players/balance dictate a lower cap.
+	// Mending is awarded once this configured max is reached.
+	private static Map<String, Integer> maxSlots = new HashMap<>();
 
 	static {
 		// Initialize base XP values. These represent how much focused play is
@@ -63,6 +69,20 @@ public class EquipLevelingConfig {
 		baseXp.put("leggings", 400);
 		baseXp.put("boots", 350);
 		baseXp.put("default", 350);
+
+		// Default max slots: most equipment can use 4, but tools with few
+		// compatible enchantments cap lower by default so they can still max out.
+		maxSlots.put("sword", 4);
+		maxSlots.put("axe", 3);
+		maxSlots.put("pickaxe", 3);
+		maxSlots.put("shovel", 2);
+		maxSlots.put("hoe", 2);
+		maxSlots.put("fishing_rod", 3);
+		maxSlots.put("helmet", 4);
+		maxSlots.put("chestplate", 4);
+		maxSlots.put("leggings", 4);
+		maxSlots.put("boots", 4);
+		maxSlots.put("default", 4);
 	}
 
 	public static void load() {
@@ -116,6 +136,7 @@ public class EquipLevelingConfig {
 			
 			upgradeWeight = json.has("upgradeWeight") ? json.get("upgradeWeight").getAsDouble() : 0.6;
 			newSlotWeight = json.has("newSlotWeight") ? json.get("newSlotWeight").getAsDouble() : 0.4;
+			legendaryWeight = json.has("legendaryWeight") ? json.get("legendaryWeight").getAsDouble() : 0.05;
 			anvilBaseCost = json.has("anvilBaseCost") ? json.get("anvilBaseCost").getAsInt() : 1;
 			anvilPerLevelCost = json.has("anvilPerLevelCost") ? json.get("anvilPerLevelCost").getAsInt() : 1;
 			keepEquipOnDeath = json.has("keepEquipOnDeath") ? json.get("keepEquipOnDeath").getAsBoolean() : false;
@@ -134,6 +155,17 @@ public class EquipLevelingConfig {
 				});
 			}
 			
+			// Max slots per category
+			if (json.has("maxSlots")) {
+				JsonObject msObj = json.getAsJsonObject("maxSlots");
+				msObj.entrySet().forEach(entry -> {
+					try {
+						int v = entry.getValue().getAsInt();
+						if (v >= 1 && v <= 4) maxSlots.put(entry.getKey(), v);
+					} catch (RuntimeException ignored) { }
+				});
+			}
+
 			// Treat hand-edited config files as untrusted input.  Invalid values
 			// should never make XP requirements, costs, or weighted offers unusable.
 			xpMultiplier = Double.isFinite(xpMultiplier) ? Math.max(1.0, Math.min(10.0, xpMultiplier)) : 1.2;
@@ -147,6 +179,7 @@ public class EquipLevelingConfig {
 					? Math.max(0, Math.min(1, legendaryUpgradeProbability)) : 0.05;
 			upgradeWeight = Double.isFinite(upgradeWeight) ? Math.max(0, upgradeWeight) : 0.6;
 			newSlotWeight = Double.isFinite(newSlotWeight) ? Math.max(0, newSlotWeight) : 0.4;
+			legendaryWeight = Double.isFinite(legendaryWeight) ? Math.max(0, legendaryWeight) : 0.05;
 			anvilBaseCost = Math.max(0, anvilBaseCost);
 			anvilPerLevelCost = Math.max(0, anvilPerLevelCost);
 			for (int i = 0; i < rerollCosts.length; i++) rerollCosts[i] = Math.max(0, rerollCosts[i]);
@@ -187,6 +220,7 @@ public class EquipLevelingConfig {
 			json.add("materialTiers", GSON.toJsonTree(materialTiers));
 			json.addProperty("upgradeWeight", upgradeWeight);
 			json.addProperty("newSlotWeight", newSlotWeight);
+			json.addProperty("legendaryWeight", legendaryWeight);
 			json.addProperty("anvilBaseCost", anvilBaseCost);
 			json.addProperty("anvilPerLevelCost", anvilPerLevelCost);
 			json.addProperty("keepEquipOnDeath", keepEquipOnDeath);
@@ -195,6 +229,10 @@ public class EquipLevelingConfig {
 			JsonObject custom = new JsonObject();
 			customBlockXp.forEach(custom::addProperty);
 			json.add("customBlockXp", custom);
+
+			JsonObject ms = new JsonObject();
+			maxSlots.forEach(ms::addProperty);
+			json.add("maxSlots", ms);
 			
 			try (FileWriter writer = new FileWriter(CONFIG_FILE.toFile())) {
 				GSON.toJson(json, writer);
@@ -254,6 +292,10 @@ public class EquipLevelingConfig {
 		return newSlotWeight;
 	}
 
+	public static double getLegendaryWeight() {
+		return legendaryWeight;
+	}
+
 	public static int getAnvilBaseCost() {
 		return anvilBaseCost;
 	}
@@ -301,6 +343,19 @@ public class EquipLevelingConfig {
 		boolean removed = customBlockXp.remove(blockId.trim().toLowerCase()) != null;
 		if (removed) save();
 		return removed;
+	}
+
+	public static int getMaxSlotsForCategory(String category) {
+		Integer fallback = maxSlots.get("default");
+		if (fallback == null) fallback = 4;
+		Integer value = maxSlots.get(category == null ? "default" : category.toLowerCase());
+		return value == null ? fallback : Math.min(4, Math.max(1, value));
+	}
+
+	public static void setMaxSlotsForCategory(String category, int slots) {
+		if (category == null || category.isBlank()) return;
+		maxSlots.put(category.toLowerCase(), Math.min(4, Math.max(1, slots)));
+		save();
 	}
 
 	// Setters
@@ -357,9 +412,14 @@ public class EquipLevelingConfig {
 	}
 
 	public static void setOfferWeights(double upgrade, double newSlot) {
-		if (!Double.isFinite(upgrade) || !Double.isFinite(newSlot)) return;
+		setOfferWeights(upgrade, newSlot, legendaryWeight);
+	}
+
+	public static void setOfferWeights(double upgrade, double newSlot, double legendary) {
+		if (!Double.isFinite(upgrade) || !Double.isFinite(newSlot) || !Double.isFinite(legendary)) return;
 		upgradeWeight = Math.max(0, upgrade);
 		newSlotWeight = Math.max(0, newSlot);
+		legendaryWeight = Math.max(0, legendary);
 		save();
 	}
 

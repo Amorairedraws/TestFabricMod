@@ -69,9 +69,17 @@ public final class VanillaEnchantingTableLogic {
             return;
         }
 
+        // Issue 8: never offer the same enchantment twice across the three rows.
+        java.util.Set<String> usedEnchantments = new java.util.HashSet<>();
         for (int index = 0; index < 3; index++) {
-            GeneratedOffer offer = generateOffer(data, stack, enchantments, registries, random);
+            GeneratedOffer offer = generateOffer(data, stack, enchantments, registries, random, usedEnchantments);
             if (offer == null) continue;
+            // Record the enchantment id so later offers avoid it.
+            String offeredId = offer.enchantmentRawId >= 0
+                    ? enchantments.getEntry(offer.enchantmentRawId)
+                            .flatMap(e -> e.getKey().map(k -> k.getValue().toString())).orElse(null)
+                    : null;
+            if (offeredId != null) usedEnchantments.add(offeredId);
             handler.enchantmentPower[index] = 1; // active marker; leveling itself has no XP-level cost
             handler.enchantmentId[index] = offer.enchantmentRawId;
             handler.enchantmentLevel[index] = offer.encodedLevel;
@@ -115,9 +123,18 @@ public final class VanillaEnchantingTableLogic {
         }
 
         data.levelUp(EquipmentCategory.getCategory(stack));
+        // Issue 6: leveling up restores durability, so clear any stale broken flag.
+        data.broken = false;
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
         EquipmentComponent.restoreEnchantments(stack, registries);
         handler.getSlot(0).markDirty();
+        // Issue 12: celebratory sound when an enchantment is applied. Played at
+        // the player's position on the server so it reaches the client.
+        if (player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld) {
+            serverWorld.playSound(null, player.getBlockPos(),
+                    net.minecraft.sound.SoundEvents.ITEM_TRIDENT_RETURN,
+                    net.minecraft.sound.SoundCategory.MASTER, 1.0F, 2.0F);
+        }
         // markDirty invokes the handler's regular content-change path, which
         // immediately creates the next server-synchronized set of offers.
         return true;
@@ -174,42 +191,64 @@ public final class VanillaEnchantingTableLogic {
 
     private static GeneratedOffer generateOffer(EquipmentComponent.EquipmentData data, ItemStack stack,
             Registry<Enchantment> enchantments, net.minecraft.registry.RegistryWrapper.WrapperLookup registries,
-            Random random) {
+            Random random, java.util.Set<String> usedEnchantments) {
         List<EquipmentComponent.EquipmentSlot> upgradeable = new ArrayList<>();
         for (EquipmentComponent.EquipmentSlot slot : allSlots(data)) {
             if (!slot.isEmpty() && !isCurse(slot.enchantmentId, enchantments)
-                    && slot.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(slot, registries)) {
+                    && slot.enchantmentLevel < EquipmentComponent.EquipmentData.maxEnchantmentLevel(slot, registries)
+                    && !usedEnchantments.contains(slot.enchantmentId)) {
                 upgradeable.add(slot);
             }
         }
 
         List<Identifier> additions = new ArrayList<>(enchantments.getIds());
-        additions.removeIf(id -> !canAdd(id, data, stack, enchantments));
+        additions.removeIf(id -> usedEnchantments.contains(id.toString()) || !canAdd(id, data, stack, enchantments));
         boolean canUpgrade = !upgradeable.isEmpty();
-        boolean canAdd = data.getFilledSlots() < 4 && !additions.isEmpty();
+        boolean canAdd = data.getFilledSlots() < data.maxSlots && !additions.isEmpty();
         boolean canLegendary = MaterialTierUpgrader.canPromote(stack, EquipmentCategory.getCategory(stack),
                 EquipLevelingConfig.getMaterialTiers());
         if (!canUpgrade && !canAdd && !canLegendary) return null;
 
-        double legendaryChance = Math.clamp(EquipLevelingConfig.getLegendaryUpgradeProbability(), 0.0, 1.0);
-        if (canLegendary && (random.nextDouble() < legendaryChance || (!canUpgrade && !canAdd))) {
+        // Weighted selection across the three offer types. If a type is not
+        // currently possible, its weight is simply excluded from the pool.
+        double upgradeWeight = Math.max(0.0, EquipLevelingConfig.getUpgradeWeight());
+        double newWeight = Math.max(0.0, EquipLevelingConfig.getNewSlotWeight());
+        double legendaryWeight = Math.max(0.0, EquipLevelingConfig.getLegendaryWeight());
+
+        double total = 0.0;
+        if (canUpgrade) total += upgradeWeight;
+        if (canAdd) total += newWeight;
+        if (canLegendary) total += legendaryWeight;
+        if (total <= 0.0) {
+            // No weights configured; fall back to any available offer type.
+            if (canUpgrade) return pickUpgrade(upgradeable, enchantments, random);
+            if (canAdd) return pickNew(additions, enchantments, random);
             return new GeneratedOffer(-1, LEGENDARY);
         }
 
-        double upgradeWeight = Math.max(0.0, EquipLevelingConfig.getUpgradeWeight());
-        double newWeight = Math.max(0.0, EquipLevelingConfig.getNewSlotWeight());
-        if (canUpgrade && (!canAdd || random.nextDouble() * (upgradeWeight + newWeight) < upgradeWeight)) {
-            EquipmentComponent.EquipmentSlot slot = upgradeable.get(random.nextInt(upgradeable.size()));
-            return new GeneratedOffer(enchantments.getRawId(enchantments.get(Identifier.of(slot.enchantmentId))),
-                    UPGRADE_BASE - (slot.enchantmentLevel + 1));
+        double roll = random.nextDouble() * total;
+        if (canUpgrade) {
+            roll -= upgradeWeight;
+            if (roll < 0.0) return pickUpgrade(upgradeable, enchantments, random);
         }
         if (canAdd) {
-            Identifier id = additions.get(random.nextInt(additions.size()));
-            return new GeneratedOffer(enchantments.getRawId(enchantments.get(id)), NEW_SLOT);
+            roll -= newWeight;
+            if (roll < 0.0) return pickNew(additions, enchantments, random);
         }
+        return new GeneratedOffer(-1, LEGENDARY);
+    }
+
+    private static GeneratedOffer pickUpgrade(List<EquipmentComponent.EquipmentSlot> upgradeable,
+            Registry<Enchantment> enchantments, Random random) {
         EquipmentComponent.EquipmentSlot slot = upgradeable.get(random.nextInt(upgradeable.size()));
         return new GeneratedOffer(enchantments.getRawId(enchantments.get(Identifier.of(slot.enchantmentId))),
                 UPGRADE_BASE - (slot.enchantmentLevel + 1));
+    }
+
+    private static GeneratedOffer pickNew(List<Identifier> additions,
+            Registry<Enchantment> enchantments, Random random) {
+        Identifier id = additions.get(random.nextInt(additions.size()));
+        return new GeneratedOffer(enchantments.getRawId(enchantments.get(id)), NEW_SLOT);
     }
 
     private static boolean canAdd(Identifier id, EquipmentComponent.EquipmentData data, ItemStack stack,
@@ -231,7 +270,7 @@ public final class VanillaEnchantingTableLogic {
     }
 
     private static boolean addNewSlot(EquipmentComponent.EquipmentData data, String id) {
-        if (id == null || data.getFilledSlots() >= 4) return false;
+        if (id == null || data.getFilledSlots() >= data.maxSlots) return false;
         for (int i = 0; i < data.slots.size(); i++) {
             if (data.slots.get(i).isEmpty()) {
                 data.slots.set(i, new EquipmentComponent.EquipmentSlot(id, 1));

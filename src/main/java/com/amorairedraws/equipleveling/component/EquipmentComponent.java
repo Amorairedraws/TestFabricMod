@@ -40,6 +40,7 @@ public final class EquipmentComponent {
     /** Adds the component lazily; this avoids mutating every ordinary item in a world. */
     public static EquipmentData getOrCreate(ItemStack stack) {
         EquipmentData data = stack.get(EQUIPMENT_TYPE);
+        EquipmentData before = data == null ? null : data.copy();
         if (data == null) {
             data = EquipmentData.create(EquipmentCategory.getCategory(stack));
         } else {
@@ -50,18 +51,36 @@ public final class EquipmentComponent {
         // non-final tier is not incorrectly treated as maxed.
         data.updateMaxed(MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
                 EquipLevelingConfig.getMaterialTiers()));
-        stack.set(EQUIPMENT_TYPE, data);
+        // Issue 4: avoid marking the stack dirty every tick when nothing changed.
+        if (before == null || !before.equals(data)) {
+            stack.set(EQUIPMENT_TYPE, data);
+        }
         return data;
     }
 
     /** Adds progression XP and immediately writes the immutable data component back.
      * @return true only when the item accepted the reward (not broken, capped, or maxed). */
     public static boolean addXp(ItemStack stack, int amount) {
+        return addXp(stack, amount, null);
+    }
+
+    /** Adds XP and plays the ready-to-level-up sound if the item becomes ready.
+     * The player is needed for the sound; it may be null for non-player sources. */
+    public static boolean addXp(ItemStack stack, int amount, net.minecraft.entity.player.PlayerEntity player) {
         if (!isTracked(stack)) return false;
         EquipmentData data = getOrCreate(stack);
+        boolean wasReady = data.readyToLevelUp;
         int before = data.xp;
         data.addXp(amount);
         stack.set(EQUIPMENT_TYPE, data);
+        // Issue 12: play a celebratory sound the moment an item becomes ready to
+        // level up. Only the server owns progression.
+        if (!wasReady && data.readyToLevelUp && player != null
+                && player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld) {
+            serverWorld.playSound(null, player.getBlockPos(),
+                    net.minecraft.sound.SoundEvents.BLOCK_AMETHYST_BLOCK_FALL,
+                    net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
+        }
         return data.xp != before;
     }
 
@@ -74,45 +93,66 @@ public final class EquipmentComponent {
         if (data == null) return;
 
         // Equipment can enter a world through commands, older versions of this
-        // mod, or another mod without passing through our loot hook. Preserve
-        // those vanilla enchantments instead of silently deleting them when the
-        // server refreshes the component for the first time.
-        if (data.getFilledSlots() == 0 && data.bonusSlots.isEmpty()) {
-            var enchantmentLookup = lookup.getOrThrow(RegistryKeys.ENCHANTMENT);
-            for (var entry : stack.getEnchantments().getEnchantmentEntries()) {
-                if (data.bonusSlots.size() >= 2) break;
-                String id = entry.getKey().getKey().map(key -> key.getValue().toString()).orElse(null);
-                if (id == null || "minecraft:mending".equals(id)) continue;
-                // Curses are never allowed on equipment; bonus slots always start
-                // at level 1 regardless of the vanilla enchantment's level.
-                try {
-                    var key = RegistryKey.of(RegistryKeys.ENCHANTMENT, Identifier.of(id));
-                    boolean curse = enchantmentLookup.getOptional(key)
-                            .map(e -> e.isIn(net.minecraft.registry.tag.EnchantmentTags.CURSE)).orElse(false);
-                    if (curse) continue;
-                } catch (RuntimeException ignored) { continue; }
-                data.bonusSlots.add(new EquipmentSlot(id, 1));
+        // mod, or another mod without passing through our loot hook. Reconcile
+        // the vanilla ENCHANTMENTS component into bonus slots so that any
+        // enchantment added after the component was created (e.g. via commands)
+        // is still captured. Curses are never allowed; bonus slots always start
+        // at level 1 and are capped at two.
+        var enchantmentLookup = lookup.getOrThrow(RegistryKeys.ENCHANTMENT);
+        for (var entry : stack.getEnchantments().getEnchantmentEntries()) {
+            if (data.bonusSlots.size() >= 2) break;
+            String id = entry.getKey().getKey().map(key -> key.getValue().toString()).orElse(null);
+            if (id == null || "minecraft:mending".equals(id)) continue;
+            // Skip enchantments already present in standard or bonus slots.
+            boolean already = false;
+            for (EquipmentComponent.EquipmentSlot s : data.slots) {
+                if (!s.isEmpty() && id.equals(s.enchantmentId)) { already = true; break; }
             }
+            if (already) continue;
+            for (EquipmentComponent.EquipmentSlot s : data.bonusSlots) {
+                if (!s.isEmpty() && id.equals(s.enchantmentId)) { already = true; break; }
+            }
+            if (already) continue;
+            // Curses are never allowed on equipment.
+            try {
+                var key = RegistryKey.of(RegistryKeys.ENCHANTMENT, Identifier.of(id));
+                boolean curse = enchantmentLookup.getOptional(key)
+                        .map(e -> e.isIn(net.minecraft.registry.tag.EnchantmentTags.CURSE)).orElse(false);
+                if (curse) continue;
+            } catch (RuntimeException ignored) { continue; }
+            data.bonusSlots.add(new EquipmentSlot(id, 1));
         }
         data.refresh(EquipmentCategory.getCategory(stack));
         data.updateMaxed(lookup, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
                 EquipLevelingConfig.getMaterialTiers()));
-        stack.set(EQUIPMENT_TYPE, data);
         if (data.broken) {
             stack.remove(DataComponentTypes.ENCHANTMENTS);
             return;
         }
-        var enchantmentLookup = lookup.getOrThrow(RegistryKeys.ENCHANTMENT);
         ItemEnchantmentsComponent.Builder builder = new ItemEnchantmentsComponent.Builder(ItemEnchantmentsComponent.DEFAULT);
         for (EquipmentSlot slot : data.slots) addEnchantment(builder, enchantmentLookup, slot);
         for (EquipmentSlot slot : data.bonusSlots) addEnchantment(builder, enchantmentLookup, slot);
         if (data.mending) addEnchantment(builder, enchantmentLookup,
                 new EquipmentSlot("minecraft:mending", 1));
-        stack.set(DataComponentTypes.ENCHANTMENTS, builder.build());
+        ItemEnchantmentsComponent mirrored = builder.build();
+        // Issue 4: avoid recreating identical components every tick. Only write
+        // when the mirrored enchantments actually differ from what is stored.
+        ItemEnchantmentsComponent current = stack.getOrDefault(DataComponentTypes.ENCHANTMENTS,
+                ItemEnchantmentsComponent.DEFAULT);
+        if (!current.equals(mirrored)) {
+            stack.set(DataComponentTypes.ENCHANTMENTS, mirrored);
+        }
         TooltipDisplayComponent display = stack.getOrDefault(DataComponentTypes.TOOLTIP_DISPLAY,
                 TooltipDisplayComponent.DEFAULT);
-        stack.set(DataComponentTypes.TOOLTIP_DISPLAY,
-                display.with(DataComponentTypes.ENCHANTMENTS, false));
+        TooltipDisplayComponent hidden = display.with(DataComponentTypes.ENCHANTMENTS, false);
+        if (!hidden.equals(display)) {
+            stack.set(DataComponentTypes.TOOLTIP_DISPLAY, hidden);
+        }
+        // Only write the EQUIPMENT_TYPE component back if the data actually changed.
+        EquipmentData stored = stack.get(EQUIPMENT_TYPE);
+        if (stored == null || !stored.equals(data)) {
+            stack.set(EQUIPMENT_TYPE, data);
+        }
     }
 
     private static void addEnchantment(ItemEnchantmentsComponent.Builder builder,
@@ -169,31 +209,35 @@ public final class EquipmentComponent {
             EquipmentSlot.CODEC.listOf().fieldOf("bonus_slots").forGetter(d -> d.bonusSlots),
             Codec.BOOL.fieldOf("ready_to_level_up").forGetter(d -> d.readyToLevelUp),
             Codec.BOOL.fieldOf("broken").forGetter(d -> d.broken),
-            Codec.BOOL.fieldOf("maxed").forGetter(d -> d.maxed)
+            Codec.BOOL.fieldOf("maxed").forGetter(d -> d.maxed),
+            Codec.INT.optionalFieldOf("max_slots", 4).forGetter(d -> d.maxSlots)
         ).apply(i, EquipmentData::new));
 
         public int level, xp, xpRequired;
+        public int maxSlots;
         public boolean mending, readyToLevelUp, broken, maxed;
         public List<EquipmentSlot> slots, bonusSlots;
 
         public EquipmentData(int level, int xp, int xpRequired, boolean mending,
                 List<EquipmentSlot> slots, List<EquipmentSlot> bonusSlots,
-                boolean ready, boolean broken, boolean maxed) {
+                boolean ready, boolean broken, boolean maxed, int maxSlots) {
             this.level = Math.max(0, level); this.xp = Math.max(0, xp);
             this.xpRequired = Math.max(1, xpRequired); this.mending = mending;
             this.slots = new ArrayList<>(slots); this.bonusSlots = new ArrayList<>(bonusSlots);
             this.readyToLevelUp = ready; this.broken = broken; this.maxed = maxed;
-            while (this.slots.size() < 4) this.slots.add(new EquipmentSlot(null, 0));
-            if (this.slots.size() > 4) this.slots = new ArrayList<>(this.slots.subList(0, 4));
+            this.maxSlots = Math.min(4, Math.max(1, maxSlots));
+            while (this.slots.size() < this.maxSlots) this.slots.add(new EquipmentSlot(null, 0));
+            if (this.slots.size() > this.maxSlots) this.slots = new ArrayList<>(this.slots.subList(0, this.maxSlots));
             if (this.bonusSlots.size() > 2) this.bonusSlots = new ArrayList<>(this.bonusSlots.subList(0, 2));
         }
 
         public static EquipmentData create(String category) {
             List<EquipmentSlot> slots = new ArrayList<>();
-            for (int n = 0; n < 4; n++) slots.add(new EquipmentSlot(null, 0));
+            int max = EquipLevelingConfig.getMaxSlotsForCategory(category == null ? "default" : category);
+            for (int n = 0; n < max; n++) slots.add(new EquipmentSlot(null, 0));
             return new EquipmentData(0, 0,
                 EquipLevelingConfig.getBaseXpForCategory(category == null ? "default" : category),
-                false, slots, new ArrayList<>(), false, false, false);
+                false, slots, new ArrayList<>(), false, false, false, max);
         }
         public static EquipmentData create() { return create("default"); }
 
@@ -223,12 +267,16 @@ public final class EquipmentComponent {
                 xpRequired = Math.max(1, xpRequired);
             }
             readyToLevelUp = xp >= xpRequired;
-            // Mending is derived from the four standard slots, never from the
-            // material or from vanilla enchantment data.
-            // Mending is a derived completion flag, not one of the two loot
-            // bonus slots. Keeping it separate is important: loot may always
-            // contribute at most two bonus enchantments.
-            mending = getFilledSlots() == 4;
+            // If the configured max slots for this category changed, resync the
+            // standard slot list to that size (dropping any overflow).
+            int configuredMax = EquipLevelingConfig.getMaxSlotsForCategory(category == null ? "default" : category);
+            if (configuredMax != maxSlots) {
+                maxSlots = Math.min(4, Math.max(1, configuredMax));
+                while (slots.size() < maxSlots) slots.add(new EquipmentSlot(null, 0));
+                if (slots.size() > maxSlots) slots = new ArrayList<>(slots.subList(0, maxSlots));
+            }
+            // Mending is awarded once the configured standard-slot cap is reached.
+            mending = getFilledSlots() >= maxSlots;
             while (bonusSlots.size() > 2) bonusSlots.remove(bonusSlots.size() - 1);
             updateMaxed();
         }
@@ -243,7 +291,7 @@ public final class EquipmentComponent {
         }
         public void levelUp() { levelUp("default"); }
         public int getFilledSlots() { return (int)slots.stream().filter(s -> !s.isEmpty()).count(); }
-        public int getTotalSlots() { return 4 + bonusSlots.size(); }
+        public int getTotalSlots() { return maxSlots + bonusSlots.size(); }
         /**
          * Recomputes the enchantment portion of maxed state when no ItemStack is
          * available.  Material tier is deliberately treated as unsatisfied here;
@@ -256,7 +304,7 @@ public final class EquipmentComponent {
         }
 
         public void updateMaxed(boolean tierLevelSatisfied) {
-            maxed = getFilledSlots() == 4 && mending && tierLevelSatisfied
+            maxed = getFilledSlots() >= maxSlots && mending && tierLevelSatisfied
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s));
         }
@@ -271,7 +319,7 @@ public final class EquipmentComponent {
         }
 
         public void updateMaxed(RegistryWrapper.WrapperLookup lookup, boolean tierLevelSatisfied) {
-            maxed = getFilledSlots() == 4 && mending && tierLevelSatisfied
+            maxed = getFilledSlots() >= maxSlots && mending && tierLevelSatisfied
                 && slots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup))
                 && bonusSlots.stream().allMatch(s -> s.isEmpty() || s.enchantmentLevel >= maxEnchantmentLevel(s, lookup));
         }
@@ -312,7 +360,22 @@ public final class EquipmentComponent {
         public EquipmentData copy() {
             List<EquipmentSlot> a = new ArrayList<>(), b = new ArrayList<>();
             slots.forEach(s -> a.add(s.copy())); bonusSlots.forEach(s -> b.add(s.copy()));
-            return new EquipmentData(level, xp, xpRequired, mending, a, b, readyToLevelUp, broken, maxed);
+            return new EquipmentData(level, xp, xpRequired, mending, a, b, readyToLevelUp, broken, maxed, maxSlots);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof EquipmentData d)) return false;
+            return level == d.level && xp == d.xp && xpRequired == d.xpRequired
+                    && mending == d.mending && readyToLevelUp == d.readyToLevelUp
+                    && broken == d.broken && maxed == d.maxed && maxSlots == d.maxSlots
+                    && slots.equals(d.slots) && bonusSlots.equals(d.bonusSlots);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(level, xp, xpRequired, mending, readyToLevelUp, broken, maxed, maxSlots, slots, bonusSlots);
         }
     }
 
@@ -325,5 +388,18 @@ public final class EquipmentComponent {
         public EquipmentSlot(String id, int level) { enchantmentId = id; enchantmentLevel = Math.max(0, level); }
         public boolean isEmpty() { return enchantmentId == null || enchantmentLevel <= 0; }
         public EquipmentSlot copy() { return new EquipmentSlot(enchantmentId, enchantmentLevel); }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof EquipmentSlot s)) return false;
+            return enchantmentLevel == s.enchantmentLevel
+                    && java.util.Objects.equals(enchantmentId, s.enchantmentId);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(enchantmentId, enchantmentLevel);
+        }
     }
 }

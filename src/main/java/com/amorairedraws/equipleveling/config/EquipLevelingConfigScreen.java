@@ -11,10 +11,10 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 /**
- * Cloth Config screen exposed through Mod Menu.  The screen is organised into
- * clear, plain-language categories so a player who has never seen the mod can
- * tune it without reading the source.  Lists use Cloth's built-in add/remove
- * buttons, and every option carries a short description.
+ * Cloth Config screen exposed through Mod Menu.  Organised into clear,
+ * plain-language categories.  Offer generation is tuned through simple weight
+ * fields (upgrade / new enchant / legendary) rather than confusing percentages,
+ * and each item category has an editable max-slot count.
  */
 public final class EquipLevelingConfigScreen {
     private static final String[] CATEGORIES = {
@@ -57,13 +57,6 @@ public final class EquipLevelingConfigScreen {
                 .setTooltip(Text.translatable("equip_leveling.config.durability_restore.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setDurabilityRestorePercent).build());
 
-        general.addEntry(entries.startIntSlider(
-                Text.translatable("equip_leveling.config.legendary_probability"),
-                (int) Math.round(EquipLevelingConfig.getLegendaryUpgradeProbability() * 100), 0, 100)
-                .setDefaultValue(5)
-                .setTooltip(Text.translatable("equip_leveling.config.legendary_probability.tooltip"))
-                .setSaveConsumer(v -> EquipLevelingConfig.setLegendaryUpgradeProbability(v / 100.0)).build());
-
         general.addEntry(entries.startBooleanToggle(
                 Text.translatable("equip_leveling.config.keep_on_death"), EquipLevelingConfig.isKeepEquipOnDeath())
                 .setDefaultValue(false)
@@ -76,20 +69,6 @@ public final class EquipLevelingConfigScreen {
                 .setTooltip(Text.translatable("equip_leveling.config.broken_mechanic.tooltip"))
                 .setSaveConsumer(EquipLevelingConfig::setBrokenMechanicEnabled).build());
 
-        // Offer weights
-        general.addEntry(entries.startIntSlider(
-                Text.translatable("equip_leveling.config.upgrade_weight"),
-                (int) Math.round(EquipLevelingConfig.getUpgradeWeight() * 100), 0, 100)
-                .setDefaultValue(60)
-                .setTooltip(Text.translatable("equip_leveling.config.upgrade_weight.tooltip"))
-                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(v / 100.0, EquipLevelingConfig.getNewSlotWeight())).build());
-        general.addEntry(entries.startIntSlider(
-                Text.translatable("equip_leveling.config.new_slot_weight"),
-                (int) Math.round(EquipLevelingConfig.getNewSlotWeight() * 100), 0, 100)
-                .setDefaultValue(40)
-                .setTooltip(Text.translatable("equip_leveling.config.new_slot_weight.tooltip"))
-                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(EquipLevelingConfig.getUpgradeWeight(), v / 100.0)).build());
-
         // Anvil
         general.addEntry(entries.startIntField(
                 Text.translatable("equip_leveling.config.anvil_base"), EquipLevelingConfig.getAnvilBaseCost())
@@ -101,6 +80,47 @@ public final class EquipLevelingConfigScreen {
                 .setDefaultValue(1).setMin(0)
                 .setTooltip(Text.translatable("equip_leveling.config.anvil_per_level.tooltip"))
                 .setSaveConsumer(value -> EquipLevelingConfig.setAnvilCosts(EquipLevelingConfig.getAnvilBaseCost(), value)).build());
+
+        // ------------------------------------------------------------------
+        // Offer weights (Issue 14: clear weight fields, not confusing %)
+        // ------------------------------------------------------------------
+        var offers = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.offers"));
+        offers.addEntry(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.category.offers.desc")).build());
+
+        offers.addEntry(entries.startIntField(
+                Text.translatable("equip_leveling.config.upgrade_weight"),
+                (int) Math.round(EquipLevelingConfig.getUpgradeWeight()))
+                .setDefaultValue(60).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.upgrade_weight.tooltip"))
+                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(v, EquipLevelingConfig.getNewSlotWeight(), EquipLevelingConfig.getLegendaryWeight())).build());
+        offers.addEntry(entries.startIntField(
+                Text.translatable("equip_leveling.config.new_slot_weight"),
+                (int) Math.round(EquipLevelingConfig.getNewSlotWeight()))
+                .setDefaultValue(40).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.new_slot_weight.tooltip"))
+                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(EquipLevelingConfig.getUpgradeWeight(), v, EquipLevelingConfig.getLegendaryWeight())).build());
+        offers.addEntry(entries.startIntField(
+                Text.translatable("equip_leveling.config.legendary_probability"),
+                (int) Math.round(EquipLevelingConfig.getLegendaryWeight()))
+                .setDefaultValue(5).setMin(0)
+                .setTooltip(Text.translatable("equip_leveling.config.legendary_probability.tooltip"))
+                .setSaveConsumer(v -> EquipLevelingConfig.setOfferWeights(EquipLevelingConfig.getUpgradeWeight(), EquipLevelingConfig.getNewSlotWeight(), v)).build());
+
+        // ------------------------------------------------------------------
+        // Max slots per category (Issue 7)
+        // ------------------------------------------------------------------
+        var maxSlotsCat = builder.getOrCreateCategory(Text.translatable("equip_leveling.config.category.max_slots"));
+        maxSlotsCat.addEntry(entries.startTextDescription(
+                Text.translatable("equip_leveling.config.category.max_slots.desc")).build());
+        for (String category : CATEGORIES) {
+            maxSlotsCat.addEntry(entries.startIntSlider(
+                    Text.translatable("equip_leveling.config.max_slots", pretty(category)),
+                    EquipLevelingConfig.getMaxSlotsForCategory(category), 1, 4)
+                    .setDefaultValue(defaultMaxSlots(category))
+                    .setTooltip(Text.translatable("equip_leveling.config.max_slots.tooltip", pretty(category)))
+                    .setSaveConsumer(value -> EquipLevelingConfig.setMaxSlotsForCategory(category, value)).build());
+        }
 
         // ------------------------------------------------------------------
         // XP per action
@@ -136,7 +156,6 @@ public final class EquipLevelingConfigScreen {
                 .setDefaultValue(40).setMin(0).setTooltip(Text.translatable("equip_leveling.config.rare_ore_xp.tooltip"))
                 .setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), EquipLevelingConfig.getIronXp(), EquipLevelingConfig.getGoldXp(), value)).build());
 
-        // Custom block XP list: each row is "blockid:xp" e.g. "minecraft:deepslate:25"
         List<String> custom = new ArrayList<>();
         EquipLevelingConfig.getCustomBlockXp().forEach((id, v) -> custom.add(id + ":" + v));
         ore.addEntry(entries.startStrList(
@@ -192,7 +211,6 @@ public final class EquipLevelingConfigScreen {
     private static java.util.Optional<Text> validateBlockXpEntry(String value) {
         if (value == null || value.isBlank()) return java.util.Optional.of(Text.literal("Empty entry"));
         String[] parts = value.split(":");
-        // Accept "blockid:xp" (2 parts) or "namespace:path:xp" (3 parts).
         if (parts.length < 2) return java.util.Optional.of(Text.literal("Use format blockid:xp"));
         String xpPart = parts[parts.length - 1];
         try {
@@ -236,6 +254,15 @@ public final class EquipLevelingConfigScreen {
             case "helmet", "boots" -> 350;
             case "chestplate", "leggings" -> 400;
             default -> 350;
+        };
+    }
+
+    private static int defaultMaxSlots(String category) {
+        return switch (category) {
+            case "sword", "helmet", "chestplate", "leggings", "boots", "default" -> 4;
+            case "axe", "pickaxe", "fishing_rod" -> 3;
+            case "shovel", "hoe" -> 2;
+            default -> 4;
         };
     }
 

@@ -113,4 +113,24 @@ public class ItemStackMixin {
             }
         }
     }
+
+    /**
+     * Issue 5: suppress the vanilla enchantment tooltip for our tracked items.
+     * The custom slots are already rendered by EquipmentTooltipRenderer, so the
+     * vanilla ENCHANTMENTS component must never be appended separately. This
+     * works on the client regardless of server-side TOOLTIP_DISPLAY sync.
+     */
+    @Inject(method = "appendComponentTooltip", at = @At("HEAD"), cancellable = true)
+    private <T extends net.minecraft.item.tooltip.TooltipAppender> void suppressVanillaEnchantTooltip(
+            net.minecraft.component.ComponentType<T> componentType,
+            net.minecraft.item.Item.TooltipContext context,
+            net.minecraft.component.type.TooltipDisplayComponent displayComponent,
+            java.util.function.Consumer<net.minecraft.text.Text> textConsumer,
+            net.minecraft.item.tooltip.TooltipType type,
+            CallbackInfo ci) {
+        if (componentType == net.minecraft.component.DataComponentTypes.ENCHANTMENTS
+                && ((ItemStack) (Object) this).contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+            ci.cancel();
+        }
+    }
 }

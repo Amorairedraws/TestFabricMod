@@ -31,7 +31,7 @@ public final class ArmorXpHandler {
                 EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             ItemStack armor = player.getEquippedStack(slot);
             if (!armor.isEmpty() && EquipmentCategory.isEquipment(armor)) {
-                awarded |= EquipmentComponent.addXp(armor, xp);
+                awarded |= EquipmentComponent.addXp(armor, xp, player);
             }
         }
         if (awarded) XpDisplay.showForPlayer(player, player.getEntityPos(), xp);

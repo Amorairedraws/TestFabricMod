@@ -88,19 +88,19 @@ public class EquipLevelingMod implements ModInitializer {
 		// below, once the kill is known to have succeeded.
 		AttackEntityCallback.EVENT.register(new EquipmentXpEvents.EntityKillXpHandler());
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
-			// Durability is applied after most Fabric action callbacks. Scan once per
-			// tick so zero-durability stacks reliably enter the persistent broken state.
+			// Materialise the component for every qualifying stack and reconcile its
+			// mirrored enchantments. restoreEnchantments is cheap when nothing changed
+			// (it skips identical writes), and running it every tick ensures
+			// enchantments added externally (e.g. via commands) are captured into
+			// bonus slots. Broken detection stays a lightweight per-tick check.
 			for (var player : server.getPlayerManager().getPlayerList()) {
 				for (int i = 0; i < player.getInventory().size(); i++) {
 					var stack = player.getInventory().getStack(i);
-					// Materialize the component for every qualifying stack, not only
-					// stacks that have already earned XP. This keeps the promised
-					// persistent data model consistent for crafted and modded gear.
 					if (EquipmentComponent.isTracked(stack)) {
 						EquipmentComponent.getOrCreate(stack);
 						EquipmentComponent.restoreEnchantments(stack, player.getEntityWorld().getRegistryManager());
+						EquipmentComponent.markBrokenIfNecessary(stack);
 					}
-					EquipmentComponent.markBrokenIfNecessary(stack);
 				}
 			}
 		});
