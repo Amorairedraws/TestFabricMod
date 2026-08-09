@@ -5,6 +5,7 @@ import com.amorairedraws.equipleveling.client.tooltip.EquipmentTooltipRenderer;
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.screen.VanillaEnchantingTableLogic;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.DrawContext;
@@ -20,6 +21,22 @@ public class EquipLevelingClient implements ClientModInitializer {
     public void onInitializeClient() {
         new EquipmentTooltipRenderer().register();
         new BrokenItemRenderer().register();
+
+        // Issue 4: periodically re-run getOrCreate on the player's inventory so
+        // derived state (readyToLevelUp, maxed, mending, slot count) is always
+        // up to date even if a server sync was missed. Runs every 2 seconds.
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.player == null || client.world == null) return;
+            if (++equipLeveling$tickCounter < 40) return; // 40 ticks = 2 seconds
+            equipLeveling$tickCounter = 0;
+            var inventory = client.player.getInventory();
+            for (int i = 0; i < inventory.size(); i++) {
+                var stack = inventory.getStack(i);
+                if (EquipmentComponent.isTracked(stack)) {
+                    EquipmentComponent.getOrCreate(stack);
+                }
+            }
+        });
 
         // The original lapis-slot coordinates are x+35/y+47. Cloth/Fabric's
         // screen API adds a normal vanilla button there without replacing the
@@ -39,6 +56,8 @@ public class EquipLevelingClient implements ClientModInitializer {
             ScreenEvents.afterTick(screen).register(ignored -> reroll.active = canReroll(client, handler));
         });
     }
+
+    private static int equipLeveling$tickCounter = 0;
 
     private static boolean canReroll(net.minecraft.client.MinecraftClient client,
             EnchantmentScreenHandler handler) {
@@ -78,7 +97,7 @@ public class EquipLevelingClient implements ClientModInitializer {
             matrices.scale(3.0f, 3.0f);
             context.drawCenteredTextWithShadow(
                     net.minecraft.client.MinecraftClient.getInstance().textRenderer,
-                    "\u21BA", 0, -4, color);
+                    "\u21BA", 1, -5, color);
             matrices.popMatrix();
         }
     }

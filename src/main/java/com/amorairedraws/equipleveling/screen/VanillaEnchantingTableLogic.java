@@ -69,6 +69,15 @@ public final class VanillaEnchantingTableLogic {
             return;
         }
 
+        // Issue 1: if offers were already rolled and persisted on the item, restore
+        // them instead of re-rolling. This keeps the same offers when the player
+        // takes the item out of the table and puts it back, until they actually
+        // reroll or make a selection.
+        if (restoreStoredOffers(handler, data, enchantments)) {
+            handler.sendContentUpdates();
+            return;
+        }
+
         // Issue 8: never offer the same enchantment twice across the three rows.
         java.util.Set<String> usedEnchantments = new java.util.HashSet<>();
         List<GeneratedOffer> offers = new ArrayList<>();
@@ -110,6 +119,47 @@ public final class VanillaEnchantingTableLogic {
         // new enchantments or upgrades.
         java.util.Collections.shuffle(offers, new java.util.Random(random.nextLong()));
 
+        // Persist the rolled offers so they survive item removal/re-insertion.
+        data.offers = new ArrayList<>();
+        for (GeneratedOffer offer : offers) {
+            String id = offer.enchantmentRawId >= 0
+                    ? enchantments.getEntry(offer.enchantmentRawId)
+                            .flatMap(e -> e.getKey().map(k -> k.getValue().toString())).orElse(null)
+                    : null;
+            data.offers.add(new EquipmentComponent.StoredOffer(id, offer.encodedLevel));
+        }
+        stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
+
+        applyOffersToHandler(handler, offers);
+        handler.sendContentUpdates();
+    }
+
+    /** Restores previously persisted offers into the handler arrays. Returns true
+     * when the stored offers were valid and applied. */
+    private static boolean restoreStoredOffers(EnchantmentScreenHandler handler,
+            EquipmentComponent.EquipmentData data, Registry<Enchantment> enchantments) {
+        if (data.offers == null || data.offers.isEmpty()) return false;
+        List<GeneratedOffer> offers = new ArrayList<>();
+        for (EquipmentComponent.StoredOffer stored : data.offers) {
+            if (stored.encodedLevel == LEGENDARY) {
+                offers.add(new GeneratedOffer(-1, LEGENDARY));
+                continue;
+            }
+            if (stored.enchantmentId == null) continue;
+            try {
+                Enchantment ench = enchantments.get(Identifier.of(stored.enchantmentId));
+                if (ench == null) return false;
+                offers.add(new GeneratedOffer(enchantments.getRawId(ench), stored.encodedLevel));
+            } catch (RuntimeException e) {
+                return false;
+            }
+        }
+        if (offers.isEmpty()) return false;
+        applyOffersToHandler(handler, offers);
+        return true;
+    }
+
+    private static void applyOffersToHandler(EnchantmentScreenHandler handler, List<GeneratedOffer> offers) {
         for (int index = 0; index < 3; index++) {
             if (index < offers.size()) {
                 GeneratedOffer offer = offers.get(index);
@@ -118,7 +168,6 @@ public final class VanillaEnchantingTableLogic {
                 handler.enchantmentLevel[index] = offer.encodedLevel;
             }
         }
-        handler.sendContentUpdates();
     }
 
     /** Applies an option selected through one of vanilla's three existing rows. */
@@ -159,6 +208,9 @@ public final class VanillaEnchantingTableLogic {
         data.levelUp(EquipmentCategory.getCategory(stack));
         // Issue 6: leveling up restores durability, so clear any stale broken flag.
         data.broken = false;
+        // Issue 1: a selection consumes the offers; the next generateOffers call
+        // (triggered by markDirty) rolls a fresh set for the new level.
+        data.offers.clear();
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
         EquipmentComponent.restoreEnchantments(stack, registries);
         handler.getSlot(0).markDirty();
@@ -187,6 +239,10 @@ public final class VanillaEnchantingTableLogic {
         int cost = getRerollCost(stack, handler, enchantments);
         if (!player.isInCreativeMode() && player.experienceLevel < cost) return false;
         if (!player.isInCreativeMode()) player.addExperienceLevels(-cost);
+        // Issue 1: a reroll explicitly discards the persisted offers so the next
+        // generateOffers call rolls a fresh set.
+        data.offers.clear();
+        stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
         generateOffers(handler, player, random);
         return true;
     }

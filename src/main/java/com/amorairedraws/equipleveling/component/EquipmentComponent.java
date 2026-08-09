@@ -218,7 +218,8 @@ public final class EquipmentComponent {
             Codec.BOOL.fieldOf("broken").forGetter(d -> d.broken),
             Codec.BOOL.fieldOf("maxed").forGetter(d -> d.maxed),
             Codec.INT.optionalFieldOf("max_slots", 4).forGetter(d -> d.maxSlots),
-            Codec.BOOL.optionalFieldOf("slots_complete", false).forGetter(d -> d.slotsComplete)
+            Codec.BOOL.optionalFieldOf("slots_complete", false).forGetter(d -> d.slotsComplete),
+            StoredOffer.CODEC.listOf().optionalFieldOf("offers", new ArrayList<>()).forGetter(d -> d.offers)
         ).apply(i, EquipmentData::new));
 
         public int level, xp, xpRequired;
@@ -230,6 +231,10 @@ public final class EquipmentComponent {
          * mending and reach MAX LEVEL. */
         public boolean slotsComplete;
         public List<EquipmentSlot> slots, bonusSlots;
+        /** The currently displayed enchanting-table offers, persisted so they
+         * survive taking the item out of and back into the table without being
+         * re-rolled. Cleared by reroll() and selectOffer(). */
+        public List<StoredOffer> offers;
 
         public EquipmentData(int level, int xp, int xpRequired, boolean mending,
                 List<EquipmentSlot> slots, List<EquipmentSlot> bonusSlots,
@@ -240,11 +245,20 @@ public final class EquipmentComponent {
         public EquipmentData(int level, int xp, int xpRequired, boolean mending,
                 List<EquipmentSlot> slots, List<EquipmentSlot> bonusSlots,
                 boolean ready, boolean broken, boolean maxed, int maxSlots, boolean slotsComplete) {
+            this(level, xp, xpRequired, mending, slots, bonusSlots, ready, broken, maxed, maxSlots,
+                    slotsComplete, new ArrayList<>());
+        }
+
+        public EquipmentData(int level, int xp, int xpRequired, boolean mending,
+                List<EquipmentSlot> slots, List<EquipmentSlot> bonusSlots,
+                boolean ready, boolean broken, boolean maxed, int maxSlots, boolean slotsComplete,
+                List<StoredOffer> offers) {
             this.level = Math.max(0, level); this.xp = Math.max(0, xp);
             this.xpRequired = Math.max(1, xpRequired); this.mending = mending;
             this.slots = new ArrayList<>(slots); this.bonusSlots = new ArrayList<>(bonusSlots);
             this.readyToLevelUp = ready; this.broken = broken; this.maxed = maxed;
             this.slotsComplete = slotsComplete;
+            this.offers = new ArrayList<>(offers);
             // Allow up to 8 standard slots so players with large enchantment mods
             // can raise the cap (Issue 7).
             this.maxSlots = Math.min(8, Math.max(1, maxSlots));
@@ -415,7 +429,9 @@ public final class EquipmentComponent {
         public EquipmentData copy() {
             List<EquipmentSlot> a = new ArrayList<>(), b = new ArrayList<>();
             slots.forEach(s -> a.add(s.copy())); bonusSlots.forEach(s -> b.add(s.copy()));
-            return new EquipmentData(level, xp, xpRequired, mending, a, b, readyToLevelUp, broken, maxed, maxSlots, slotsComplete);
+            List<StoredOffer> o = new ArrayList<>();
+            offers.forEach(x -> o.add(x.copy()));
+            return new EquipmentData(level, xp, xpRequired, mending, a, b, readyToLevelUp, broken, maxed, maxSlots, slotsComplete, o);
         }
 
         @Override
@@ -426,12 +442,13 @@ public final class EquipmentComponent {
                     && mending == d.mending && readyToLevelUp == d.readyToLevelUp
                     && broken == d.broken && maxed == d.maxed && maxSlots == d.maxSlots
                     && slotsComplete == d.slotsComplete
-                    && slots.equals(d.slots) && bonusSlots.equals(d.bonusSlots);
+                    && slots.equals(d.slots) && bonusSlots.equals(d.bonusSlots)
+                    && offers.equals(d.offers);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(level, xp, xpRequired, mending, readyToLevelUp, broken, maxed, maxSlots, slotsComplete, slots, bonusSlots);
+            return java.util.Objects.hash(level, xp, xpRequired, mending, readyToLevelUp, broken, maxed, maxSlots, slotsComplete, slots, bonusSlots, offers);
         }
     }
 
@@ -456,6 +473,35 @@ public final class EquipmentComponent {
         @Override
         public int hashCode() {
             return java.util.Objects.hash(enchantmentId, enchantmentLevel);
+        }
+    }
+
+    /** A persisted enchanting-table offer. Holds the enchantment identifier and
+     * the encoded offer level (NEW_SLOT / UPGRADE_BASE-n / LEGENDARY) so the
+     * exact offer can be restored when the item is re-inserted into the table. */
+    public static final class StoredOffer {
+        public static final Codec<StoredOffer> CODEC = RecordCodecBuilder.create(i -> i.group(
+            Codec.STRING.optionalFieldOf("enchantment_id").forGetter(s -> Optional.ofNullable(s.enchantmentId)),
+            Codec.INT.fieldOf("encoded_level").forGetter(s -> s.encodedLevel)
+        ).apply(i, (id, level) -> new StoredOffer(id.orElse(null), level)));
+        public String enchantmentId;
+        public int encodedLevel;
+        public StoredOffer(String enchantmentId, int encodedLevel) {
+            this.enchantmentId = enchantmentId;
+            this.encodedLevel = encodedLevel;
+        }
+        public StoredOffer copy() { return new StoredOffer(enchantmentId, encodedLevel); }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof StoredOffer s)) return false;
+            return encodedLevel == s.encodedLevel && java.util.Objects.equals(enchantmentId, s.enchantmentId);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(enchantmentId, encodedLevel);
         }
     }
 }

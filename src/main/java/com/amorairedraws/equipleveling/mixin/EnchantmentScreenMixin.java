@@ -112,12 +112,13 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
                 // The text box (trim width) is widened so long names extend
                 // further right than the panel without being cut off early. The
                 // title and subtitle are drawn slightly larger and closer
-                // together. Both are bold; the subtitle is white but a touch
-                // darker than the title so it still reads as secondary.
+                // together. They are not bold; a lighter shadow keeps them
+                // readable without the heavy black outline. The subtitle is
+                // white but a touch darker than the title.
                 String clippedTitle = textRenderer.trimToWidth(title, 130);
                 String clippedSubtitle = textRenderer.trimToWidth(subtitle, 130);
-                drawScaledTextBold(context, clippedTitle, rowX + 18, rowY + 4, 0.75f, titleColor);
-                drawScaledTextBold(context, clippedSubtitle, rowX + 18, rowY + 11, 0.65f, 0xFFE0E0E0);
+                drawScaledTextLightShadow(context, clippedTitle, rowX + 18, rowY + 4, 0.75f, titleColor);
+                drawScaledTextLightShadow(context, clippedSubtitle, rowX + 18, rowY + 11, 0.65f, 0xFFE0E0E0);
             }
         }
 
@@ -133,7 +134,7 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
             String costText = "\u25CF " + cost;
             int costX = i + 34; // left-aligned with the button's left edge
             int costY = j + 66; // just under the button
-            drawScaledTextBold(context, costText, costX, costY, 0.8f, color);
+            drawScaledTextNoShadow(context, costText, costX, costY, 0.8f, color);
         }
     }
 
@@ -149,18 +150,33 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
     }
 
     /**
-     * Draws scaled text in bold by rendering it twice with a 1-pixel horizontal
-     * offset in the scaled frame. Vanilla's default font has no separate bold
-     * glyphs, so this double-draw is the standard way to fake a heavier weight.
+     * Draws scaled text with a lighter-than-default shadow. Vanilla's
+     * drawTextWithShadow uses a heavy black outline; instead we draw a
+     * semi-transparent dark copy offset by 1px first, then the main text on
+     * top, producing a softer shadow that keeps the text readable without the
+     * harsh black edge.
      */
     @Unique
-    private void drawScaledTextBold(DrawContext context, String text, int x, int y, float scale, int color) {
+    private void drawScaledTextLightShadow(DrawContext context, String text, int x, int y, float scale, int color) {
         var matrices = context.getMatrices();
         matrices.pushMatrix();
         matrices.translate((float) x, (float) y);
         matrices.scale(scale, scale);
-        context.drawTextWithShadow(textRenderer, text, 0, 0, color);
-        context.drawTextWithShadow(textRenderer, text, 1, 0, color);
+        // Lighter shadow: a translucent dark copy offset by 1px.
+        int shadowColor = (color & 0x00FFFFFF) | 0x66000000;
+        context.drawText(textRenderer, text, 1, 1, shadowColor, false);
+        context.drawText(textRenderer, text, 0, 0, color, false);
+        matrices.popMatrix();
+    }
+
+    /** Draws scaled text with no shadow at all. */
+    @Unique
+    private void drawScaledTextNoShadow(DrawContext context, String text, int x, int y, float scale, int color) {
+        var matrices = context.getMatrices();
+        matrices.pushMatrix();
+        matrices.translate((float) x, (float) y);
+        matrices.scale(scale, scale);
+        context.drawText(textRenderer, text, 0, 0, color, false);
         matrices.popMatrix();
     }
 

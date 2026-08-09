@@ -36,9 +36,9 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		lines.add(insertIndex++, renderXpBar(data));
 
 		if (data.maxed) {
-			// Issue 5/9: only one MAX LEVEL line, accented with a diamond
-			// glyph (common Minecraft symbol) instead of sparkles/stars.
-			lines.add(insertIndex++, Text.literal("\u22c4 MAX LEVEL \u22c4").formatted(Formatting.GOLD));
+			// Issue 5/9: only one MAX LEVEL line, accented with the right/left
+			// triangle glyphs (U+22CA / U+22C9) on either side.
+			lines.add(insertIndex++, Text.literal("\u22CA MAX LEVEL \u22C9").formatted(Formatting.GOLD));
 		} else if (data.readyToLevelUp) {
 			lines.add(insertIndex++, Text.literal("Ready to level up!").formatted(Formatting.GREEN));
 			// Issue 13: point new players toward the enchanting table.
