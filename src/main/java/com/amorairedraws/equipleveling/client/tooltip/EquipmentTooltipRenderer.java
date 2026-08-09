@@ -36,9 +36,9 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		lines.add(insertIndex++, renderXpBar(data));
 
 		if (data.maxed) {
-			// Issue 5/9: only one MAX LEVEL line, accented with solid stars
-			// (common Minecraft symbols) instead of sparkles.
-			lines.add(insertIndex++, Text.literal("\u2605 MAX LEVEL \u2605").formatted(Formatting.GOLD));
+			// Issue 5/9: only one MAX LEVEL line, accented with a diamond
+			// glyph (common Minecraft symbol) instead of sparkles/stars.
+			lines.add(insertIndex++, Text.literal("\u22c4 MAX LEVEL \u22c4").formatted(Formatting.GOLD));
 		} else if (data.readyToLevelUp) {
 			lines.add(insertIndex++, Text.literal("Ready to level up!").formatted(Formatting.GREEN));
 			// Issue 13: point new players toward the enchanting table.
@@ -63,17 +63,12 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		renderSlots(lines, insertIndex, data.slots, context);
 		insertIndex += data.slots.size() + 1;
 
-		// Bonus slots (no star prefix, Issue 4)
-		if (!data.bonusSlots.isEmpty()) {
-			for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
-				if (slot.isEmpty()) {
-					lines.add(insertIndex++, Text.literal("  [Empty bonus slot]").formatted(Formatting.DARK_GRAY));
-				} else {
-					String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
-					lines.add(insertIndex++,
-						Text.literal(String.format("  %s", enchName)).formatted(Formatting.WHITE));
-				}
-			}
+		// Bonus slots. Empty bonus slots are hidden entirely (Issue: they can
+		// never be filled organically, so advertising them as empty is noise).
+		for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
+			if (slot.isEmpty()) continue;
+			String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
+			lines.add(insertIndex++, Text.literal(String.format("  %s", enchName)).formatted(Formatting.WHITE));
 		}
 
 		// Broken state
