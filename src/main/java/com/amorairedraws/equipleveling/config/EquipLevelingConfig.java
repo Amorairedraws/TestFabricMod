@@ -72,6 +72,7 @@ public class EquipLevelingConfig {
 		baseXp.put("shovel", 300);
 		baseXp.put("hoe", 200);
 		baseXp.put("fishing_rod", 300);
+		baseXp.put("bow", 350);
 		baseXp.put("helmet", 350);
 		baseXp.put("chestplate", 400);
 		baseXp.put("leggings", 400);
@@ -86,6 +87,7 @@ public class EquipLevelingConfig {
 		maxSlots.put("shovel", 2);
 		maxSlots.put("hoe", 2);
 		maxSlots.put("fishing_rod", 3);
+		maxSlots.put("bow", 3);
 		maxSlots.put("helmet", 4);
 		maxSlots.put("chestplate", 4);
 		maxSlots.put("leggings", 4);
@@ -383,12 +385,13 @@ public class EquipLevelingConfig {
 		Integer fallback = maxSlots.get("default");
 		if (fallback == null) fallback = 4;
 		Integer value = maxSlots.get(category == null ? "default" : category.toLowerCase());
-		return value == null ? fallback : Math.min(4, Math.max(1, value));
+		// Allow up to 8 slots so players with large enchantment mods can raise the cap.
+		return value == null ? fallback : Math.min(8, Math.max(1, value));
 	}
 
 	public static void setMaxSlotsForCategory(String category, int slots) {
 		if (category == null || category.isBlank()) return;
-		maxSlots.put(category.toLowerCase(), Math.min(4, Math.max(1, slots)));
+		maxSlots.put(category.toLowerCase(), Math.min(8, Math.max(1, slots)));
 		save();
 	}
 

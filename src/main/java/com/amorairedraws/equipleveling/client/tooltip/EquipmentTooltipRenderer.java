@@ -24,7 +24,10 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			return;
 		}
 
-		EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+		// Issue 6: recompute derived state (readyToLevelUp, mending, maxed, slot
+		// count) from the stored data right as the tooltip is opened, so hovering
+		// an item always shows current progress without needing a reload.
+		EquipmentComponent.EquipmentData data = EquipmentComponent.getOrCreate(stack);
 
 		// Insert at the top (after the item name)
 		int insertIndex = Math.min(1, lines.size());
@@ -33,9 +36,9 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		lines.add(insertIndex++, renderXpBar(data));
 
 		if (data.maxed) {
-			// Issue 9: only one MAX LEVEL line. The level line below is skipped
-			// when maxed, so the sparkle banner is the single completion marker.
-			lines.add(insertIndex++, Text.literal("\u2728\u2728 MAX LEVEL \u2728\u2728").formatted(Formatting.GOLD));
+			// Issue 5/9: only one MAX LEVEL line, accented with solid stars
+			// (common Minecraft symbols) instead of sparkles.
+			lines.add(insertIndex++, Text.literal("\u2605 MAX LEVEL \u2605").formatted(Formatting.GOLD));
 		} else if (data.readyToLevelUp) {
 			lines.add(insertIndex++, Text.literal("Ready to level up!").formatted(Formatting.GREEN));
 			// Issue 13: point new players toward the enchanting table.
@@ -49,24 +52,26 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			lines.add(insertIndex++, Text.literal(String.format("Level %d", data.level)).formatted(Formatting.YELLOW));
 		}
 
-		// Mending is the completion reward.
+		// Mending is the completion reward. Use the real enchantment name from
+		// the registry (Issue 4) and no emoji prefix.
 		if (data.mending) {
-			lines.add(insertIndex++, Text.literal("  \uD83D\uDC8E Mending").formatted(Formatting.AQUA));
+			String mendingName = formatEnchantmentName("minecraft:mending", 1, context);
+			lines.add(insertIndex++, Text.literal("  " + mendingName).formatted(Formatting.AQUA));
 		}
 
 		// Standard slots
 		renderSlots(lines, insertIndex, data.slots, context);
 		insertIndex += data.slots.size() + 1;
 
-		// Bonus slots
+		// Bonus slots (no star prefix, Issue 4)
 		if (!data.bonusSlots.isEmpty()) {
 			for (EquipmentComponent.EquipmentSlot slot : data.bonusSlots) {
 				if (slot.isEmpty()) {
-					lines.add(insertIndex++, Text.literal("  \u2605 [Empty]").formatted(Formatting.GOLD));
+					lines.add(insertIndex++, Text.literal("  [Empty bonus slot]").formatted(Formatting.DARK_GRAY));
 				} else {
 					String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
 					lines.add(insertIndex++,
-						Text.literal(String.format("  \u2605 %s", enchName)).formatted(Formatting.GOLD));
+						Text.literal(String.format("  %s", enchName)).formatted(Formatting.WHITE));
 				}
 			}
 		}

@@ -65,11 +65,14 @@ public class EquipLevelingMod implements ModInitializer {
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof net.minecraft.entity.player.PlayerEntity dead) {
 				DeathEventHandler.handlePlayerDeath(dead);
-			} else if (source.getSource() instanceof net.minecraft.entity.player.PlayerEntity player) {
-				// Only a direct player kill advances a held sword/axe.  Using a bow,
-				// projectile, tamed mob, or environmental damage must not award XP to
-				// whatever happens to be in the player's hand.
-				EquipmentXpEvents.awardKillXp(player, entity, source);
+			} else {
+				net.minecraft.entity.player.PlayerEntity killer = null;
+				if (source.getSource() instanceof net.minecraft.entity.player.PlayerEntity p) killer = p;
+				else if (source.getAttacker() instanceof net.minecraft.entity.player.PlayerEntity p) killer = p;
+				// Only a player kill advances a held sword/axe/bow. Ranged weapons
+				// (bow / crossbow) have the projectile as the direct source but the
+				// player as the attacker, so both are accepted here.
+				if (killer != null) EquipmentXpEvents.awardKillXp(killer, entity, source);
 			}
 		});
 

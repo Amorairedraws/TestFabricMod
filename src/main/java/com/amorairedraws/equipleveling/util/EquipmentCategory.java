@@ -32,6 +32,13 @@ public class EquipmentCategory {
 		// Check fishing rod
 		if (stack.isIn(tag("fishing_rods")) || stack.getItem() == Items.FISHING_ROD) return "fishing_rod";
 
+		// Check bow / crossbow. There is no dedicated ItemTags.BOWS field, so we
+		// rely on the vanilla enchantable/bow tag (which covers the bow) plus a
+		// mod-owned tag that can be extended by datapacks to include crossbows
+		// and modded ranged weapons.
+		if (stack.isIn(tag("bows")) || stack.isIn(ItemTags.BOW_ENCHANTABLE)
+				|| stack.getItem() == Items.BOW || stack.getItem() == Items.CROSSBOW) return "bow";
+
 		// Check for modded equipment via tag
 		if (stack.isIn(net.minecraft.registry.tag.TagKey.of(
 			net.minecraft.registry.Registries.ITEM.getKey(),

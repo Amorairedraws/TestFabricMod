@@ -238,7 +238,9 @@ public final class EquipmentComponent {
             this.slots = new ArrayList<>(slots); this.bonusSlots = new ArrayList<>(bonusSlots);
             this.readyToLevelUp = ready; this.broken = broken; this.maxed = maxed;
             this.slotsComplete = slotsComplete;
-            this.maxSlots = Math.min(4, Math.max(1, maxSlots));
+            // Allow up to 8 standard slots so players with large enchantment mods
+            // can raise the cap (Issue 7).
+            this.maxSlots = Math.min(8, Math.max(1, maxSlots));
             while (this.slots.size() < this.maxSlots) this.slots.add(new EquipmentSlot(null, 0));
             if (this.slots.size() > this.maxSlots) this.slots = new ArrayList<>(this.slots.subList(0, this.maxSlots));
             if (this.bonusSlots.size() > 2) this.bonusSlots = new ArrayList<>(this.bonusSlots.subList(0, 2));
@@ -284,7 +286,7 @@ public final class EquipmentComponent {
             // standard slot list to that size (dropping any overflow).
             int configuredMax = EquipLevelingConfig.getMaxSlotsForCategory(category == null ? "default" : category);
             if (configuredMax != maxSlots) {
-                maxSlots = Math.min(4, Math.max(1, configuredMax));
+                maxSlots = Math.min(8, Math.max(1, configuredMax));
                 while (slots.size() < maxSlots) slots.add(new EquipmentSlot(null, 0));
                 if (slots.size() > maxSlots) slots = new ArrayList<>(slots.subList(0, maxSlots));
             }

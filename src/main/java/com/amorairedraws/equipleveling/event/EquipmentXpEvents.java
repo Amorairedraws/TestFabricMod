@@ -21,10 +21,13 @@ public class EquipmentXpEvents {
     /** Called after a living entity actually dies, so XP is never awarded for a hit. */
     public static void awardKillXp(PlayerEntity player, LivingEntity entity,
             net.minecraft.entity.damage.DamageSource source) {
-        if (source.getSource() != player) return;
+        // Melee kills have the player as the direct source; ranged kills (bow /
+        // crossbow arrows) have the projectile as the direct source but the
+        // player as the attacker. Either way the player must be the killer.
+        if (source.getSource() != player && source.getAttacker() != player) return;
         ItemStack held = player.getMainHandStack();
         String category = EquipmentCategory.getCategory(held);
-        if (("sword".equals(category) || "axe".equals(category))) {
+        if ("sword".equals(category) || "axe".equals(category) || "bow".equals(category)) {
             int xp = XpCalculator.calculateEntityKillXp(entity);
             if (EquipmentComponent.addXp(held, xp, player)) {
                 XpDisplay.showForPlayer(player, entity.getEntityPos(), xp);
@@ -42,7 +45,8 @@ public class EquipmentXpEvents {
 			ItemStack heldItem = player.getStackInHand(hand);
 			String category = EquipmentCategory.getCategory(heldItem);
 			
-			if (category != null && (category.equals("sword") || category.equals("axe"))) {
+			if (category != null && (category.equals("sword") || category.equals("axe")
+					|| category.equals("bow"))) {
 				int xp = XpCalculator.calculateEntityKillXp(living);
 				// This callback runs on both logical sides. Never mutate progression on
 				// the client; the AFTER_DEATH callback is the sole server reward path.

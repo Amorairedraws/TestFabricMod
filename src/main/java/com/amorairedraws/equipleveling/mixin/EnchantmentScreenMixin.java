@@ -21,8 +21,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * equipment. The background texture and the floating book are kept (via the
  * shadowed drawBook), but the three offer rows are re-drawn from scratch so we
  * control the label text, the hover highlight, and the absence of the vanilla
- * level-number icons. The reroll cost is drawn as a lit/unlit experience orb
- * directly below the reroll button.
+ * level-number icons. The reroll cost is drawn as plain text directly below the
+ * reroll button (no experience orb).
+ *
+ * <p>Note on colours: Minecraft text colours are 0xAARRGGBB. Values like
+ * 0xFFFFFF have a zero alpha byte and are therefore fully transparent, so
+ * every colour here deliberately includes a full 0xFF alpha prefix.</p>
  */
 @Mixin(EnchantmentScreen.class)
 public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentScreenHandler> {
@@ -32,6 +36,11 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
     private static final Identifier LEVEL_ICON = Identifier.ofVanilla("container/enchanting_table/level_1");
     private static final Identifier LEVEL_ICON_DISABLED = Identifier.ofVanilla("container/enchanting_table/level_1_disabled");
     private static final Identifier TEXTURE = Identifier.ofVanilla("textures/gui/container/enchanting_table.png");
+
+    private static final int WHITE = 0xFFFFFFFF;
+    private static final int GOLD = 0xFFFFD700;
+    private static final int GREEN = 0xFF55FF55;
+    private static final int RED = 0xFFFF5555;
 
     @Shadow
     private void drawBook(DrawContext context, int x, int y) { }
@@ -60,6 +69,8 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
             int rowY = j + 14 + row * 19;
             boolean active = tracked && VanillaEnchantingTableLogic.getOfferKind(handler, row)
                     != VanillaEnchantingTableLogic.OfferKind.NONE;
+            boolean legendary = tracked && VanillaEnchantingTableLogic.getOfferKind(handler, row)
+                    == VanillaEnchantingTableLogic.OfferKind.LEGENDARY;
 
             boolean hovered = mouseX >= rowX && mouseY >= rowY
                     && mouseX < rowX + 108 && mouseY < rowY + 19;
@@ -81,22 +92,23 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
                 }
                 if (label == null || label.isEmpty()) label = "Unknown offer";
                 String clipped = textRenderer.trimToWidth(label, 84);
-                context.drawTextWithShadow(textRenderer, clipped, rowX + 12, rowY + 6, 0xFFFFFF);
+                // Legendary offers render white-gold so they stand out (Issue 10).
+                int color = legendary ? GOLD : WHITE;
+                context.drawTextWithShadow(textRenderer, clipped, rowX + 12, rowY + 6, color);
             }
         }
 
-        // Draw the reroll cost orb below the reroll button (button is at x+34/y+46).
+        // Reroll cost as plain text below the reroll button (button is at x+34/y+46).
+        // No experience orb icon is drawn here (Issue 3).
         if (tracked && client.world != null && client.player != null) {
             var registry = client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
             int cost = VanillaEnchantingTableLogic.getRerollCost(input.stack(), handler, registry);
             boolean affordable = client.player.isInCreativeMode() || client.player.experienceLevel >= cost;
-            int orbX = i + 34;
-            int orbY = j + 47 + 18 + 1;
-            context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, affordable ? LEVEL_ICON : LEVEL_ICON_DISABLED,
-                    orbX, orbY, 16, 16);
-            String costStr = Integer.toString(cost);
-            context.drawTextWithShadow(textRenderer, costStr,
-                    orbX + 17, orbY + 4, affordable ? 0x55FF55 : 0xFF5555);
+            String costLabel = net.minecraft.text.Text.translatable("equip_leveling.enchanting.cost", cost).getString();
+            int costX = i + 34;
+            int costY = j + 47 + 18 + 3;
+            context.drawTextWithShadow(textRenderer, costLabel, costX, costY,
+                    affordable ? GREEN : RED);
         }
     }
 

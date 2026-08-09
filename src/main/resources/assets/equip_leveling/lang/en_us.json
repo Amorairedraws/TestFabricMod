@@ -83,7 +83,7 @@
   "equip_leveling.config.material_tiers.add": "Add a material",
   "equip_leveling.config.material_tiers.remove": "Remove this material",
   "equip_leveling.config.max_slots": "%s max enchantment slots",
-  "equip_leveling.config.max_slots.tooltip": "The maximum number of standard enchantment slots a %s can hold. Mainly for balancing tools with few compatible enchantments.",
+  "equip_leveling.config.max_slots.tooltip": "The maximum number of standard enchantment slots a %s can hold. Raise it up to 8 if you use enchantment mods that add many more options.",
 
   "equip_leveling.enchanting.reroll": "Reroll",
   "equip_leveling.enchanting.select": "Select",

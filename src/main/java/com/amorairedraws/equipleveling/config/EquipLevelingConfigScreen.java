@@ -19,7 +19,7 @@ import net.minecraft.text.Text;
  */
 public final class EquipLevelingConfigScreen {
     private static final String[] CATEGORIES = {
-            "sword", "axe", "pickaxe", "shovel", "hoe", "fishing_rod",
+            "sword", "axe", "pickaxe", "shovel", "hoe", "fishing_rod", "bow",
             "helmet", "chestplate", "leggings", "boots"
     };
 
@@ -261,7 +261,7 @@ public final class EquipLevelingConfigScreen {
         for (String category : CATEGORIES) {
             maxSlots.add(entries.startIntSlider(
                     Text.translatable("equip_leveling.config.max_slots", pretty(category)),
-                    EquipLevelingConfig.getMaxSlotsForCategory(category), 1, 4)
+                    EquipLevelingConfig.getMaxSlotsForCategory(category), 1, 8)
                     .setDefaultValue(defaultMaxSlots(category))
                     .setTooltip(Text.translatable("equip_leveling.config.max_slots.tooltip", pretty(category)))
                     .setSaveConsumer(value -> EquipLevelingConfig.setMaxSlotsForCategory(category, value)).build());
@@ -312,6 +312,7 @@ public final class EquipLevelingConfigScreen {
             case "shovel" -> 300;
             case "hoe" -> 200;
             case "fishing_rod" -> 300;
+            case "bow" -> 350;
             case "helmet", "boots" -> 350;
             case "chestplate", "leggings" -> 400;
             default -> 350;
@@ -321,7 +322,7 @@ public final class EquipLevelingConfigScreen {
     private static int defaultMaxSlots(String category) {
         return switch (category) {
             case "sword", "helmet", "chestplate", "leggings", "boots" -> 4;
-            case "axe", "pickaxe", "fishing_rod" -> 3;
+            case "axe", "pickaxe", "fishing_rod", "bow" -> 3;
             case "shovel", "hoe" -> 2;
             default -> 4;
         };

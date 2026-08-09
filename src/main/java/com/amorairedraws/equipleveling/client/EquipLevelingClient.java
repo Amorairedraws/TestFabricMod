@@ -65,7 +65,9 @@ public class EquipLevelingClient implements ClientModInitializer {
         @Override
         protected void drawIcon(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
             this.drawButton(context);
-            int color = this.active ? 0xFFFFFF : 0xA0A0A0;
+            // Full-alpha colours (0xAARRGGBB); 0xFFFFFF is transparent and would
+            // make the glyph invisible.
+            int color = this.active ? 0xFFFFFFFF : 0xFFA0A0A0;
             var matrices = context.getMatrices();
             matrices.pushMatrix();
             // Center the glyph in the box, then scale it up ~1.9x.
