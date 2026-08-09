@@ -1,11 +1,7 @@
 package com.amorairedraws.equipleveling.config;
 
-import com.amorairedraws.equipleveling.util.MaterialLadderDetector;
-import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
@@ -16,21 +12,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Mod Menu config screen, structured so a third grader could navigate it:
+ * Mod Menu config screen built entirely from standard Cloth Config widgets.
+ * Organised into three plain-language tabs:
  *
  * <ul>
- *   <li><b>Start Here</b> - one big slider (global XP speed) plus the few
- *       other on/off switches most people will care about.  The fine-tuning
- *       is tucked inside collapsed "Advanced ..." groups.</li>
+ *   <li><b>Start Here</b> - global XP speed plus the few on/off switches most
+ *       people care about.  Fine-tuning is tucked inside a collapsed
+ *       "Advanced options" group.</li>
  *   <li><b>Earning XP</b> - how much XP each item needs to level up, and how
- *       much every action/mining reward gives.  The full block browser is one
- *       click away.</li>
- *   <li><b>Leveling Up</b> - what the enchanting table offers (chances,
- *       reroll cost, material ladder, enchantment slots).</li>
+ *       much every action/mining reward gives.</li>
+ *   <li><b>Leveling Up</b> - what the enchanting table offers (chances, reroll
+ *       cost, material ladder, enchantment slots).</li>
  * </ul>
- *
- * Every sub-category is collapsible, so the screen reads as a short list of
- * plain-language switches unless you deliberately open an "Advanced" group.
  */
 public final class EquipLevelingConfigScreen {
     private static final String[] CATEGORIES = {
@@ -187,12 +180,10 @@ public final class EquipLevelingConfigScreen {
                 .setSaveConsumer(value -> saveOre(EquipLevelingConfig.getCoalXp(), EquipLevelingConfig.getIronXp(), EquipLevelingConfig.getGoldXp(), value)).build());
         tab.addEntry(ore.setExpanded(false).build());
 
-        // Extra blocks that give XP - with the full block browser one click away.
+        // Extra blocks that give XP, entered as blockid:xp strings.
         var custom = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.custom"));
         custom.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.custom.desc")).build());
-        custom.add(new OpenScreenEntry(Text.translatable("equip_leveling.config.open_block_list"),
-                BlockXpScreen::new));
         List<String> customList = new ArrayList<>();
         EquipLevelingConfig.getCustomBlockXp().forEach((id, v) -> customList.add(id + ":" + v));
         custom.add(entries.startStrList(
@@ -258,19 +249,14 @@ public final class EquipLevelingConfigScreen {
         }
         tab.addEntry(reroll.setExpanded(false).build());
 
-        // Material upgrade order - auto-detected from the registry, editable.
+        // Material upgrade order - a simple editable list.
         var tiers = entries.startSubCategory(Text.translatable("equip_leveling.config.sub.tiers"));
         tiers.add(entries.startTextDescription(
                 Text.translatable("equip_leveling.config.sub.tiers.desc")).build());
-        tiers.add(new OpenScreenEntry(Text.translatable("equip_leveling.config.open_ladder_editor"),
-                MaterialLadderScreen::new));
-        List<String> detected = MaterialLadderDetector.detectLadder();
-        // Start from the configured ladder (if the player customized it), otherwise
-        // the auto-detected one.
         List<String> currentTiers = new ArrayList<>(Arrays.asList(EquipLevelingConfig.getMaterialTiers()));
         tiers.add(entries.startStrList(
                 Text.translatable("equip_leveling.config.material_tiers"), currentTiers)
-                .setDefaultValue(detected)
+                .setDefaultValue(List.of("wood", "stone", "iron", "diamond", "netherite"))
                 .setExpanded(true)
                 .setAddButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.add"))
                 .setRemoveButtonTooltip(Text.translatable("equip_leveling.config.material_tiers.remove"))
@@ -292,59 +278,6 @@ public final class EquipLevelingConfigScreen {
                     .setSaveConsumer(value -> EquipLevelingConfig.setMaxSlotsForCategory(category, value)).build());
         }
         tab.addEntry(maxSlots.setExpanded(true).build());
-    }
-
-    /**
-     * A single clickable row that opens a sub-screen (block XP browser, material
-     * ladder editor, ...).  Rendered as a button-like bar so it stands out from
-     * the surrounding text rows.
-     */
-    private static final class OpenScreenEntry extends AbstractConfigListEntry<String> {
-        private final java.util.function.Function<Screen, Screen> factory;
-
-        private OpenScreenEntry(Text label, java.util.function.Function<Screen, Screen> factory) {
-            super(label, false);
-            this.factory = factory;
-        }
-
-        @Override public String getValue() { return ""; }
-        public void setValue(String value) { }
-        @Override public java.util.Optional<String> getDefaultValue() { return java.util.Optional.empty(); }
-        @Override public boolean isRequiresRestart() { return false; }
-        @Override public void setRequiresRestart(boolean requiresRestart) { }
-        @Override public int getItemHeight() { return 22; }
-
-        @Override
-        public void render(DrawContext matrices, int index, int y, int x, int entryWidth,
-                int entryHeight, int mouseX, int mouseY, boolean isHovered, float delta) {
-            int left = x + 2;
-            int right = x + entryWidth - 2;
-            matrices.fill(left, y + 1, right, y + getItemHeight() - 1, isHovered ? 0xFF3A5A7A : 0xFF2A3A4A);
-            // Draw a fake button border
-            matrices.fill(left, y + 1, right, y + 2, 0xFF6A9AC0);
-            matrices.fill(left, y + getItemHeight() - 2, right, y + getItemHeight() - 1, 0xFF101018);
-            matrices.drawCenteredTextWithShadow(MinecraftClient.getInstance().textRenderer,
-                    this.getDisplayedFieldName(), left + (right - left) / 2, y + 6, 0xFFFFFF);
-        }
-
-        public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean onlyIncludeWithin) {
-            if (click.button() == 0) {
-                Screen current = MinecraftClient.getInstance().currentScreen;
-                MinecraftClient.getInstance().setScreen(factory.apply(current));
-                return true;
-            }
-            return false;
-        }
-
-        @Override
-        public java.util.List<? extends net.minecraft.client.gui.Selectable> narratables() {
-            return java.util.List.of();
-        }
-
-        @Override
-        public java.util.List<? extends net.minecraft.client.gui.Element> children() {
-            return java.util.List.of();
-        }
     }
 
     private static java.util.Optional<Text> validateBlockXpEntry(String value) {
