@@ -374,12 +374,27 @@ public final class EquipmentComponent {
                 // The offer generator performs the world-registry compatibility
                 // check; this fallback covers the vanilla maxima used by stored data.
                 return switch (slot.enchantmentId) {
+                    // Max level 1
                     case "minecraft:mending", "minecraft:binding_curse", "minecraft:vanishing_curse",
                             "minecraft:silk_touch", "minecraft:flame", "minecraft:infinity",
-                            "minecraft:multishot", "minecraft:channeling" -> 1;
-                    case "minecraft:frost_walker" -> 2;
-                    case "minecraft:soul_speed", "minecraft:swift_sneak", "minecraft:wind_burst" -> 3;
-                    case "minecraft:breach" -> 4;
+                            "minecraft:multishot", "minecraft:channeling", "minecraft:aqua_affinity" -> 1;
+                    // Max level 2
+                    case "minecraft:frost_walker", "minecraft:knockback", "minecraft:fire_aspect",
+                            "minecraft:punch" -> 2;
+                    // Max level 3
+                    case "minecraft:soul_speed", "minecraft:swift_sneak", "minecraft:wind_burst",
+                            "minecraft:unbreaking", "minecraft:fortune", "minecraft:respiration",
+                            "minecraft:thorns", "minecraft:depth_strider", "minecraft:looting",
+                            "minecraft:sweeping_edge", "minecraft:loyalty", "minecraft:riptide",
+                            "minecraft:quick_charge", "minecraft:luck_of_the_sea", "minecraft:lure" -> 3;
+                    // Max level 4
+                    case "minecraft:breach", "minecraft:protection", "minecraft:fire_protection",
+                            "minecraft:blast_protection", "minecraft:projectile_protection",
+                            "minecraft:feather_falling", "minecraft:piercing" -> 4;
+                    // Max level 5
+                    case "minecraft:efficiency", "minecraft:sharpness", "minecraft:smite",
+                            "minecraft:bane_of_arthropods", "minecraft:power", "minecraft:impaling",
+                            "minecraft:density" -> 5;
                     default -> 5;
                 };
             } catch (RuntimeException ignored) {

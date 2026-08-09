@@ -112,11 +112,12 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
                 // The text box (trim width) is widened so long names extend
                 // further right than the panel without being cut off early. The
                 // title and subtitle are drawn slightly larger and closer
-                // together, with a lighter subtitle.
+                // together. Both are bold; the subtitle is white but a touch
+                // darker than the title so it still reads as secondary.
                 String clippedTitle = textRenderer.trimToWidth(title, 130);
                 String clippedSubtitle = textRenderer.trimToWidth(subtitle, 130);
-                drawScaledText(context, clippedTitle, rowX + 18, rowY + 4, 0.75f, titleColor);
-                drawScaledText(context, clippedSubtitle, rowX + 18, rowY + 11, 0.65f, 0xFFA0A0A0);
+                drawScaledTextBold(context, clippedTitle, rowX + 18, rowY + 4, 0.75f, titleColor);
+                drawScaledTextBold(context, clippedSubtitle, rowX + 18, rowY + 11, 0.65f, 0xFFE0E0E0);
             }
         }
 
@@ -132,7 +133,7 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
             String costText = "\u25CF " + cost;
             int costX = i + 34; // left-aligned with the button's left edge
             int costY = j + 66; // just under the button
-            drawScaledText(context, costText, costX, costY, 0.8f, color);
+            drawScaledTextBold(context, costText, costX, costY, 0.8f, color);
         }
     }
 
@@ -144,6 +145,22 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
         matrices.translate((float) x, (float) y);
         matrices.scale(scale, scale);
         context.drawTextWithShadow(textRenderer, text, 0, 0, color);
+        matrices.popMatrix();
+    }
+
+    /**
+     * Draws scaled text in bold by rendering it twice with a 1-pixel horizontal
+     * offset in the scaled frame. Vanilla's default font has no separate bold
+     * glyphs, so this double-draw is the standard way to fake a heavier weight.
+     */
+    @Unique
+    private void drawScaledTextBold(DrawContext context, String text, int x, int y, float scale, int color) {
+        var matrices = context.getMatrices();
+        matrices.pushMatrix();
+        matrices.translate((float) x, (float) y);
+        matrices.scale(scale, scale);
+        context.drawTextWithShadow(textRenderer, text, 0, 0, color);
+        context.drawTextWithShadow(textRenderer, text, 1, 0, color);
         matrices.popMatrix();
     }
 
