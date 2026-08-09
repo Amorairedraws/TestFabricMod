@@ -29,11 +29,12 @@ public class EquipLevelingClient implements ClientModInitializer {
             if (client.player == null || client.world == null) return;
             if (++equipLeveling$tickCounter < 40) return; // 40 ticks = 2 seconds
             equipLeveling$tickCounter = 0;
+            var lookup = client.world.getRegistryManager();
             var inventory = client.player.getInventory();
             for (int i = 0; i < inventory.size(); i++) {
                 var stack = inventory.getStack(i);
                 if (EquipmentComponent.isTracked(stack)) {
-                    EquipmentComponent.getOrCreate(stack);
+                    EquipmentComponent.getOrCreate(stack, lookup);
                 }
             }
         });

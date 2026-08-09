@@ -26,8 +26,11 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 
 		// Issue 6: recompute derived state (readyToLevelUp, mending, maxed, slot
 		// count) from the stored data right as the tooltip is opened, so hovering
-		// an item always shows current progress without needing a reload.
-		EquipmentComponent.EquipmentData data = EquipmentComponent.getOrCreate(stack);
+		// an item always shows current progress without needing a reload. Uses the
+		// lookup-aware variant so modded enchantments report their real max level.
+		EquipmentComponent.EquipmentData data = context.getRegistryLookup() != null
+				? EquipmentComponent.getOrCreate(stack, context.getRegistryLookup())
+				: EquipmentComponent.getOrCreate(stack);
 
 		// Insert at the top (after the item name)
 		int insertIndex = Math.min(1, lines.size());

@@ -58,6 +58,28 @@ public final class EquipmentComponent {
         return data;
     }
 
+    /**
+     * Lookup-aware variant of {@link #getOrCreate(ItemStack)}. Uses the live
+     * world registry to read the real maximum level of every enchantment
+     * (including modded ones), so the client-side maxed detection matches the
+     * server exactly instead of falling back to the vanilla-only switch.
+     */
+    public static EquipmentData getOrCreate(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
+        EquipmentData data = stack.get(EQUIPMENT_TYPE);
+        EquipmentData before = data == null ? null : data.copy();
+        if (data == null) {
+            data = EquipmentData.create(EquipmentCategory.getCategory(stack));
+        } else {
+            data.refresh(EquipmentCategory.getCategory(stack));
+        }
+        data.updateMaxed(lookup, MaterialTierUpgrader.isTierLevelSatisfied(stack, data.level,
+                EquipLevelingConfig.getMaterialTiers()));
+        if (before == null || !before.equals(data)) {
+            stack.set(EQUIPMENT_TYPE, data);
+        }
+        return data;
+    }
+
     /** Adds progression XP and immediately writes the immutable data component back.
      * @return true only when the item accepted the reward (not broken, capped, or maxed). */
     public static boolean addXp(ItemStack stack, int amount) {
