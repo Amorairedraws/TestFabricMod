@@ -105,7 +105,7 @@ public abstract class EnchantmentScreenMixin extends HandledScreen<EnchantmentSc
                 } else {
                     title = VanillaEnchantingTableLogic.describeOfferFallback(handler, row);
                 }
-                subtitle = VanillaEnchantingTableLogic.describeOfferSubtitle(handler, row);
+                subtitle = VanillaEnchantingTableLogic.describeOfferSubtitle(handler, row, input.stack());
                 if (title == null || title.isEmpty()) title = "Unknown offer";
 
                 int titleColor = legendary ? GOLD : WHITE;

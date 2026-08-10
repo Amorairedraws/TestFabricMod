@@ -70,9 +70,8 @@ public final class VanillaEnchantingTableLogic {
         }
 
         // Issue 1: if offers were already rolled and persisted on the item, restore
-        // them instead of re-rolling. This keeps the same offers when the player
-        // takes the item out of the table and puts it back, until they actually
-        // reroll or make a selection.
+        // them instead of re-rolling — but NEVER restore legendary offers.
+        // Legendaries are a flat % chance and must be re-rolled fresh every time.
         if (restoreStoredOffers(handler, data, enchantments)) {
             handler.sendContentUpdates();
             return;
@@ -141,10 +140,8 @@ public final class VanillaEnchantingTableLogic {
         if (data.offers == null || data.offers.isEmpty()) return false;
         List<GeneratedOffer> offers = new ArrayList<>();
         for (EquipmentComponent.StoredOffer stored : data.offers) {
-            if (stored.encodedLevel == LEGENDARY) {
-                offers.add(new GeneratedOffer(-1, LEGENDARY));
-                continue;
-            }
+            // Never restore legendary offers — they must be re-rolled fresh.
+            if (stored.encodedLevel == LEGENDARY) continue;
             if (stored.enchantmentId == null) continue;
             try {
                 Enchantment ench = enchantments.get(Identifier.of(stored.enchantmentId));
@@ -196,7 +193,8 @@ public final class VanillaEnchantingTableLogic {
 
         // A legendary promotion replaces the stack in the existing vanilla input
         // slot. Re-read the component instead of retaining stale data from the
-        // old material.
+        // old material. Also explicitly set the stack on the slot to force an
+        // immediate sync, so the glint (readyToLevelUp) clears without delay.
         stack = handler.getSlot(0).getStack();
         data = EquipmentComponent.getOrCreate(stack);
         int restored = (int) Math.round(stack.getMaxDamage()
@@ -213,6 +211,7 @@ public final class VanillaEnchantingTableLogic {
         data.offers.clear();
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
         EquipmentComponent.restoreEnchantments(stack, registries);
+        handler.getSlot(0).setStack(stack); // force sync the modified stack
         handler.getSlot(0).markDirty();
         // Issue 12: celebratory sound when an enchantment is applied. Played at
         // the player's position on the server so it reaches the client.
@@ -302,10 +301,22 @@ public final class VanillaEnchantingTableLogic {
         return name;
     }
 
-    /** The darker second line shown under the offer title (Issue 2). */
-    public static String describeOfferSubtitle(EnchantmentScreenHandler handler, int index) {
+    /** The darker second line shown under the offer title (Issue 2).
+     * For legendary offers, includes the target material. */
+    public static String describeOfferSubtitle(EnchantmentScreenHandler handler, int index,
+            net.minecraft.item.ItemStack stack) {
         OfferKind kind = getOfferKind(handler, index);
-        if (kind == OfferKind.LEGENDARY) return "Legendary Upgrade";
+        if (kind == OfferKind.LEGENDARY) {
+            // Look up what this item would upgrade to.
+            String category = EquipmentCategory.getCategory(stack);
+            String currentMaterial = MaterialTierUpgrader.materialNameOf(stack.getItem());
+            List<String> nextMaterials = EquipLevelingConfig.getNextLevelMaterials(currentMaterial);
+            if (!nextMaterials.isEmpty()) {
+                String target = nextMaterials.get(0);
+                return "Upgrade \u2192 " + (target.isEmpty() ? "???" : target);
+            }
+            return "Legendary Upgrade";
+        }
         if (kind == OfferKind.UPGRADE) return "Upgrade Enchantment";
         if (kind == OfferKind.NEW_ENCHANTMENT) return "New Enchantment";
         return "";

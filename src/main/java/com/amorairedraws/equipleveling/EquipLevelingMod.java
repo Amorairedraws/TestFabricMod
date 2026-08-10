@@ -4,7 +4,6 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -24,7 +23,6 @@ import com.amorairedraws.equipleveling.util.AutoXpConfigGenerator;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
-import net.minecraft.util.ActionResult;
 
 public class EquipLevelingMod implements ModInitializer {
     public static final String MOD_ID = "equip_leveling";
@@ -66,20 +64,6 @@ public class EquipLevelingMod implements ModInitializer {
                     newPlayer.getInventory().setStack(i, stack.copy());
                 }
             }
-        });
-
-        // Track player-placed blocks for abuse prevention.
-        // When a player places a block (right-click with a block item), record it.
-        UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
-            if (!world.isClient() && player != null && !player.isSpectator()) {
-                var heldStack = player.getStackInHand(hand);
-                if (!heldStack.isEmpty() && heldStack.getItem() instanceof net.minecraft.item.BlockItem blockItem) {
-                    var pos = hitResult.getBlockPos().offset(hitResult.getSide());
-                    var placedState = blockItem.getBlock().getDefaultState();
-                    PlayerBlockTracker.onBlockPlaced(world, pos, player.getUuid(), placedState);
-                }
-            }
-            return ActionResult.PASS;
         });
 
         // Register event listeners.

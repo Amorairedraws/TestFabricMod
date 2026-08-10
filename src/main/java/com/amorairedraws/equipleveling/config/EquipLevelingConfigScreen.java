@@ -99,14 +99,14 @@ public final class EquipLevelingConfigScreen {
                         .name(Text.translatable("equip_leveling.config.xp_threshold"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.xp_threshold.tooltip")))
                         .binding(10, EquipLevelingConfig::getXpDisplayThreshold, EquipLevelingConfig::setXpDisplayThreshold)
-                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100))
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(1))
                         .available(canEdit)
                         .build())
                 .option(Option.<Integer>createBuilder()
                         .name(Text.translatable("equip_leveling.config.durability_restore"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.durability_restore.tooltip")))
                         .binding(25, EquipLevelingConfig::getDurabilityRestorePercent, EquipLevelingConfig::setDurabilityRestorePercent)
-                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100))
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(1))
                         .available(canEdit)
                         .build())
                 .option(Option.<Boolean>createBuilder()
@@ -233,7 +233,7 @@ public final class EquipLevelingConfigScreen {
                         .binding(5,
                                 () -> (int) Math.round(EquipLevelingConfig.getLegendaryUpgradeProbability() * 100),
                                 v -> EquipLevelingConfig.setLegendaryUpgradeProbability(v / 100.0))
-                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100))
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(1))
                         .available(canEdit)
                         .build())
                 .build();
@@ -288,7 +288,7 @@ public final class EquipLevelingConfigScreen {
                     .binding(defaultMaxSlots(cat),
                             () -> EquipLevelingConfig.getMaxSlotsForCategory(category),
                             v -> EquipLevelingConfig.setMaxSlotsForCategory(category, v))
-                    .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(1, 8))
+                    .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(1, 8).step(1))
                     .available(canEdit)
                     .build());
         }

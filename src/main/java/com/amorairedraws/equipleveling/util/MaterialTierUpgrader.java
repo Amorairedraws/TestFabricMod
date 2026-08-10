@@ -117,7 +117,11 @@ public final class MaterialTierUpgrader {
 
     // ---- private helpers ----
 
-    /** Extracts material name from an item: "wooden_sword" → "wood". */
+    /** Extracts material name from an item: "wooden_sword" 2192 "wood".  Public for UI. */
+    public static String materialNameOf(Item item) {
+        return materialOf(item);
+    }
+
     private static String materialOf(Item item) {
         String path = Registries.ITEM.getId(item).getPath();
         int sep = path.indexOf('_');

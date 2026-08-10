@@ -114,7 +114,7 @@ public class EquipLevelingClient implements ClientModInitializer {
             matrices.scale(3.0f, 3.0f);
             context.drawCenteredTextWithShadow(
                     net.minecraft.client.MinecraftClient.getInstance().textRenderer,
-                    "\u21BA", 0, -5, color);
+                    "\u21BA", 1, -5, color);
             matrices.popMatrix();
         }
     }
