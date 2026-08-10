@@ -79,8 +79,14 @@
 
   "equip_leveling.config.reroll_cost": "%d full slots",
   "equip_leveling.config.reroll_cost.tooltip": "XP levels spent to reroll when %d standard slots are filled.",
-  "equip_leveling.config.material_tier": "Tier %d material",
-  "equip_leveling.config.material_tier.tooltip": "The material used for tier %d of the upgrade ladder. Pick one from the list, or type a custom modded material name. Leave a tier empty to stop the ladder there.",
+
+  "equip_leveling.config.material_ladder": "Material Ladder",
+  "equip_leveling.config.material_ladder.edit": "Edit Material Ladder",
+  "equip_leveling.config.material_ladder.edit.tooltip": "Open a dedicated editor where you can group materials by mining level, reorder them, and add modded materials.",
+  "equip_leveling.config.material_ladder.title": "Material Ladder Editor",
+  "equip_leveling.config.material_ladder.level": "Mining Level %d",
+  "equip_leveling.config.material_ladder.add_level": "+ Add Mining Level",
+
   "equip_leveling.config.max_slots": "%s",
   "equip_leveling.config.max_slots.tooltip": "The maximum number of enchantment slots a %s can hold. Raise it up to 8 if you use enchantment mods that add many more options.",
 

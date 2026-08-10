@@ -3,7 +3,7 @@
   "id": "equip_leveling",
   "version": "${version}",
   "name": "Equip Leveling",
-  "description": "Lightweight equip leveling + enchantment rework.\n\nTHIS IS AI SLOP. \nI did put in time and effort to architect all the behavior, diagnose and fix bugs, etc, but at the end of the day this was made with AI as a coding buddy, because i don't know the syntax.",
+  "description": "Lightweight equip leveling + enchantment rework.\n\nAI-assisted coding project by Amorairedraws.",
   "authors": [
     "Amorairedraws"
   ],
@@ -31,6 +31,6 @@
     "minecraft": "${minecraft_version}",
     "fabric-api": "*",
     "modmenu": ">=${modmenu_version}",
-    "cloth-config": ">=${cloth_version}"
+    "yet_another_config_lib_v3": ">=${yacl_version}"
   }
 }

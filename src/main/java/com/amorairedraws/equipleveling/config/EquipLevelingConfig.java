@@ -6,7 +6,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.google.gson.Gson;
@@ -42,7 +45,11 @@ public class EquipLevelingConfig {
 	// Defaults match the documented 5 / 10 / 15 / 20 / 25 level progression.
 	private static int[] rerollCosts = {5, 10, 15, 20, 25};
 	private static double legendaryUpgradeProbability = 0.05;
-	private static String[] materialTiers = {"wood", "stone", "iron", "diamond", "netherite"};
+	// Mining-level→materials map. Each mining level (0=wood/gold, 1=stone, 2=iron,
+	// 3=diamond, 4=netherite) lists the materials available at that tier. When a
+	// legendary upgrade fires, the item upgrades to a random material from the
+	// next mining level. Modded materials are auto-detected on first run.
+	private static Map<Integer, List<String>> materialLadder = new LinkedHashMap<>();
 	private static double upgradeWeight = 0.6;
 	private static double newSlotWeight = 0.4;
 	private static double legendaryWeight = 0.05;
@@ -61,6 +68,13 @@ public class EquipLevelingConfig {
 	private static Map<String, Integer> maxSlots = new HashMap<>();
 
 	static {
+		// Initialize material ladder defaults: mining level → materials.
+		materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+		materialLadder.put(1, new ArrayList<>(List.of("stone")));
+		materialLadder.put(2, new ArrayList<>(List.of("iron")));
+		materialLadder.put(3, new ArrayList<>(List.of("diamond")));
+		materialLadder.put(4, new ArrayList<>(List.of("netherite")));
+
 		// Initialize base XP values. These represent how much focused play is
 		// needed before an item is ready to level up. Tools used constantly
 		// (pickaxe, axe) have higher requirements; tools used rarely (hoe) are
@@ -146,8 +160,39 @@ public class EquipLevelingConfig {
 			
 			legendaryUpgradeProbability = json.has("legendaryUpgradeProbability") ? json.get("legendaryUpgradeProbability").getAsDouble() : 0.05;
 			
-			if (json.has("materialTiers")) {
-				materialTiers = GSON.fromJson(json.get("materialTiers"), String[].class);
+			// Load material ladder (new format: mining level → materials).
+			// Fall back to old flat array format if present.
+			if (json.has("materialLadder")) {
+				materialLadder.clear();
+				JsonObject ladderObj = json.getAsJsonObject("materialLadder");
+				for (Map.Entry<String, com.google.gson.JsonElement> entry : ladderObj.entrySet()) {
+					try {
+						int level = Integer.parseInt(entry.getKey());
+						List<String> materials = new ArrayList<>();
+						for (com.google.gson.JsonElement e : entry.getValue().getAsJsonArray()) {
+							String mat = e.getAsString().trim().toLowerCase();
+							if (!mat.isBlank()) materials.add(mat);
+						}
+						if (!materials.isEmpty()) materialLadder.put(level, materials);
+					} catch (NumberFormatException ignored) { }
+				}
+			} else if (json.has("materialTiers")) {
+				// Migrate from old flat array: assign each material to its own level 0..N-1.
+				String[] old = GSON.fromJson(json.get("materialTiers"), String[].class);
+				if (old != null && old.length > 0) {
+					materialLadder.clear();
+					for (int i = 0; i < old.length; i++) {
+						String mat = old[i].trim().toLowerCase();
+						if (!mat.isBlank()) materialLadder.put(i, new ArrayList<>(List.of(mat)));
+					}
+				}
+			}
+			if (materialLadder.isEmpty()) {
+				materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+				materialLadder.put(1, new ArrayList<>(List.of("stone")));
+				materialLadder.put(2, new ArrayList<>(List.of("iron")));
+				materialLadder.put(3, new ArrayList<>(List.of("diamond")));
+				materialLadder.put(4, new ArrayList<>(List.of("netherite")));
 			}
 			
 			upgradeWeight = json.has("upgradeWeight") ? json.get("upgradeWeight").getAsDouble() : 0.6;
@@ -199,15 +244,13 @@ public class EquipLevelingConfig {
 			anvilBaseCost = Math.max(0, anvilBaseCost);
 			anvilPerLevelCost = Math.max(0, anvilPerLevelCost);
 			for (int i = 0; i < rerollCosts.length; i++) rerollCosts[i] = Math.max(0, rerollCosts[i]);
-			if (materialTiers == null || materialTiers.length == 0) {
-				materialTiers = new String[]{"wood", "stone", "iron", "diamond", "netherite"};
-			} else {
-				materialTiers = java.util.Arrays.stream(materialTiers)
-						.filter(s -> s != null && !s.isBlank())
-						.map(s -> s.trim().toLowerCase()).toArray(String[]::new);
-				if (materialTiers.length == 0) {
-					materialTiers = new String[]{"wood", "stone", "iron", "diamond", "netherite"};
-				}
+			if (materialLadder == null || materialLadder.isEmpty()) {
+				materialLadder = new LinkedHashMap<>();
+				materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+				materialLadder.put(1, new ArrayList<>(List.of("stone")));
+				materialLadder.put(2, new ArrayList<>(List.of("iron")));
+				materialLadder.put(3, new ArrayList<>(List.of("diamond")));
+				materialLadder.put(4, new ArrayList<>(List.of("netherite")));
 			}
 			LOGGER.info("Config loaded successfully");
 		} catch (IOException | RuntimeException e) {
@@ -239,7 +282,12 @@ public class EquipLevelingConfig {
 			json.addProperty("clayXp", clayXp);
 			json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
 			json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
-			json.add("materialTiers", GSON.toJsonTree(materialTiers));
+			// Save material ladder as nested JSON object.
+			JsonObject ladderJson = new JsonObject();
+			for (Map.Entry<Integer, List<String>> entry : materialLadder.entrySet()) {
+				ladderJson.add(entry.getKey().toString(), GSON.toJsonTree(entry.getValue()));
+			}
+			json.add("materialLadder", ladderJson);
 			json.addProperty("upgradeWeight", upgradeWeight);
 			json.addProperty("newSlotWeight", newSlotWeight);
 			json.addProperty("legendaryWeight", legendaryWeight);
@@ -316,10 +364,105 @@ public class EquipLevelingConfig {
 		return legendaryUpgradeProbability;
 	}
 
-	public static String[] getMaterialTiers() {
-		return java.util.Arrays.copyOf(materialTiers, materialTiers.length);
+	// ---- Material ladder (mining level → materials) ----
+
+	/** Returns the full material ladder: mining level → list of materials at that level. */
+	public static Map<Integer, List<String>> getMaterialLadder() {
+		Map<Integer, List<String>> copy = new LinkedHashMap<>();
+		for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
+			copy.put(e.getKey(), new ArrayList<>(e.getValue()));
+		}
+		return copy;
 	}
 
+	/** Returns all materials at the given mining level, or empty list. */
+	public static List<String> getMaterialsForLevel(int level) {
+		List<String> mats = materialLadder.get(level);
+		return mats == null ? List.of() : List.copyOf(mats);
+	}
+
+	/** Finds the mining level a material belongs to, or -1 if not found. */
+	public static int getMiningLevel(String material) {
+		if (material == null || material.isBlank()) return -1;
+		String m = material.trim().toLowerCase();
+		for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
+			if (e.getValue().stream().anyMatch(s -> s.equalsIgnoreCase(m))) return e.getKey();
+		}
+		return -1;
+	}
+
+	/** Returns the materials available at the next mining level above the given material,
+	 * or empty list if this material is at the highest level. Used by legendary upgrades. */
+	public static List<String> getNextLevelMaterials(String material) {
+		int level = getMiningLevel(material);
+		if (level < 0) return List.of();
+		Integer nextLevel = null;
+		for (int lvl : materialLadder.keySet()) {
+			if (lvl > level && (nextLevel == null || lvl < nextLevel)) nextLevel = lvl;
+		}
+		return nextLevel == null ? List.of() : getMaterialsForLevel(nextLevel);
+	}
+
+	/** Sets the full material ladder from a map. */
+	public static void setMaterialLadder(Map<Integer, List<String>> ladder) {
+		materialLadder.clear();
+		if (ladder != null) {
+			for (Map.Entry<Integer, List<String>> e : ladder.entrySet()) {
+				List<String> clean = new ArrayList<>();
+				for (String s : e.getValue()) {
+					if (s != null && !s.isBlank()) clean.add(s.trim().toLowerCase());
+				}
+				if (!clean.isEmpty()) materialLadder.put(e.getKey(), clean);
+			}
+		}
+		if (materialLadder.isEmpty()) {
+			materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+			materialLadder.put(1, new ArrayList<>(List.of("stone")));
+			materialLadder.put(2, new ArrayList<>(List.of("iron")));
+			materialLadder.put(3, new ArrayList<>(List.of("diamond")));
+			materialLadder.put(4, new ArrayList<>(List.of("netherite")));
+		}
+		save();
+	}
+
+	/**
+	 * @deprecated Use {@link #getMaterialLadder()} for the new mining-level format.
+	 * This returns a flat list of all materials ordered by mining level, for
+	 * backward compatibility with callers that expect a linear array.
+	 */
+	@Deprecated
+	public static String[] getMaterialTiers() {
+		List<String> flat = new ArrayList<>();
+		materialLadder.keySet().stream().sorted().forEach(level ->
+			flat.addAll(materialLadder.get(level)));
+		return flat.toArray(new String[0]);
+	}
+
+	/**
+	 * @deprecated Use {@link #setMaterialLadder(Map)} for the new format.
+	 * Accepts a flat array and assigns each material to its own level 0..N-1.
+	 */
+	@Deprecated
+	public static void setMaterialTiers(String[] tiers) {
+		materialLadder.clear();
+		if (tiers != null && tiers.length > 0) {
+			for (int i = 0; i < tiers.length; i++) {
+				if (tiers[i] != null && !tiers[i].isBlank()) {
+					materialLadder.put(i, new ArrayList<>(List.of(tiers[i].trim().toLowerCase())));
+				}
+			}
+		}
+		if (materialLadder.isEmpty()) {
+			materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+			materialLadder.put(1, new ArrayList<>(List.of("stone")));
+			materialLadder.put(2, new ArrayList<>(List.of("iron")));
+			materialLadder.put(3, new ArrayList<>(List.of("diamond")));
+			materialLadder.put(4, new ArrayList<>(List.of("netherite")));
+		}
+		save();
+	}
+
+	// ---- offer weights ----
 	public static double getUpgradeWeight() {
 		return upgradeWeight;
 	}
@@ -437,14 +580,6 @@ public class EquipLevelingConfig {
 	public static void setLegendaryUpgradeProbability(double value) {
 		if (!Double.isFinite(value)) return;
 		legendaryUpgradeProbability = Math.max(0, Math.min(1, value));
-		save();
-	}
-
-	public static void setMaterialTiers(String[] tiers) {
-		if (tiers == null || tiers.length == 0) throw new IllegalArgumentException("At least one material tier is required");
-		materialTiers = java.util.Arrays.stream(tiers).filter(s -> s != null && !s.isBlank())
-				.map(s -> s.trim().toLowerCase()).toArray(String[]::new);
-		if (materialTiers.length == 0) throw new IllegalArgumentException("At least one material tier is required");
 		save();
 	}
 
