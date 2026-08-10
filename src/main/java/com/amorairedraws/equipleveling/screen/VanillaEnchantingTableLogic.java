@@ -140,8 +140,6 @@ public final class VanillaEnchantingTableLogic {
         if (data.offers == null || data.offers.isEmpty()) return false;
         List<GeneratedOffer> offers = new ArrayList<>();
         for (EquipmentComponent.StoredOffer stored : data.offers) {
-            // Never restore legendary offers — they must be re-rolled fresh.
-            if (stored.encodedLevel == LEGENDARY) continue;
             if (stored.enchantmentId == null) continue;
             try {
                 Enchantment ench = enchantments.get(Identifier.of(stored.enchantmentId));

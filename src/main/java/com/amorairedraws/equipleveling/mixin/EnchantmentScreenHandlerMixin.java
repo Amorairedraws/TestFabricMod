@@ -32,6 +32,7 @@ public abstract class EnchantmentScreenHandlerMixin {
 
     @Unique private PlayerEntity equipLeveling$owner;
     @Unique private final Random equipLeveling$random = Random.create();
+    @Unique private boolean equipLeveling$generating;
 
     @Inject(method = "<init>(ILnet/minecraft/entity/player/PlayerInventory;Lnet/minecraft/screen/ScreenHandlerContext;)V",
             at = @At("TAIL"))
@@ -64,9 +65,14 @@ public abstract class EnchantmentScreenHandlerMixin {
 
         // On a client the ScreenHandlerContext is EMPTY, so this is a no-op and
         // the normal property packets supply the authoritative rows from server.
-        if (equipLeveling$owner != null) {
-            context.run((world, pos) -> VanillaEnchantingTableLogic.generateOffers(
-                    (EnchantmentScreenHandler) (Object) this, equipLeveling$owner, equipLeveling$random));
+        if (equipLeveling$owner != null && !equipLeveling$generating) {
+            equipLeveling$generating = true;
+            try {
+                context.run((world, pos) -> VanillaEnchantingTableLogic.generateOffers(
+                        (EnchantmentScreenHandler) (Object) this, equipLeveling$owner, equipLeveling$random));
+            } finally {
+                equipLeveling$generating = false;
+            }
         }
         ci.cancel();
     }

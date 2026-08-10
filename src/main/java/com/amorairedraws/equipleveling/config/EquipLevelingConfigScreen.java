@@ -106,7 +106,7 @@ public final class EquipLevelingConfigScreen {
                         .name(Text.translatable("equip_leveling.config.durability_restore"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.durability_restore.tooltip")))
                         .binding(25, EquipLevelingConfig::getDurabilityRestorePercent, EquipLevelingConfig::setDurabilityRestorePercent)
-                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(1))
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(5))
                         .available(canEdit)
                         .build())
                 .option(Option.<Boolean>createBuilder()
@@ -186,7 +186,7 @@ public final class EquipLevelingConfigScreen {
                     .binding(1.0f,
                             () -> (float) EquipLevelingConfig.getSourceMultiplier(key),
                             v -> EquipLevelingConfig.setSourceMultiplier(key, v))
-                    .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 100.0f).step(0.1f))
+                    .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 100.0f).step(1.0f))
                     .available(canEdit)
                     .build());
         }
