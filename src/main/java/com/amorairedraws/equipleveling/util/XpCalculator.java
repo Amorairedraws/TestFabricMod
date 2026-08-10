@@ -6,8 +6,10 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.passive.*;
 import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.util.math.intprovider.IntProvider;
 
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
+import com.amorairedraws.equipleveling.mixin.ExperienceDroppingBlockAccessor;
 
 import java.util.Set;
 
@@ -16,7 +18,8 @@ import java.util.Set;
  *
  * <h3>Formulas</h3>
  * <ul>
- *   <li><b>Mining:</b> {@code (miningLevel + 1)² × 2}. Stone = 1, ancient debris = 200.</li>
+ *   <li><b>Mining:</b> {@code (miningLevel + 1)² × 2 + vanillaXpMedian × 5}.
+ *       Stone-type blocks = 1, ancient debris = 200.</li>
  *   <li><b>Wood:</b> 4 XP per log.</li>
  *   <li><b>Shovel:</b> 1 XP for dirt/sand/gravel/snow, 5 for clay.</li>
  *   <li><b>Mobs:</b> Danger score — {@code XP = 0.45 × (Offense × Defense)^0.9}</li>
@@ -48,7 +51,7 @@ public final class XpCalculator {
         double maxHealth = entity.getMaxHealth();
         double armor = entity.getAttributeValue(EntityAttributes.ARMOR);
 
-        double offense = attackDamage; // attack speed defaults to 1.0 for most mobs
+        double offense = attackDamage;
         double defense = maxHealth + armor;
         double danger = offense * defense;
 
@@ -68,7 +71,16 @@ public final class XpCalculator {
     // Block Break XP                                                      //
     // ================================================================== //
 
-    /** Mining XP using vanilla tags for mining level. */
+    /**
+     * Mining XP using the full formula:
+     * {@code (miningLevel + 1)² × 2 + vanillaXpMedian × 5}
+     *
+     * <ul>
+     *   <li>Stone-type blocks (miningLevel 0, no vanilla XP): clamped to 1.</li>
+     *   <li>Ancient debris: always 200.</li>
+     *   <li>Custom per-block config overrides take priority.</li>
+     * </ul>
+     */
     public static int calculateOreXp(BlockState state) {
         Block block = state.getBlock();
         String id = net.minecraft.registry.Registries.BLOCK.getId(block).toString();
@@ -81,9 +93,20 @@ public final class XpCalculator {
         if (block == Blocks.ANCIENT_DEBRIS) return 200;
 
         int miningLevel = getMiningLevel(state);
-        if (miningLevel == 0) return 1; // stone-type blocks
 
-        return Math.max(1, (miningLevel + 1) * (miningLevel + 1) * 2);
+        // Vanilla XP value for this block (median of the uniform int range).
+        int vanillaXpMedian = 0;
+        if (block instanceof ExperienceDroppingBlock edb) {
+            IntProvider provider = ((ExperienceDroppingBlockAccessor) edb).equipleveling$getExperienceDropped();
+            vanillaXpMedian = (provider.getMin() + provider.getMax()) / 2;
+        }
+
+        // Stone-type blocks: mining level 0 with no vanilla XP → always 1.
+        if (miningLevel == 0 && vanillaXpMedian == 0) return 1;
+
+        // Full formula: (miningLevel + 1)² × 2 + vanilla median × 5
+        int xp = (miningLevel + 1) * (miningLevel + 1) * 2 + vanillaXpMedian * 5;
+        return Math.max(1, xp);
     }
 
     /** Flat 4 XP per log. */

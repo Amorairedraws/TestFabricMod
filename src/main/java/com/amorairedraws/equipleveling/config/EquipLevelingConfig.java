@@ -573,40 +573,6 @@ public class EquipLevelingConfig {
         save();
     }
 
-    // ================================================================== //
-    // Deprecated backward-compat (for old code that might still reference //
-    // coalXp, ironXp, etc.)                                               //
-    // ================================================================== //
-
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getCoalXp() { return 4; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getIronXp() { return 6; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getGoldXp() { return 8; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getRareOreXp() { return 43; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getEntityKillXp() { return 10; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getLogXp() { return 4; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getShovelXp() { return 1; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getHoeXp() { return 3; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getStoneXp() { return 1; }
-    /** @deprecated Use per-source multipliers and the formula instead. */
-    @Deprecated public static int getClayXp() { return 5; }
-
-    @Deprecated public static void setOreXp(int coal, int iron, int gold, int rare) {}
-    @Deprecated public static void setEntityKillXp(int v) {}
-    @Deprecated public static void setLogXp(int v) {}
-    @Deprecated public static void setShovelXp(int v) {}
-    @Deprecated public static void setHoeXp(int v) {}
-    @Deprecated public static void setStoneXp(int v) {}
-    @Deprecated public static void setClayXp(int v) {}
-
     /** @deprecated Use {@link #getMaterialLadder()} instead. */
     @Deprecated
     public static String[] getMaterialTiers() {
