@@ -16,13 +16,14 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
  *
  * <h3>Layout</h3>
  * <ul>
- *   <li><b>Start Here</b> — level-up requirement growth, global XP gain, advanced toggles.</li>
- *   <li><b>Earning XP</b> — base XP per category + per-source multipliers in a collapsed group.</li>
- *   <li><b>Leveling Up</b> — enchanting weights, reroll costs, material ladder, enchantment slots.</li>
+ *   <li><b>General</b> — level‑requirement growth and advanced mechanics toggles.</li>
+ *   <li><b>XP &amp; Leveling</b> — <em>every</em> XP multiplier in one place:
+ *       global gain, per‑source multipliers, base‑XP per category, and max enchantment slots.</li>
+ *   <li><b>Enchanting Table</b> — offer weights, legendary chance, reroll costs, material ladder.</li>
  * </ul>
  *
- * <p>In multiplayer, non-OP players see a read-only view of the server config.
- * OP players (level 2+) can edit and changes are broadcast to all players live.
+ * <p>In multiplayer, non‑OP players see a read‑only view of the server config.
+ * OP players (level 2+) can edit and changes are broadcast to all players live.
  */
 public final class EquipLevelingConfigScreen {
     private static final String[] CATEGORIES = {
@@ -41,57 +42,40 @@ public final class EquipLevelingConfigScreen {
                 .title(Text.translatable("equip_leveling.config.title"))
                 .save(() -> {
                     EquipLevelingConfig.save();
-                    // In singleplayer, no sync needed. In multiplayer, the client
-                    // is read-only anyway (config edits are done server-side).
                 })
-                .category(buildStartHere(canEdit))
-                .category(buildEarningXp(canEdit))
-                .category(buildLevelingUp(parent, canEdit))
+                .category(buildGeneral(canEdit))
+                .category(buildXpAndLeveling(canEdit))
+                .category(buildEnchantingTable(parent, canEdit))
                 .build()
                 .generateScreen(parent);
     }
 
-    /** Returns true if the player can edit the config (singleplayer only; multiplayer is read-only). */
+    /** Returns true if the player can edit the config (singleplayer only; multiplayer is read‑only). */
     private static boolean canEditConfig() {
         return MinecraftClient.getInstance().isInSingleplayer();
     }
 
     // ================================================================== //
-    // Tab 1 — Start Here                                                  //
+    // Tab 1 — General                                                     //
     // ================================================================== //
 
-    private static ConfigCategory buildStartHere(boolean canEdit) {
+    private static ConfigCategory buildGeneral(boolean canEdit) {
         var builder = ConfigCategory.createBuilder()
                 .name(Text.translatable("equip_leveling.config.category.general"))
                 .tooltip(Text.translatable("equip_leveling.config.category.general.desc"));
 
-        // Level-up requirement growth.
+        // Level‑up requirement growth — the most impactful tuning knob, always visible.
         builder.option(Option.<Float>createBuilder()
                 .name(Text.translatable("equip_leveling.config.level_req_growth"))
                 .description(OptionDescription.of(Text.translatable("equip_leveling.config.level_req_growth.tooltip")))
-                .binding(
-                        Binding.generic(1.2f,
-                                () -> (float) EquipLevelingConfig.getLevelRequirementGrowth(),
-                                v -> EquipLevelingConfig.setLevelRequirementGrowth(v))
-                )
+                .binding(Binding.generic(1.2f,
+                        () -> (float) EquipLevelingConfig.getLevelRequirementGrowth(),
+                        v -> EquipLevelingConfig.setLevelRequirementGrowth(v)))
                 .controller(opt -> FloatSliderControllerBuilder.create(opt).range(1.0f, 10.0f).step(0.1f))
                 .available(canEdit)
                 .build());
 
-        // Global XP gain multiplier.
-        builder.option(Option.<Float>createBuilder()
-                .name(Text.translatable("equip_leveling.config.global_gain"))
-                .description(OptionDescription.of(Text.translatable("equip_leveling.config.global_gain.tooltip")))
-                .binding(
-                        Binding.generic(1.0f,
-                                () -> (float) EquipLevelingConfig.getGlobalXpGainMultiplier(),
-                                v -> EquipLevelingConfig.setGlobalXpGainMultiplier(v))
-                )
-                .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.1f, 10.0f).step(0.1f))
-                .available(canEdit)
-                .build());
-
-        // Advanced options (collapsed).
+        // Everything else is advanced — collapsed so the first tab stays compact.
         var advanced = OptionGroup.createBuilder()
                 .name(Text.translatable("equip_leveling.config.sub.general_advanced"))
                 .collapsed(true)
@@ -146,15 +130,44 @@ public final class EquipLevelingConfigScreen {
     }
 
     // ================================================================== //
-    // Tab 2 — Earning XP                                                  //
+    // Tab 2 — XP & Leveling  (ALL multipliers together)                   //
     // ================================================================== //
 
-    private static ConfigCategory buildEarningXp(boolean canEdit) {
+    private static ConfigCategory buildXpAndLeveling(boolean canEdit) {
         var builder = ConfigCategory.createBuilder()
-                .name(Text.translatable("equip_leveling.config.category.xp_rewards"))
-                .tooltip(Text.translatable("equip_leveling.config.category.xp_rewards.desc"));
+                .name(Text.translatable("equip_leveling.config.category.xp_leveling"))
+                .tooltip(Text.translatable("equip_leveling.config.category.xp_leveling.desc"));
 
-        // Base XP required to level up per category.
+        // Global multiplier — top‑level, always visible.
+        builder.option(Option.<Float>createBuilder()
+                .name(Text.translatable("equip_leveling.config.global_gain"))
+                .description(OptionDescription.of(Text.translatable("equip_leveling.config.global_gain.tooltip")))
+                .binding(Binding.generic(1.0f,
+                        () -> (float) EquipLevelingConfig.getGlobalXpGainMultiplier(),
+                        v -> EquipLevelingConfig.setGlobalXpGainMultiplier(v)))
+                .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.1f, 10.0f).step(0.1f))
+                .available(canEdit)
+                .build());
+
+        // Per‑source multipliers — uncollapsed so they are immediately visible.
+        var sourceMults = OptionGroup.createBuilder()
+                .name(Text.translatable("equip_leveling.config.sub.source_multipliers"))
+                .description(OptionDescription.of(Text.translatable("equip_leveling.config.sub.source_multipliers.desc")))
+                .collapsed(false);
+        for (String key : SOURCE_KEYS) {
+            sourceMults.option(Option.<Float>createBuilder()
+                    .name(Text.translatable("equip_leveling.config.source_mult." + key))
+                    .description(OptionDescription.of(Text.translatable("equip_leveling.config.source_mult." + key + ".tooltip")))
+                    .binding(1.0f,
+                            () -> (float) EquipLevelingConfig.getSourceMultiplier(key),
+                            v -> EquipLevelingConfig.setSourceMultiplier(key, v))
+                    .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 10.0f).step(0.1f))
+                    .available(canEdit)
+                    .build());
+        }
+        builder.group(sourceMults.build());
+
+        // Base XP per category — collapsed because it's rarely changed once set.
         var requirements = OptionGroup.createBuilder()
                 .name(Text.translatable("equip_leveling.config.sub.requirements"))
                 .description(OptionDescription.of(Text.translatable("equip_leveling.config.sub.requirements.desc")))
@@ -173,38 +186,37 @@ public final class EquipLevelingConfigScreen {
         }
         builder.group(requirements.build());
 
-        // Advanced XP multipliers (per-source).
-        var multipliers = OptionGroup.createBuilder()
-                .name(Text.translatable("equip_leveling.config.sub.source_multipliers"))
-                .description(OptionDescription.of(Text.translatable("equip_leveling.config.sub.source_multipliers.desc")))
+        // Max enchantment slots per category — collapsed.
+        var maxSlots = OptionGroup.createBuilder()
+                .name(Text.translatable("equip_leveling.config.sub.max_slots"))
                 .collapsed(true);
-
-        for (String key : SOURCE_KEYS) {
-            multipliers.option(Option.<Float>createBuilder()
-                    .name(Text.translatable("equip_leveling.config.source_mult." + key))
-                    .description(OptionDescription.of(Text.translatable("equip_leveling.config.source_mult." + key + ".tooltip")))
-                    .binding(1.0f,
-                            () -> (float) EquipLevelingConfig.getSourceMultiplier(key),
-                            v -> EquipLevelingConfig.setSourceMultiplier(key, v))
-                    .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 10.0f).step(0.1f))
+        for (String cat : CATEGORIES) {
+            final String category = cat;
+            maxSlots.option(Option.<Integer>createBuilder()
+                    .name(Text.translatable("equip_leveling.config.max_slots", pretty(cat)))
+                    .description(OptionDescription.of(Text.translatable("equip_leveling.config.max_slots.tooltip", pretty(cat))))
+                    .binding(defaultMaxSlots(cat),
+                            () -> EquipLevelingConfig.getMaxSlotsForCategory(category),
+                            v -> EquipLevelingConfig.setMaxSlotsForCategory(category, v))
+                    .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(1, 8).step(1))
                     .available(canEdit)
                     .build());
         }
-        builder.group(multipliers.build());
+        builder.group(maxSlots.build());
 
         return builder.build();
     }
 
     // ================================================================== //
-    // Tab 3 — Leveling Up                                                 //
+    // Tab 3 — Enchanting Table                                            //
     // ================================================================== //
 
-    private static ConfigCategory buildLevelingUp(Screen parent, boolean canEdit) {
+    private static ConfigCategory buildEnchantingTable(Screen parent, boolean canEdit) {
         var builder = ConfigCategory.createBuilder()
                 .name(Text.translatable("equip_leveling.config.category.enchanting"))
                 .tooltip(Text.translatable("equip_leveling.config.category.enchanting.desc"));
 
-        // Offer weights.
+        // Offer weights — uncollapsed, these are the main tuning knobs.
         var weights = OptionGroup.createBuilder()
                 .name(Text.translatable("equip_leveling.config.sub.weights"))
                 .description(OptionDescription.of(Text.translatable("equip_leveling.config.sub.weights.desc")))
@@ -239,7 +251,7 @@ public final class EquipLevelingConfigScreen {
                 .build();
         builder.group(weights);
 
-        // Reroll prices.
+        // Reroll prices — collapsed.
         var reroll = OptionGroup.createBuilder()
                 .name(Text.translatable("equip_leveling.config.sub.reroll"))
                 .collapsed(true);
@@ -263,7 +275,7 @@ public final class EquipLevelingConfigScreen {
         }
         builder.group(reroll.build());
 
-        // Material ladder editor button.
+        // Material ladder editor button — collapsed.
         builder.group(OptionGroup.createBuilder()
                 .name(Text.translatable("equip_leveling.config.sub.material_ladder"))
                 .option(ButtonOption.createBuilder()
@@ -275,24 +287,6 @@ public final class EquipLevelingConfigScreen {
                         .available(canEdit)
                         .build())
                 .build());
-
-        // Max enchantment slots per category.
-        var maxSlots = OptionGroup.createBuilder()
-                .name(Text.translatable("equip_leveling.config.sub.max_slots"))
-                .collapsed(false);
-        for (String cat : CATEGORIES) {
-            final String category = cat;
-            maxSlots.option(Option.<Integer>createBuilder()
-                    .name(Text.translatable("equip_leveling.config.max_slots", pretty(cat)))
-                    .description(OptionDescription.of(Text.translatable("equip_leveling.config.max_slots.tooltip", pretty(cat))))
-                    .binding(defaultMaxSlots(cat),
-                            () -> EquipLevelingConfig.getMaxSlotsForCategory(category),
-                            v -> EquipLevelingConfig.setMaxSlotsForCategory(category, v))
-                    .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(1, 8).step(1))
-                    .available(canEdit)
-                    .build());
-        }
-        builder.group(maxSlots.build());
 
         return builder.build();
     }

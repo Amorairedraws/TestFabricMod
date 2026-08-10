@@ -134,12 +134,25 @@ public final class VanillaEnchantingTableLogic {
     }
 
     /** Restores previously persisted offers into the handler arrays. Returns true
-     * when the stored offers were valid and applied. */
+     * when the stored offers were valid and applied.
+     *
+     * <p>Legendary (material upgrade) offers have {@code enchantmentId == null}
+     * and {@code encodedLevel == LEGENDARY}. They are restored as-is so the
+     * material upgrade persists across item re-insertions just like the other
+     * two offer types (Issue 4). We never re-roll the legendary component
+     * during a restore — the flat 5 % pass in {@link #generateOffers} is the
+     * only place legendary rolls happen.</p> */
     private static boolean restoreStoredOffers(EnchantmentScreenHandler handler,
             EquipmentComponent.EquipmentData data, Registry<Enchantment> enchantments) {
         if (data.offers == null || data.offers.isEmpty()) return false;
         List<GeneratedOffer> offers = new ArrayList<>();
         for (EquipmentComponent.StoredOffer stored : data.offers) {
+            // Legendary (material upgrade) offers have a null enchantment id and
+            // the special LEGENDARY encoded level. Restore them as-is.
+            if (stored.encodedLevel == LEGENDARY) {
+                offers.add(new GeneratedOffer(-1, LEGENDARY));
+                continue;
+            }
             if (stored.enchantmentId == null) continue;
             try {
                 Enchantment ench = enchantments.get(Identifier.of(stored.enchantmentId));

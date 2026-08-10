@@ -3,9 +3,9 @@
   "equip_leveling.config.title": "Equip Leveling Settings",
   "equip_leveling.config.category.general": "Start Here",
   "equip_leveling.config.category.general.desc": "The two big sliders control the whole mod. Open \"Advanced options\" to fine-tune everything else.",
-  "equip_leveling.config.category.xp_rewards": "Earning XP",
-  "equip_leveling.config.category.xp_rewards.desc": "How much XP each item needs to level up, and how fast you earn XP from each activity. Sliders let you boost or nerf individual XP sources.",
-  "equip_leveling.config.category.enchanting": "Leveling Up",
+  "equip_leveling.config.category.xp_leveling": "XP & Leveling",
+  "equip_leveling.config.category.xp_leveling.desc": "Every XP multiplier in one place: global gain, per-source multipliers, base XP per category, and max enchantment slots.",
+  "equip_leveling.config.category.enchanting": "Enchanting Table",
   "equip_leveling.config.category.enchanting.desc": "What the enchanting table offers when your item is ready: how often each reward appears, the price to reroll, the material upgrade order, and how many enchantment slots each item can hold.",
 
   "equip_leveling.config.sub.general_advanced": "Advanced options",
