@@ -186,7 +186,7 @@ public final class EquipLevelingConfigScreen {
                     .binding(1.0f,
                             () -> (float) EquipLevelingConfig.getSourceMultiplier(key),
                             v -> EquipLevelingConfig.setSourceMultiplier(key, v))
-                    .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 100.0f).step(1.0f))
+                    .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 10.0f).step(0.1f))
                     .available(canEdit)
                     .build());
         }
