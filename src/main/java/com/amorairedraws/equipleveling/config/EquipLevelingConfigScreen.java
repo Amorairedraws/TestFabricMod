@@ -75,7 +75,23 @@ public final class EquipLevelingConfigScreen {
                 .available(canEdit)
                 .build());
 
-        // Everything else is advanced — collapsed so the first tab stays compact.
+        // Keep on death and broken mechanic — important gameplay toggles, always visible.
+        builder.option(Option.<Boolean>createBuilder()
+                .name(Text.translatable("equip_leveling.config.keep_on_death"))
+                .description(OptionDescription.of(Text.translatable("equip_leveling.config.keep_on_death.tooltip")))
+                .binding(false, EquipLevelingConfig::isKeepEquipOnDeath, EquipLevelingConfig::setKeepEquipOnDeath)
+                .controller(TickBoxControllerBuilder::create)
+                .available(canEdit)
+                .build())
+                .option(Option.<Boolean>createBuilder()
+                .name(Text.translatable("equip_leveling.config.broken_mechanic"))
+                .description(OptionDescription.of(Text.translatable("equip_leveling.config.broken_mechanic.tooltip")))
+                .binding(true, EquipLevelingConfig::isBrokenMechanicEnabled, EquipLevelingConfig::setBrokenMechanicEnabled)
+                .controller(TickBoxControllerBuilder::create)
+                .available(canEdit)
+                .build());
+
+        // Numeric knobs — collapsed so the tab stays compact.
         var advanced = OptionGroup.createBuilder()
                 .name(Text.translatable("equip_leveling.config.sub.general_advanced"))
                 .collapsed(true)
@@ -91,20 +107,6 @@ public final class EquipLevelingConfigScreen {
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.durability_restore.tooltip")))
                         .binding(25, EquipLevelingConfig::getDurabilityRestorePercent, EquipLevelingConfig::setDurabilityRestorePercent)
                         .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(5))
-                        .available(canEdit)
-                        .build())
-                .option(Option.<Boolean>createBuilder()
-                        .name(Text.translatable("equip_leveling.config.keep_on_death"))
-                        .description(OptionDescription.of(Text.translatable("equip_leveling.config.keep_on_death.tooltip")))
-                        .binding(false, EquipLevelingConfig::isKeepEquipOnDeath, EquipLevelingConfig::setKeepEquipOnDeath)
-                        .controller(TickBoxControllerBuilder::create)
-                        .available(canEdit)
-                        .build())
-                .option(Option.<Boolean>createBuilder()
-                        .name(Text.translatable("equip_leveling.config.broken_mechanic"))
-                        .description(OptionDescription.of(Text.translatable("equip_leveling.config.broken_mechanic.tooltip")))
-                        .binding(true, EquipLevelingConfig::isBrokenMechanicEnabled, EquipLevelingConfig::setBrokenMechanicEnabled)
-                        .controller(TickBoxControllerBuilder::create)
                         .available(canEdit)
                         .build())
                 .option(Option.<Integer>createBuilder()
