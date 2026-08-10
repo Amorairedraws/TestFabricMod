@@ -1,91 +1,141 @@
 package com.amorairedraws.equipleveling.util;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.CropBlock;
+import net.minecraft.block.*;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.passive.*;
 import net.minecraft.registry.tag.BlockTags;
 
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 
-/** Pure XP calculations shared by the server event handlers and client previews. */
+import java.util.Set;
+
+/**
+ * Central XP calculator using formula-driven defaults.
+ *
+ * <h3>Formulas</h3>
+ * <ul>
+ *   <li><b>Mining:</b> {@code (miningLevel + 1)² × 2}. Stone = 1, ancient debris = 200.</li>
+ *   <li><b>Wood:</b> 4 XP per log.</li>
+ *   <li><b>Shovel:</b> 1 XP for dirt/sand/gravel/snow, 5 for clay.</li>
+ *   <li><b>Mobs:</b> Danger score — {@code XP = 0.45 × (Offense × Defense)^0.9}</li>
+ *   <li><b>Crops:</b> 3 XP base + bonus for longer growth stages.</li>
+ * </ul>
+ */
 public final class XpCalculator {
     private XpCalculator() {}
 
-    /** Entity kill XP scales gently with the killed entity's maximum health,
-     * anchored on the configurable base value. A zombie (20 HP) awards the base
-     * value, and tougher mobs award proportionally more. */
+    private static final Set<EntityType<?>> EXCLUDED_MOBS = Set.of(
+            EntityType.VILLAGER, EntityType.WANDERING_TRADER,
+            EntityType.IRON_GOLEM, EntityType.SNOW_GOLEM,
+            EntityType.WARDEN
+    );
+
+    // ================================================================== //
+    // Entity Kill XP (Danger Score)                                       //
+    // ================================================================== //
+
+    /** Danger score formula: XP = 0.45 × Danger^0.9. Excluded mobs return 0. */
     public static int calculateEntityKillXp(LivingEntity entity) {
-        int base = EquipLevelingConfig.getEntityKillXp();
-        // Scale by health relative to a zombie's 20 HP, so a 40 HP mob gives 2x.
-        return Math.max(1, (int) Math.ceil(base * (entity.getMaxHealth() / 20.0)));
+        if (entity == null) return 0;
+        if (EXCLUDED_MOBS.contains(entity.getType())) return 0;
+        if (isLivestock(entity)) return 5;
+
+        double attackDamage = entity.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
+        if (attackDamage < 1.0) attackDamage = 3.0;
+
+        double maxHealth = entity.getMaxHealth();
+        double armor = entity.getAttributeValue(EntityAttributes.ARMOR);
+
+        double offense = attackDamage; // attack speed defaults to 1.0 for most mobs
+        double defense = maxHealth + armor;
+        double danger = offense * defense;
+
+        return (int) Math.round(0.45 * Math.pow(danger, 0.9));
     }
 
-    /**
-     * Returns zero for ordinary stone and other common blocks.  The explicit
-     * vanilla cases cover the rarity ladder, while the block tags make the
-     * common categories safe to extend through datapacks in the future.
-     */
+    private static boolean isLivestock(LivingEntity entity) {
+        return entity instanceof CowEntity || entity instanceof PigEntity
+                || entity instanceof SheepEntity || entity instanceof ChickenEntity
+                || entity instanceof RabbitEntity || entity instanceof GoatEntity
+                || entity instanceof HorseEntity || entity instanceof DonkeyEntity
+                || entity instanceof MuleEntity || entity instanceof LlamaEntity
+                || entity instanceof FoxEntity || entity instanceof TurtleEntity;
+    }
+
+    // ================================================================== //
+    // Block Break XP                                                      //
+    // ================================================================== //
+
+    /** Mining XP using vanilla tags for mining level. */
     public static int calculateOreXp(BlockState state) {
         Block block = state.getBlock();
-        // Player-configured blocks always take priority so users can extend the
-        // rarity ladder (or override a vanilla value) without editing code.
-        Integer custom = EquipLevelingConfig.getCustomBlockXp().get(
-                net.minecraft.registry.Registries.BLOCK.getId(block).toString());
+        String id = net.minecraft.registry.Registries.BLOCK.getId(block).toString();
+
+        // Custom block XP overrides take priority.
+        Integer custom = EquipLevelingConfig.getCustomBlockXp().get(id);
         if (custom != null) return Math.max(0, custom);
-        if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE
-                || block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE
-                || block == Blocks.ANCIENT_DEBRIS || block == Blocks.NETHER_QUARTZ_ORE
-                || block == Blocks.NETHER_GOLD_ORE) {
-            return EquipLevelingConfig.getRareOreXp();
-        }
-        if (block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE) {
-            return EquipLevelingConfig.getGoldXp();
-        }
-        if (block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE) {
-            return EquipLevelingConfig.getIronXp();
-        }
-        if (block == Blocks.COPPER_ORE || block == Blocks.DEEPSLATE_COPPER_ORE
-                || block == Blocks.REDSTONE_ORE || block == Blocks.DEEPSLATE_REDSTONE_ORE
-                || block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE) {
-            return Math.max(0, EquipLevelingConfig.getCoalXp() * 2);
-        }
-        if (block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE) {
-            return EquipLevelingConfig.getCoalXp();
-        }
-        // Issue 6: menial blocks like stone also grant a small amount of XP so
-        // pickaxe users aren't punished for mining common stone.
-        if (block == Blocks.STONE || block == Blocks.DEEPSLATE || block == Blocks.COBBLESTONE
-                || block == Blocks.ANDESITE
-                || block == Blocks.DIORITE || block == Blocks.GRANITE
-                || block == Blocks.TUFF || block == Blocks.BASALT
-                || block == Blocks.BLACKSTONE || block == Blocks.NETHERRACK) {
-            return EquipLevelingConfig.getStoneXp();
+
+        // Ancient debris always 200.
+        if (block == Blocks.ANCIENT_DEBRIS) return 200;
+
+        int miningLevel = getMiningLevel(state);
+        if (miningLevel == 0) return 1; // stone-type blocks
+
+        return Math.max(1, (miningLevel + 1) * (miningLevel + 1) * 2);
+    }
+
+    /** Flat 4 XP per log. */
+    public static int calculateLogXp(BlockState state) {
+        return state.isIn(BlockTags.LOGS) ? 4 : 0;
+    }
+
+    /** 1 XP for dirt/sand/gravel/snow, 5 for clay. */
+    public static int calculateShovelXp(BlockState state) {
+        if (state.isOf(Blocks.CLAY)) return 5;
+        if (state.isIn(BlockTags.DIRT) || state.isIn(BlockTags.SAND)
+                || state.isIn(BlockTags.SNOW) || state.isOf(Blocks.GRAVEL)) {
+            return 1;
         }
         return 0;
     }
 
-    /** Every log/stem in the vanilla LOGS tag is an axe action. */
-    public static int calculateLogXp(BlockState state) {
-        return state.isIn(BlockTags.LOGS) ? EquipLevelingConfig.getLogXp() : 0;
-    }
-
-    /** Shovel XP is tag based so modded dirt, sand, gravel and snow work too.
-     * Clay is a denser, rarer material and grants more XP (Issue 6). */
-    public static int calculateShovelXp(BlockState state) {
-        if (state.isOf(Blocks.CLAY)) return EquipLevelingConfig.getClayXp();
-        return state.isIn(BlockTags.DIRT) || state.isIn(BlockTags.SAND)
-                || state.isIn(BlockTags.SNOW) || state.isOf(Blocks.GRAVEL)
-                ? EquipLevelingConfig.getShovelXp() : 0;
-    }
-
-    /** XP is awarded for harvesting mature crop blocks, not destroying seedlings. */
+    /** Crop XP: 3 base + bonus for longer growth. Nether wart = 7. */
     public static int calculateHoeXp(BlockState state) {
+        if (state.isOf(Blocks.NETHER_WART)) return 7;
+
         if (state.getBlock() instanceof CropBlock crop) {
-            return crop.isMature(state) ? EquipLevelingConfig.getHoeXp() : 0;
+            if (!crop.isMature(state)) return 0;
+            int maxAge = crop.getMaxAge();
+            int xp = 3 + Math.max(0, (maxAge - 4) / 2);
+            return Math.max(1, Math.min(15, xp));
         }
-        if (state.isIn(BlockTags.CROPS)) return EquipLevelingConfig.getHoeXp();
-        return state.isOf(Blocks.NETHER_WART) ? EquipLevelingConfig.getHoeXp() : 0;
+
+        if (state.isIn(BlockTags.CROPS)) return 3;
+        return 0;
+    }
+
+    // ================================================================== //
+    // Multiplier application                                              //
+    // ================================================================== //
+
+    public static int applyMultipliers(int baseXp, double sourceMultiplier) {
+        if (baseXp <= 0) return 0;
+        double globalGain = EquipLevelingConfig.getGlobalXpGainMultiplier();
+        double result = baseXp * globalGain * sourceMultiplier;
+        return Math.max(1, (int) Math.round(result));
+    }
+
+    // ================================================================== //
+    // Helpers                                                             //
+    // ================================================================== //
+
+    /** Determines mining level from vanilla block tags. */
+    private static int getMiningLevel(BlockState state) {
+        if (state.isIn(BlockTags.NEEDS_DIAMOND_TOOL)) return 3;
+        if (state.isIn(BlockTags.NEEDS_IRON_TOOL)) return 2;
+        if (state.isIn(BlockTags.NEEDS_STONE_TOOL)) return 1;
+        return 0;
     }
 }

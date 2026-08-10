@@ -1,16 +1,11 @@
 package com.amorairedraws.equipleveling.config;
 
-import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -20,584 +15,643 @@ import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Central configuration for the Equip Leveling mod.
+ *
+ * <h3>Config file locations</h3>
+ * <ul>
+ *   <li>Singleplayer / personal: {@code config/equip_leveling/config.json}</li>
+ *   <li>Per-server (multiplayer): {@code config/equip_leveling/servers/&lt;address&gt;.json}</li>
+ * </ul>
+ *
+ * <h3>Multiplier hierarchy</h3>
+ * <pre>
+ *   effectiveXp = baseXp × globalGainMultiplier × sourceMultiplier[mob|mining|farming|wood|fishing]
+ *   levelRequirement(n) = levelRequirement(n-1) × levelRequirementGrowth
+ * </pre>
+ */
 public class EquipLevelingConfig {
-	private static final Logger LOGGER = LoggerFactory.getLogger("equip_leveling/config");
-	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("equip_leveling");
-	private static final Path CONFIG_FILE = CONFIG_DIR.resolve("config.json");
+    private static final Logger LOGGER = LoggerFactory.getLogger("equip_leveling/config");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("equip_leveling");
+    private static final Path SERVERS_DIR = CONFIG_DIR.resolve("servers");
+    private static Path activeConfigFile = CONFIG_DIR.resolve("config.json");
 
-	// Default values
-	private static Map<String, Integer> baseXp = new HashMap<>();
-	private static double xpMultiplier = 1.2;
-	private static int xpDisplayThreshold = 10;
-	private static int durabilityRestorePercent = 25;
-	// Ore/action rewards are configurable independently of equipment material.
-	private static int coalXp = 3, ironXp = 8, goldXp = 20, rareOreXp = 40;
-	// Per-action XP rewards (Issue 5/6). These let players tune how much XP each
-	// activity grants without editing code.
-	private static int entityKillXp = 10;   // base XP per kill (scaled by health)
-	private static int logXp = 4;           // per log/stem broken with an axe
-	private static int shovelXp = 1;        // per dirt/sand/gravel/snow block
-	private static int hoeXp = 3;           // per mature crop harvested
-	private static int stoneXp = 1;         // per stone-type block broken with a pickaxe
-	private static int clayXp = 5;          // per clay block broken with a shovel
-	// Cost is indexed by the number of filled standard slots (0..4).
-	// Defaults match the documented 5 / 10 / 15 / 20 / 25 level progression.
-	private static int[] rerollCosts = {5, 10, 15, 20, 25};
-	private static double legendaryUpgradeProbability = 0.05;
-	// Mining-level→materials map. Each mining level (0=wood/gold, 1=stone, 2=iron,
-	// 3=diamond, 4=netherite) lists the materials available at that tier. When a
-	// legendary upgrade fires, the item upgrades to a random material from the
-	// next mining level. Modded materials are auto-detected on first run.
-	private static Map<Integer, List<String>> materialLadder = new LinkedHashMap<>();
-	private static double upgradeWeight = 0.6;
-	private static double newSlotWeight = 0.4;
-	private static double legendaryWeight = 0.05;
-	private static int anvilBaseCost = 1;
-	private static int anvilPerLevelCost = 1;
-	private static boolean keepEquipOnDeath = false;
-	private static boolean enableBrokenMechanic = true;
-	// Custom block -> XP rewards added by the player through the config screen.
-	// Keyed by block id (e.g. "minecraft:deepslate"), value is the XP granted
-	// when that block is broken with a pickaxe.
-	private static Map<String, Integer> customBlockXp = new HashMap<>();
-	// Maximum number of standard enchantment slots per item category. Some tools
-	// (pickaxes, shovels, hoes) simply don't have enough compatible enchantments
-	// to fill all 4 slots, so this lets players/balance dictate a lower cap.
-	// Mending is awarded once this configured max is reached.
-	private static Map<String, Integer> maxSlots = new HashMap<>();
+    // ================================================================== //
+    // Fields                                                              //
+    // ================================================================== //
 
-	static {
-		// Initialize material ladder defaults: mining level → materials.
-		materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
-		materialLadder.put(1, new ArrayList<>(List.of("stone")));
-		materialLadder.put(2, new ArrayList<>(List.of("iron")));
-		materialLadder.put(3, new ArrayList<>(List.of("diamond")));
-		materialLadder.put(4, new ArrayList<>(List.of("netherite")));
+    // Base XP per category (how much total XP an item needs for its first level-up)
+    private static Map<String, Integer> baseXp = new LinkedHashMap<>();
 
-		// Initialize base XP values. These represent how much focused play is
-		// needed before an item is ready to level up. Tools used constantly
-		// (pickaxe, axe) have higher requirements; tools used rarely (hoe) are
-		// quicker so they still feel rewarding. Values are tuned so a level-up
-		// lands around 15-30 minutes of that item's normal use.
-		baseXp.put("sword", 400);
-		baseXp.put("axe", 450);
-		baseXp.put("pickaxe", 500);
-		baseXp.put("shovel", 300);
-		baseXp.put("hoe", 200);
-		baseXp.put("fishing_rod", 300);
-		baseXp.put("bow", 350);
-		baseXp.put("helmet", 350);
-		baseXp.put("chestplate", 400);
-		baseXp.put("leggings", 400);
-		baseXp.put("boots", 350);
-		baseXp.put("default", 350);
+    // Level-up requirement growth (was "xpMultiplier" in older versions).
+    // Each level requires this many times the previous level's XP.
+    private static double levelRequirementGrowth = 1.2;
 
-		// Default max slots: most equipment can use 4, but tools with few
-		// compatible enchantments cap lower by default so they can still max out.
-		maxSlots.put("sword", 4);
-		maxSlots.put("axe", 3);
-		maxSlots.put("pickaxe", 3);
-		maxSlots.put("shovel", 2);
-		maxSlots.put("hoe", 2);
-		maxSlots.put("fishing_rod", 3);
-		maxSlots.put("bow", 3);
-		maxSlots.put("helmet", 4);
-		maxSlots.put("chestplate", 4);
-		maxSlots.put("leggings", 4);
-		maxSlots.put("boots", 4);
-		maxSlots.put("default", 4);
-	}
+    // Global XP gain multiplier — multiplies ALL XP from ALL sources.
+    private static double globalXpGainMultiplier = 1.0;
 
-	public static void load() {
-		try {
-			Files.createDirectories(CONFIG_DIR);
-			if (Files.exists(CONFIG_FILE)) {
-				loadFromFile();
-			} else {
-				save();
-			}
-		} catch (IOException | RuntimeException e) {
-			// A hand-edited config must never prevent the mod from starting. Keep
-			// the validated defaults when JSON is malformed or has an unexpected
-			// value, and report the problem for the user to correct.
-			LOGGER.error("Failed to load config; using defaults for invalid values", e);
-		}
-	}
+    // Per-source XP multipliers. Keys: mob, mining, farming, wood, fishing.
+    private static Map<String, Double> sourceMultipliers = new LinkedHashMap<>();
 
-	private static void loadFromFile() {
-		try (FileReader reader = new FileReader(CONFIG_FILE.toFile())) {
-			JsonObject json = GSON.fromJson(reader, JsonObject.class);
-			
-			// Load base XP values
-			if (json.has("baseXp")) {
-				JsonObject xpObj = json.getAsJsonObject("baseXp");
-				xpObj.entrySet().forEach(entry -> 
-					baseXp.put(entry.getKey(), entry.getValue().getAsInt())
-				);
-			}
+    // Display threshold — floating XP numbers only appear for gains >= this.
+    private static int xpDisplayThreshold = 10;
 
-			xpMultiplier = json.has("xpMultiplier") ? json.get("xpMultiplier").getAsDouble() : 1.2;
-			xpDisplayThreshold = json.has("xpDisplayThreshold") ? json.get("xpDisplayThreshold").getAsInt() : 10;
-			durabilityRestorePercent = json.has("durabilityRestorePercent") ? json.get("durabilityRestorePercent").getAsInt() : 25;
-			coalXp = json.has("coalXp") ? json.get("coalXp").getAsInt() : 3;
-			ironXp = json.has("ironXp") ? json.get("ironXp").getAsInt() : 8;
-			goldXp = json.has("goldXp") ? json.get("goldXp").getAsInt() : 20;
-			rareOreXp = json.has("rareOreXp") ? json.get("rareOreXp").getAsInt() : 40;
-			entityKillXp = json.has("entityKillXp") ? json.get("entityKillXp").getAsInt() : 10;
-			logXp = json.has("logXp") ? json.get("logXp").getAsInt() : 4;
-			shovelXp = json.has("shovelXp") ? json.get("shovelXp").getAsInt() : 1;
-			hoeXp = json.has("hoeXp") ? json.get("hoeXp").getAsInt() : 3;
-			stoneXp = json.has("stoneXp") ? json.get("stoneXp").getAsInt() : 1;
-			clayXp = json.has("clayXp") ? json.get("clayXp").getAsInt() : 5;
-			
-			if (json.has("rerollCosts")) {
-				int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
-				if (loaded != null && loaded.length == 5) rerollCosts = loaded;
-			} else {
-				rerollCosts = new int[]{5, 10, 15, 20, 25};
-			}
-			
-			legendaryUpgradeProbability = json.has("legendaryUpgradeProbability") ? json.get("legendaryUpgradeProbability").getAsDouble() : 0.05;
-			
-			// Load material ladder (new format: mining level → materials).
-			// Fall back to old flat array format if present.
-			if (json.has("materialLadder")) {
-				materialLadder.clear();
-				JsonObject ladderObj = json.getAsJsonObject("materialLadder");
-				for (Map.Entry<String, com.google.gson.JsonElement> entry : ladderObj.entrySet()) {
-					try {
-						int level = Integer.parseInt(entry.getKey());
-						List<String> materials = new ArrayList<>();
-						for (com.google.gson.JsonElement e : entry.getValue().getAsJsonArray()) {
-							String mat = e.getAsString().trim().toLowerCase();
-							if (!mat.isBlank()) materials.add(mat);
-						}
-						if (!materials.isEmpty()) materialLadder.put(level, materials);
-					} catch (NumberFormatException ignored) { }
-				}
-			} else if (json.has("materialTiers")) {
-				// Migrate from old flat array: assign each material to its own level 0..N-1.
-				String[] old = GSON.fromJson(json.get("materialTiers"), String[].class);
-				if (old != null && old.length > 0) {
-					materialLadder.clear();
-					for (int i = 0; i < old.length; i++) {
-						String mat = old[i].trim().toLowerCase();
-						if (!mat.isBlank()) materialLadder.put(i, new ArrayList<>(List.of(mat)));
-					}
-				}
-			}
-			if (materialLadder.isEmpty()) {
-				materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
-				materialLadder.put(1, new ArrayList<>(List.of("stone")));
-				materialLadder.put(2, new ArrayList<>(List.of("iron")));
-				materialLadder.put(3, new ArrayList<>(List.of("diamond")));
-				materialLadder.put(4, new ArrayList<>(List.of("netherite")));
-			}
-			
-			upgradeWeight = json.has("upgradeWeight") ? json.get("upgradeWeight").getAsDouble() : 0.6;
-			newSlotWeight = json.has("newSlotWeight") ? json.get("newSlotWeight").getAsDouble() : 0.4;
-			legendaryWeight = json.has("legendaryWeight") ? json.get("legendaryWeight").getAsDouble() : 0.05;
-			anvilBaseCost = json.has("anvilBaseCost") ? json.get("anvilBaseCost").getAsInt() : 1;
-			anvilPerLevelCost = json.has("anvilPerLevelCost") ? json.get("anvilPerLevelCost").getAsInt() : 1;
-			keepEquipOnDeath = json.has("keepEquipOnDeath") ? json.get("keepEquipOnDeath").getAsBoolean() : false;
-			enableBrokenMechanic = json.has("enableBrokenMechanic") ? json.get("enableBrokenMechanic").getAsBoolean() : true;
+    // Durability restored on level-up, as a percentage of max durability.
+    private static int durabilityRestorePercent = 25;
 
-			// Custom block XP list. Each entry maps a block id to a positive XP
-			// reward. Invalid or non-positive entries are dropped on load.
-			customBlockXp.clear();
-			if (json.has("customBlockXp") && json.get("customBlockXp").isJsonObject()) {
-				JsonObject custom = json.getAsJsonObject("customBlockXp");
-				custom.entrySet().forEach(entry -> {
-					try {
-						int v = entry.getValue().getAsInt();
-						if (v > 0) customBlockXp.put(entry.getKey(), v);
-					} catch (RuntimeException ignored) { }
-				});
-			}
-			
-			// Max slots per category
-			if (json.has("maxSlots")) {
-				JsonObject msObj = json.getAsJsonObject("maxSlots");
-				msObj.entrySet().forEach(entry -> {
-					try {
-						int v = entry.getValue().getAsInt();
-						if (v >= 1 && v <= 4) maxSlots.put(entry.getKey(), v);
-					} catch (RuntimeException ignored) { }
-				});
-			}
+    // Reroll costs indexed by number of filled standard slots (0..4).
+    private static int[] rerollCosts = {5, 10, 15, 20, 25};
 
-			// Treat hand-edited config files as untrusted input.  Invalid values
-			// should never make XP requirements, costs, or weighted offers unusable.
-			xpMultiplier = Double.isFinite(xpMultiplier) ? Math.max(0.1, Math.min(10.0, xpMultiplier)) : 1.2;
-			xpDisplayThreshold = Math.max(0, xpDisplayThreshold);
-			durabilityRestorePercent = Math.max(0, Math.min(100, durabilityRestorePercent));
-			coalXp = Math.max(0, coalXp);
-			ironXp = Math.max(0, ironXp);
-			goldXp = Math.max(0, goldXp);
-			rareOreXp = Math.max(0, rareOreXp);
-			legendaryUpgradeProbability = Double.isFinite(legendaryUpgradeProbability)
-					? Math.max(0, Math.min(1, legendaryUpgradeProbability)) : 0.05;
-			upgradeWeight = Double.isFinite(upgradeWeight) ? Math.max(0, upgradeWeight) : 0.6;
-			newSlotWeight = Double.isFinite(newSlotWeight) ? Math.max(0, newSlotWeight) : 0.4;
-			legendaryWeight = Double.isFinite(legendaryWeight) ? Math.max(0, legendaryWeight) : 0.05;
-			anvilBaseCost = Math.max(0, anvilBaseCost);
-			anvilPerLevelCost = Math.max(0, anvilPerLevelCost);
-			for (int i = 0; i < rerollCosts.length; i++) rerollCosts[i] = Math.max(0, rerollCosts[i]);
-			if (materialLadder == null || materialLadder.isEmpty()) {
-				materialLadder = new LinkedHashMap<>();
-				materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
-				materialLadder.put(1, new ArrayList<>(List.of("stone")));
-				materialLadder.put(2, new ArrayList<>(List.of("iron")));
-				materialLadder.put(3, new ArrayList<>(List.of("diamond")));
-				materialLadder.put(4, new ArrayList<>(List.of("netherite")));
-			}
-			LOGGER.info("Config loaded successfully");
-		} catch (IOException | RuntimeException e) {
-			LOGGER.error("Failed to load config from file", e);
-		}
-	}
+    // Probability a visit to the enchanting table offers a legendary upgrade.
+    private static double legendaryUpgradeProbability = 0.05;
 
-	public static void save() {
-		try {
-			Files.createDirectories(CONFIG_DIR);
-			JsonObject json = new JsonObject();
-			
-			JsonObject xpObj = new JsonObject();
-			baseXp.forEach((key, value) -> xpObj.addProperty(key, value));
-			json.add("baseXp", xpObj);
-			
-			json.addProperty("xpMultiplier", xpMultiplier);
-			json.addProperty("xpDisplayThreshold", xpDisplayThreshold);
-			json.addProperty("durabilityRestorePercent", durabilityRestorePercent);
-			json.addProperty("coalXp", coalXp);
-			json.addProperty("ironXp", ironXp);
-			json.addProperty("goldXp", goldXp);
-			json.addProperty("rareOreXp", rareOreXp);
-			json.addProperty("entityKillXp", entityKillXp);
-			json.addProperty("logXp", logXp);
-			json.addProperty("shovelXp", shovelXp);
-			json.addProperty("hoeXp", hoeXp);
-			json.addProperty("stoneXp", stoneXp);
-			json.addProperty("clayXp", clayXp);
-			json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
-			json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
-			// Save material ladder as nested JSON object.
-			JsonObject ladderJson = new JsonObject();
-			for (Map.Entry<Integer, List<String>> entry : materialLadder.entrySet()) {
-				ladderJson.add(entry.getKey().toString(), GSON.toJsonTree(entry.getValue()));
-			}
-			json.add("materialLadder", ladderJson);
-			json.addProperty("upgradeWeight", upgradeWeight);
-			json.addProperty("newSlotWeight", newSlotWeight);
-			json.addProperty("legendaryWeight", legendaryWeight);
-			json.addProperty("anvilBaseCost", anvilBaseCost);
-			json.addProperty("anvilPerLevelCost", anvilPerLevelCost);
-			json.addProperty("keepEquipOnDeath", keepEquipOnDeath);
-			json.addProperty("enableBrokenMechanic", enableBrokenMechanic);
+    // Mining-level → materials map for the material ladder.
+    private static Map<Integer, List<String>> materialLadder = new LinkedHashMap<>();
 
-			JsonObject custom = new JsonObject();
-			customBlockXp.forEach(custom::addProperty);
-			json.add("customBlockXp", custom);
+    // Offer weights for the enchanting table.
+    private static double upgradeWeight = 0.6;
+    private static double newSlotWeight = 0.4;
+    private static double legendaryWeight = 0.05;
 
-			JsonObject ms = new JsonObject();
-			maxSlots.forEach(ms::addProperty);
-			json.add("maxSlots", ms);
-			
-			try (FileWriter writer = new FileWriter(CONFIG_FILE.toFile())) {
-				GSON.toJson(json, writer);
-			}
-			LOGGER.info("Config saved successfully");
-		} catch (IOException e) {
-			LOGGER.error("Failed to save config", e);
-		}
-	}
+    // Anvil costs.
+    private static int anvilBaseCost = 1;
+    private static int anvilPerLevelCost = 1;
 
-	// Getters
-	public static int getBaseXpForCategory(String category) {
-		Integer fallback = baseXp.get("default");
-		if (fallback == null) fallback = 100;
-		Integer value = baseXp.get(category == null ? "default" : category.toLowerCase());
-		return Math.max(1, value == null ? fallback : value);
-	}
+    // Toggles.
+    private static boolean keepEquipOnDeath = false;
+    private static boolean enableBrokenMechanic = true;
 
-	public static double getXpMultiplier() {
-		return xpMultiplier;
-	}
+    // Custom block ID → XP overrides (takes priority over formula).
+    private static Map<String, Integer> customBlockXp = new LinkedHashMap<>();
 
-	public static int getXpDisplayThreshold() {
-		return xpDisplayThreshold;
-	}
+    // Max enchantment slots per category.
+    private static Map<String, Integer> maxSlots = new LinkedHashMap<>();
 
-	public static int getDurabilityRestorePercent() {
-		return durabilityRestorePercent;
-	}
+    // Whether we're currently using a server-synced config (multiplayer).
+    private static boolean usingServerConfig = false;
 
-	public static int getCoalXp() { return coalXp; }
-	public static int getIronXp() { return ironXp; }
-	public static int getGoldXp() { return goldXp; }
-	public static int getRareOreXp() { return rareOreXp; }
-	public static void setOreXp(int coal, int iron, int gold, int rare) {
-		coalXp = Math.max(0, coal); ironXp = Math.max(0, iron);
-		goldXp = Math.max(0, gold); rareOreXp = Math.max(0, rare); save();
-	}
+    // ================================================================== //
+    // Static initialiser                                                  //
+    // ================================================================== //
 
-	public static int getEntityKillXp() { return entityKillXp; }
-	public static int getLogXp() { return logXp; }
-	public static int getShovelXp() { return shovelXp; }
-	public static int getHoeXp() { return hoeXp; }
-	public static int getStoneXp() { return stoneXp; }
-	public static int getClayXp() { return clayXp; }
+    static {
+        initDefaults();
+    }
 
-	public static void setEntityKillXp(int v) { entityKillXp = Math.max(0, v); save(); }
-	public static void setLogXp(int v) { logXp = Math.max(0, v); save(); }
-	public static void setShovelXp(int v) { shovelXp = Math.max(0, v); save(); }
-	public static void setHoeXp(int v) { hoeXp = Math.max(0, v); save(); }
-	public static void setStoneXp(int v) { stoneXp = Math.max(0, v); save(); }
-	public static void setClayXp(int v) { clayXp = Math.max(0, v); save(); }
+    private static void initDefaults() {
+        // Base XP per category
+        baseXp.put("sword", 400);
+        baseXp.put("axe", 450);
+        baseXp.put("pickaxe", 500);
+        baseXp.put("shovel", 300);
+        baseXp.put("hoe", 200);
+        baseXp.put("fishing_rod", 300);
+        baseXp.put("bow", 350);
+        baseXp.put("helmet", 350);
+        baseXp.put("chestplate", 400);
+        baseXp.put("leggings", 400);
+        baseXp.put("boots", 350);
+        baseXp.put("default", 350);
 
-	public static int[] getRerollCosts() {
-		return java.util.Arrays.copyOf(rerollCosts, rerollCosts.length);
-	}
+        // Per-source multipliers (all start at 1.0)
+        sourceMultipliers.put("mob", 1.0);
+        sourceMultipliers.put("livestock", 1.0);
+        sourceMultipliers.put("mining", 1.0);
+        sourceMultipliers.put("farming", 1.0);
+        sourceMultipliers.put("wood", 1.0);
+        sourceMultipliers.put("fishing", 1.0);
 
-	public static double getLegendaryUpgradeProbability() {
-		return legendaryUpgradeProbability;
-	}
+        // Material ladder defaults
+        materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+        materialLadder.put(1, new ArrayList<>(List.of("stone")));
+        materialLadder.put(2, new ArrayList<>(List.of("iron")));
+        materialLadder.put(3, new ArrayList<>(List.of("diamond")));
+        materialLadder.put(4, new ArrayList<>(List.of("netherite")));
 
-	// ---- Material ladder (mining level → materials) ----
+        // Max slots per category
+        maxSlots.put("sword", 4);
+        maxSlots.put("axe", 3);
+        maxSlots.put("pickaxe", 3);
+        maxSlots.put("shovel", 2);
+        maxSlots.put("hoe", 2);
+        maxSlots.put("fishing_rod", 3);
+        maxSlots.put("bow", 3);
+        maxSlots.put("helmet", 4);
+        maxSlots.put("chestplate", 4);
+        maxSlots.put("leggings", 4);
+        maxSlots.put("boots", 4);
+        maxSlots.put("default", 4);
+    }
 
-	/** Returns the full material ladder: mining level → list of materials at that level. */
-	public static Map<Integer, List<String>> getMaterialLadder() {
-		Map<Integer, List<String>> copy = new LinkedHashMap<>();
-		for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
-			copy.put(e.getKey(), new ArrayList<>(e.getValue()));
-		}
-		return copy;
-	}
+    // ================================================================== //
+    // Loading                                                             //
+    // ================================================================== //
 
-	/** Returns all materials at the given mining level, or empty list. */
-	public static List<String> getMaterialsForLevel(int level) {
-		List<String> mats = materialLadder.get(level);
-		return mats == null ? List.of() : List.copyOf(mats);
-	}
+    /** Loads the personal config file. Called on mod init. */
+    public static void load() {
+        activeConfigFile = CONFIG_DIR.resolve("config.json");
+        usingServerConfig = false;
+        loadFrom(activeConfigFile);
+    }
 
-	/** Finds the mining level a material belongs to, or -1 if not found. */
-	public static int getMiningLevel(String material) {
-		if (material == null || material.isBlank()) return -1;
-		String m = material.trim().toLowerCase();
-		for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
-			if (e.getValue().stream().anyMatch(s -> s.equalsIgnoreCase(m))) return e.getKey();
-		}
-		return -1;
-	}
+    /**
+     * Switches to a server-specific config file, creating it from the server's
+     * synced JSON if needed. Called when the client receives a ConfigSyncPacket.
+     *
+     * @param serverAddress  the server address (e.g. "mc.example.com:25565")
+     * @param serverJson     the JSON config from the server
+     */
+    public static void loadServerConfig(String serverAddress, String serverJson) {
+        try {
+            Files.createDirectories(SERVERS_DIR);
+            String safeName = serverAddress.replaceAll("[^a-zA-Z0-9._-]", "_");
+            activeConfigFile = SERVERS_DIR.resolve(safeName + ".json");
 
-	/** Returns the materials available at the next mining level above the given material,
-	 * or empty list if this material is at the highest level. Used by legendary upgrades. */
-	public static List<String> getNextLevelMaterials(String material) {
-		int level = getMiningLevel(material);
-		if (level < 0) return List.of();
-		Integer nextLevel = null;
-		for (int lvl : materialLadder.keySet()) {
-			if (lvl > level && (nextLevel == null || lvl < nextLevel)) nextLevel = lvl;
-		}
-		return nextLevel == null ? List.of() : getMaterialsForLevel(nextLevel);
-	}
+            // Write the server's config to disk so it persists across restarts.
+            Files.writeString(activeConfigFile, serverJson);
 
-	/** Sets the full material ladder from a map. */
-	public static void setMaterialLadder(Map<Integer, List<String>> ladder) {
-		materialLadder.clear();
-		if (ladder != null) {
-			for (Map.Entry<Integer, List<String>> e : ladder.entrySet()) {
-				List<String> clean = new ArrayList<>();
-				for (String s : e.getValue()) {
-					if (s != null && !s.isBlank()) clean.add(s.trim().toLowerCase());
-				}
-				if (!clean.isEmpty()) materialLadder.put(e.getKey(), clean);
-			}
-		}
-		if (materialLadder.isEmpty()) {
-			materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
-			materialLadder.put(1, new ArrayList<>(List.of("stone")));
-			materialLadder.put(2, new ArrayList<>(List.of("iron")));
-			materialLadder.put(3, new ArrayList<>(List.of("diamond")));
-			materialLadder.put(4, new ArrayList<>(List.of("netherite")));
-		}
-		save();
-	}
+            usingServerConfig = true;
+            loadFrom(activeConfigFile);
+            LOGGER.info("Switched to server config: {}", activeConfigFile);
+        } catch (IOException e) {
+            LOGGER.error("Failed to save server config", e);
+        }
+    }
 
-	/**
-	 * @deprecated Use {@link #getMaterialLadder()} for the new mining-level format.
-	 * This returns a flat list of all materials ordered by mining level, for
-	 * backward compatibility with callers that expect a linear array.
-	 */
-	@Deprecated
-	public static String[] getMaterialTiers() {
-		List<String> flat = new ArrayList<>();
-		materialLadder.keySet().stream().sorted().forEach(level ->
-			flat.addAll(materialLadder.get(level)));
-		return flat.toArray(new String[0]);
-	}
+    /** Restores the personal config after disconnecting from a server. */
+    public static void restorePersonalConfig() {
+        activeConfigFile = CONFIG_DIR.resolve("config.json");
+        usingServerConfig = false;
+        loadFrom(activeConfigFile);
+        LOGGER.info("Restored personal config");
+    }
 
-	/**
-	 * @deprecated Use {@link #setMaterialLadder(Map)} for the new format.
-	 * Accepts a flat array and assigns each material to its own level 0..N-1.
-	 */
-	@Deprecated
-	public static void setMaterialTiers(String[] tiers) {
-		materialLadder.clear();
-		if (tiers != null && tiers.length > 0) {
-			for (int i = 0; i < tiers.length; i++) {
-				if (tiers[i] != null && !tiers[i].isBlank()) {
-					materialLadder.put(i, new ArrayList<>(List.of(tiers[i].trim().toLowerCase())));
-				}
-			}
-		}
-		if (materialLadder.isEmpty()) {
-			materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
-			materialLadder.put(1, new ArrayList<>(List.of("stone")));
-			materialLadder.put(2, new ArrayList<>(List.of("iron")));
-			materialLadder.put(3, new ArrayList<>(List.of("diamond")));
-			materialLadder.put(4, new ArrayList<>(List.of("netherite")));
-		}
-		save();
-	}
+    public static boolean isUsingServerConfig() {
+        return usingServerConfig;
+    }
 
-	// ---- offer weights ----
-	public static double getUpgradeWeight() {
-		return upgradeWeight;
-	}
+    /** Returns the full config as a JSON string (for syncing to clients). */
+    public static String toJsonString() {
+        return GSON.toJson(buildJson());
+    }
 
-	public static double getNewSlotWeight() {
-		return newSlotWeight;
-	}
+    /** Replaces all config values from a JSON string (used by client sync). */
+    public static void fromJsonString(String json) {
+        try {
+            JsonObject obj = GSON.fromJson(json, JsonObject.class);
+            parseJson(obj);
+            save();
+        } catch (Exception e) {
+            LOGGER.error("Failed to parse synced config", e);
+        }
+    }
 
-	public static double getLegendaryWeight() {
-		return legendaryWeight;
-	}
+    private static void loadFrom(Path file) {
+        try {
+            Files.createDirectories(CONFIG_DIR);
+            if (Files.exists(file)) {
+                try (FileReader reader = new FileReader(file.toFile())) {
+                    JsonObject json = GSON.fromJson(reader, JsonObject.class);
+                    parseJson(json);
+                }
+            } else {
+                save();
+            }
+        } catch (IOException | RuntimeException e) {
+            LOGGER.error("Failed to load config; using defaults", e);
+            save(); // write valid defaults so the broken file is replaced
+        }
+    }
 
-	public static int getAnvilBaseCost() {
-		return anvilBaseCost;
-	}
+    @SuppressWarnings("deprecation")
+    private static void parseJson(JsonObject json) {
+        // Base XP
+        if (json.has("baseXp")) {
+            baseXp.clear();
+            json.getAsJsonObject("baseXp").entrySet().forEach(e ->
+                    baseXp.put(e.getKey(), e.getValue().getAsInt()));
+        }
 
-	public static int getAnvilPerLevelCost() {
-		return anvilPerLevelCost;
-	}
+        // Level requirement growth (backward compat: was "xpMultiplier")
+        levelRequirementGrowth = getDouble(json, "levelRequirementGrowth",
+                getDouble(json, "xpMultiplier", 1.2));
 
-	public static boolean isKeepEquipOnDeath() {
-		return keepEquipOnDeath;
-	}
+        // Global XP gain multiplier (new)
+        globalXpGainMultiplier = getDouble(json, "globalXpGainMultiplier", 1.0);
 
-	public static boolean isBrokenMechanicEnabled() {
-		return enableBrokenMechanic;
-	}
+        // Per-source multipliers
+        if (json.has("sourceMultipliers")) {
+            sourceMultipliers.clear();
+            json.getAsJsonObject("sourceMultipliers").entrySet().forEach(e ->
+                    sourceMultipliers.put(e.getKey(), e.getValue().getAsDouble()));
+        }
 
-	/** Returns an immutable copy of the custom block -> XP map. */
-	public static java.util.Map<String, Integer> getCustomBlockXp() {
-		return java.util.Collections.unmodifiableMap(new HashMap<>(customBlockXp));
-	}
+        // Simple fields
+        xpDisplayThreshold = getInt(json, "xpDisplayThreshold", 10);
+        durabilityRestorePercent = getInt(json, "durabilityRestorePercent", 25);
+        legendaryUpgradeProbability = getDouble(json, "legendaryUpgradeProbability", 0.05);
+        upgradeWeight = getDouble(json, "upgradeWeight", 0.6);
+        newSlotWeight = getDouble(json, "newSlotWeight", 0.4);
+        legendaryWeight = getDouble(json, "legendaryWeight", 0.05);
+        anvilBaseCost = getInt(json, "anvilBaseCost", 1);
+        anvilPerLevelCost = getInt(json, "anvilPerLevelCost", 1);
+        keepEquipOnDeath = getBool(json, "keepEquipOnDeath", false);
+        enableBrokenMechanic = getBool(json, "enableBrokenMechanic", true);
 
-	/** Sets the whole custom block XP map (validated) and saves. */
-	public static void setCustomBlockXp(java.util.Map<String, Integer> map) {
-		customBlockXp.clear();
-		if (map != null) {
-			map.forEach((k, v) -> {
-				if (k != null && !k.isBlank() && v != null && v > 0) {
-					customBlockXp.put(k.trim().toLowerCase(), v);
-				}
-			});
-		}
-		save();
-	}
+        // Reroll costs
+        if (json.has("rerollCosts")) {
+            int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
+            if (loaded != null && loaded.length == 5) rerollCosts = loaded;
+        }
 
-	/** Adds or updates one custom block XP entry. */
-	public static void addCustomBlockXp(String blockId, int xp) {
-		if (blockId == null || blockId.isBlank() || xp <= 0) return;
-		customBlockXp.put(blockId.trim().toLowerCase(), xp);
-		save();
-	}
+        // Material ladder
+        if (json.has("materialLadder")) {
+            materialLadder.clear();
+            JsonObject ladderObj = json.getAsJsonObject("materialLadder");
+            for (Map.Entry<String, com.google.gson.JsonElement> entry : ladderObj.entrySet()) {
+                try {
+                    int level = Integer.parseInt(entry.getKey());
+                    List<String> mats = new ArrayList<>();
+                    for (com.google.gson.JsonElement e : entry.getValue().getAsJsonArray()) {
+                        String mat = e.getAsString().trim().toLowerCase();
+                        if (!mat.isBlank()) mats.add(mat);
+                    }
+                    if (!mats.isEmpty()) materialLadder.put(level, mats);
+                } catch (NumberFormatException ignored) {}
+            }
+        } else if (json.has("materialTiers")) {
+            // Migrate old flat array
+            String[] old = GSON.fromJson(json.get("materialTiers"), String[].class);
+            if (old != null && old.length > 0) {
+                materialLadder.clear();
+                for (int i = 0; i < old.length; i++) {
+                    String mat = old[i].trim().toLowerCase();
+                    if (!mat.isBlank()) materialLadder.put(i, new ArrayList<>(List.of(mat)));
+                }
+            }
+        }
 
-	/** Removes a custom block XP entry; returns true if it existed. */
-	public static boolean removeCustomBlockXp(String blockId) {
-		if (blockId == null) return false;
-		boolean removed = customBlockXp.remove(blockId.trim().toLowerCase()) != null;
-		if (removed) save();
-		return removed;
-	}
+        // Custom block XP
+        customBlockXp.clear();
+        if (json.has("customBlockXp") && json.get("customBlockXp").isJsonObject()) {
+            json.getAsJsonObject("customBlockXp").entrySet().forEach(entry -> {
+                try {
+                    int v = entry.getValue().getAsInt();
+                    if (v > 0) customBlockXp.put(entry.getKey(), v);
+                } catch (RuntimeException ignored) {}
+            });
+        }
 
-	public static int getMaxSlotsForCategory(String category) {
-		Integer fallback = maxSlots.get("default");
-		if (fallback == null) fallback = 4;
-		Integer value = maxSlots.get(category == null ? "default" : category.toLowerCase());
-		// Allow up to 8 slots so players with large enchantment mods can raise the cap.
-		return value == null ? fallback : Math.min(8, Math.max(1, value));
-	}
+        // Max slots
+        if (json.has("maxSlots")) {
+            maxSlots.clear();
+            json.getAsJsonObject("maxSlots").entrySet().forEach(entry -> {
+                try {
+                    int v = entry.getValue().getAsInt();
+                    if (v >= 1 && v <= 8) maxSlots.put(entry.getKey(), v);
+                } catch (RuntimeException ignored) {}
+            });
+        }
 
-	public static void setMaxSlotsForCategory(String category, int slots) {
-		if (category == null || category.isBlank()) return;
-		maxSlots.put(category.toLowerCase(), Math.min(8, Math.max(1, slots)));
-		save();
-	}
+        // Validate
+        validate();
+    }
 
-	// Setters
-	public static void setBaseXpForCategory(String category, int xp) {
-		if (category == null || category.isBlank()) return;
-		baseXp.put(category.toLowerCase(), Math.max(1, xp));
-		save();
-	}
+    private static void validate() {
+        levelRequirementGrowth = clamp(levelRequirementGrowth, 1.0, 10.0);
+        globalXpGainMultiplier = clamp(globalXpGainMultiplier, 0.1, 10.0);
+        xpDisplayThreshold = Math.max(0, xpDisplayThreshold);
+        durabilityRestorePercent = clamp(durabilityRestorePercent, 0, 100);
+        legendaryUpgradeProbability = clamp(legendaryUpgradeProbability, 0.0, 1.0);
+        upgradeWeight = Math.max(0, upgradeWeight);
+        newSlotWeight = Math.max(0, newSlotWeight);
+        legendaryWeight = Math.max(0, legendaryWeight);
+        anvilBaseCost = Math.max(0, anvilBaseCost);
+        anvilPerLevelCost = Math.max(0, anvilPerLevelCost);
+        for (int i = 0; i < rerollCosts.length; i++) rerollCosts[i] = Math.max(0, rerollCosts[i]);
+        if (materialLadder.isEmpty()) initDefaults();
+        if (maxSlots.isEmpty()) initDefaults();
 
-	public static void setXpMultiplier(double multiplier) {
-		if (!Double.isFinite(multiplier)) return;
-		xpMultiplier = Math.max(0.1, Math.min(10.0, multiplier));
-		save();
-	}
+        // Ensure all source multiplier keys exist
+        for (String key : List.of("mob", "livestock", "mining", "farming", "wood", "fishing")) {
+            sourceMultipliers.putIfAbsent(key, 1.0);
+            sourceMultipliers.put(key, clamp(sourceMultipliers.get(key), 0.0, 100.0));
+        }
+    }
 
-	public static void setXpDisplayThreshold(int threshold) {
-		xpDisplayThreshold = Math.max(0, threshold);
-		save();
-	}
+    // ================================================================== //
+    // Saving                                                              //
+    // ================================================================== //
 
-	public static void setKeepEquipOnDeath(boolean keep) {
-		keepEquipOnDeath = keep;
-		save();
-	}
+    public static void save() {
+        try {
+            Files.createDirectories(activeConfigFile.getParent());
+            try (FileWriter writer = new FileWriter(activeConfigFile.toFile())) {
+                GSON.toJson(buildJson(), writer);
+            }
+        } catch (IOException e) {
+            LOGGER.error("Failed to save config", e);
+        }
+    }
 
-	public static void setBrokenMechanicEnabled(boolean enabled) {
-		enableBrokenMechanic = enabled;
-		save();
-	}
+    private static JsonObject buildJson() {
+        JsonObject json = new JsonObject();
 
-	public static void setDurabilityRestorePercent(int value) {
-		durabilityRestorePercent = Math.max(0, Math.min(100, value));
-		save();
-	}
+        JsonObject xpObj = new JsonObject();
+        baseXp.forEach(xpObj::addProperty);
+        json.add("baseXp", xpObj);
 
-	public static void setRerollCosts(int[] costs) {
-		if (costs == null || costs.length != 5) throw new IllegalArgumentException("Five reroll costs are required");
-		rerollCosts = java.util.Arrays.stream(costs).map(v -> Math.max(0, v)).toArray();
-		save();
-	}
+        json.addProperty("levelRequirementGrowth", levelRequirementGrowth);
+        json.addProperty("globalXpGainMultiplier", globalXpGainMultiplier);
 
-	public static void setLegendaryUpgradeProbability(double value) {
-		if (!Double.isFinite(value)) return;
-		legendaryUpgradeProbability = Math.max(0, Math.min(1, value));
-		save();
-	}
+        JsonObject srcMult = new JsonObject();
+        sourceMultipliers.forEach(srcMult::addProperty);
+        json.add("sourceMultipliers", srcMult);
 
-	public static void setOfferWeights(double upgrade, double newSlot) {
-		setOfferWeights(upgrade, newSlot, legendaryWeight);
-	}
+        json.addProperty("xpDisplayThreshold", xpDisplayThreshold);
+        json.addProperty("durabilityRestorePercent", durabilityRestorePercent);
+        json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
+        json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
 
-	public static void setOfferWeights(double upgrade, double newSlot, double legendary) {
-		if (!Double.isFinite(upgrade) || !Double.isFinite(newSlot) || !Double.isFinite(legendary)) return;
-		upgradeWeight = Math.max(0, upgrade);
-		newSlotWeight = Math.max(0, newSlot);
-		legendaryWeight = Math.max(0, legendary);
-		save();
-	}
+        JsonObject ladderJson = new JsonObject();
+        for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
+            ladderJson.add(e.getKey().toString(), GSON.toJsonTree(e.getValue()));
+        }
+        json.add("materialLadder", ladderJson);
 
-	public static void setAnvilCosts(int base, int perLevel) {
-		anvilBaseCost = Math.max(0, base);
-		anvilPerLevelCost = Math.max(0, perLevel);
-		save();
-	}
+        json.addProperty("upgradeWeight", upgradeWeight);
+        json.addProperty("newSlotWeight", newSlotWeight);
+        json.addProperty("legendaryWeight", legendaryWeight);
+        json.addProperty("anvilBaseCost", anvilBaseCost);
+        json.addProperty("anvilPerLevelCost", anvilPerLevelCost);
+        json.addProperty("keepEquipOnDeath", keepEquipOnDeath);
+        json.addProperty("enableBrokenMechanic", enableBrokenMechanic);
+
+        JsonObject custom = new JsonObject();
+        customBlockXp.forEach(custom::addProperty);
+        json.add("customBlockXp", custom);
+
+        JsonObject ms = new JsonObject();
+        maxSlots.forEach(ms::addProperty);
+        json.add("maxSlots", ms);
+
+        return json;
+    }
+
+    // ================================================================== //
+    // Getters                                                             //
+    // ================================================================== //
+
+    public static int getBaseXpForCategory(String category) {
+        Integer fallback = baseXp.getOrDefault("default", 350);
+        Integer value = baseXp.get(category == null ? "default" : category.toLowerCase());
+        return Math.max(1, value != null ? value : fallback);
+    }
+
+    /** @deprecated Renamed to {@link #getLevelRequirementGrowth()}. */
+    @Deprecated
+    public static double getXpMultiplier() { return levelRequirementGrowth; }
+
+    public static double getLevelRequirementGrowth() { return levelRequirementGrowth; }
+    public static double getGlobalXpGainMultiplier() { return globalXpGainMultiplier; }
+    public static double getSourceMultiplier(String key) {
+        return sourceMultipliers.getOrDefault(key, 1.0);
+    }
+    public static Map<String, Double> getSourceMultipliers() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(sourceMultipliers));
+    }
+    public static int getXpDisplayThreshold() { return xpDisplayThreshold; }
+    public static int getDurabilityRestorePercent() { return durabilityRestorePercent; }
+    public static int[] getRerollCosts() { return Arrays.copyOf(rerollCosts, rerollCosts.length); }
+    public static double getLegendaryUpgradeProbability() { return legendaryUpgradeProbability; }
+
+    public static Map<Integer, List<String>> getMaterialLadder() {
+        Map<Integer, List<String>> copy = new LinkedHashMap<>();
+        for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
+            copy.put(e.getKey(), new ArrayList<>(e.getValue()));
+        }
+        return copy;
+    }
+
+    public static List<String> getMaterialsForLevel(int level) {
+        List<String> mats = materialLadder.get(level);
+        return mats == null ? List.of() : List.copyOf(mats);
+    }
+
+    public static int getMiningLevel(String material) {
+        if (material == null || material.isBlank()) return -1;
+        String m = material.trim().toLowerCase();
+        for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
+            if (e.getValue().stream().anyMatch(s -> s.equalsIgnoreCase(m))) return e.getKey();
+        }
+        return -1;
+    }
+
+    public static List<String> getNextLevelMaterials(String material) {
+        int level = getMiningLevel(material);
+        if (level < 0) return List.of();
+        Integer nextLevel = materialLadder.keySet().stream()
+                .filter(l -> l > level).min(Integer::compareTo).orElse(null);
+        return nextLevel == null ? List.of() : getMaterialsForLevel(nextLevel);
+    }
+
+    public static double getUpgradeWeight() { return upgradeWeight; }
+    public static double getNewSlotWeight() { return newSlotWeight; }
+    public static double getLegendaryWeight() { return legendaryWeight; }
+    public static int getAnvilBaseCost() { return anvilBaseCost; }
+    public static int getAnvilPerLevelCost() { return anvilPerLevelCost; }
+    public static boolean isKeepEquipOnDeath() { return keepEquipOnDeath; }
+    public static boolean isBrokenMechanicEnabled() { return enableBrokenMechanic; }
+
+    public static Map<String, Integer> getCustomBlockXp() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(customBlockXp));
+    }
+
+    public static int getMaxSlotsForCategory(String category) {
+        Integer fallback = maxSlots.getOrDefault("default", 4);
+        Integer value = maxSlots.get(category == null ? "default" : category.toLowerCase());
+        return value == null ? fallback : Math.min(8, Math.max(1, value));
+    }
+
+    // ================================================================== //
+    // Setters                                                             //
+    // ================================================================== //
+
+    public static void setBaseXpForCategory(String category, int xp) {
+        if (category == null || category.isBlank()) return;
+        baseXp.put(category.toLowerCase(), Math.max(1, xp));
+        save();
+    }
+
+    @Deprecated
+    public static void setXpMultiplier(double v) { setLevelRequirementGrowth(v); }
+
+    public static void setLevelRequirementGrowth(double v) {
+        if (!Double.isFinite(v)) return;
+        levelRequirementGrowth = clamp(v, 1.0, 10.0);
+        save();
+    }
+
+    public static void setGlobalXpGainMultiplier(double v) {
+        if (!Double.isFinite(v)) return;
+        globalXpGainMultiplier = clamp(v, 0.1, 10.0);
+        save();
+    }
+
+    public static void setSourceMultiplier(String key, double v) {
+        if (!Double.isFinite(v)) return;
+        sourceMultipliers.put(key, clamp(v, 0.0, 100.0));
+        save();
+    }
+
+    public static void setXpDisplayThreshold(int v) { xpDisplayThreshold = Math.max(0, v); save(); }
+    public static void setDurabilityRestorePercent(int v) { durabilityRestorePercent = clamp(v, 0, 100); save(); }
+    public static void setKeepEquipOnDeath(boolean v) { keepEquipOnDeath = v; save(); }
+    public static void setBrokenMechanicEnabled(boolean v) { enableBrokenMechanic = v; save(); }
+
+    public static void setRerollCosts(int[] costs) {
+        if (costs == null || costs.length != 5) return;
+        rerollCosts = Arrays.stream(costs).map(v -> Math.max(0, v)).toArray();
+        save();
+    }
+
+    public static void setLegendaryUpgradeProbability(double v) {
+        if (!Double.isFinite(v)) return;
+        legendaryUpgradeProbability = clamp(v, 0.0, 1.0);
+        save();
+    }
+
+    public static void setMaterialLadder(Map<Integer, List<String>> ladder) {
+        materialLadder.clear();
+        if (ladder != null) {
+            for (Map.Entry<Integer, List<String>> e : ladder.entrySet()) {
+                List<String> clean = new ArrayList<>();
+                for (String s : e.getValue()) {
+                    if (s != null && !s.isBlank()) clean.add(s.trim().toLowerCase());
+                }
+                if (!clean.isEmpty()) materialLadder.put(e.getKey(), clean);
+            }
+        }
+        if (materialLadder.isEmpty()) initDefaults();
+        save();
+    }
+
+    public static void setOfferWeights(double upgrade, double newSlot) {
+        setOfferWeights(upgrade, newSlot, legendaryWeight);
+    }
+
+    public static void setOfferWeights(double upgrade, double newSlot, double legendary) {
+        if (!Double.isFinite(upgrade) || !Double.isFinite(newSlot) || !Double.isFinite(legendary)) return;
+        upgradeWeight = Math.max(0, upgrade);
+        newSlotWeight = Math.max(0, newSlot);
+        legendaryWeight = Math.max(0, legendary);
+        save();
+    }
+
+    public static void setAnvilCosts(int base, int perLevel) {
+        anvilBaseCost = Math.max(0, base);
+        anvilPerLevelCost = Math.max(0, perLevel);
+        save();
+    }
+
+    public static void setCustomBlockXp(Map<String, Integer> map) {
+        customBlockXp.clear();
+        if (map != null) {
+            map.forEach((k, v) -> {
+                if (k != null && !k.isBlank() && v != null && v > 0) {
+                    customBlockXp.put(k.trim().toLowerCase(), v);
+                }
+            });
+        }
+        save();
+    }
+
+    public static void setMaxSlotsForCategory(String category, int slots) {
+        if (category == null || category.isBlank()) return;
+        maxSlots.put(category.toLowerCase(), Math.min(8, Math.max(1, slots)));
+        save();
+    }
+
+    // ================================================================== //
+    // Deprecated backward-compat (for old code that might still reference //
+    // coalXp, ironXp, etc.)                                               //
+    // ================================================================== //
+
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getCoalXp() { return 4; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getIronXp() { return 6; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getGoldXp() { return 8; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getRareOreXp() { return 43; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getEntityKillXp() { return 10; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getLogXp() { return 4; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getShovelXp() { return 1; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getHoeXp() { return 3; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getStoneXp() { return 1; }
+    /** @deprecated Use per-source multipliers and the formula instead. */
+    @Deprecated public static int getClayXp() { return 5; }
+
+    @Deprecated public static void setOreXp(int coal, int iron, int gold, int rare) {}
+    @Deprecated public static void setEntityKillXp(int v) {}
+    @Deprecated public static void setLogXp(int v) {}
+    @Deprecated public static void setShovelXp(int v) {}
+    @Deprecated public static void setHoeXp(int v) {}
+    @Deprecated public static void setStoneXp(int v) {}
+    @Deprecated public static void setClayXp(int v) {}
+
+    /** @deprecated Use {@link #getMaterialLadder()} instead. */
+    @Deprecated
+    public static String[] getMaterialTiers() {
+        List<String> flat = new ArrayList<>();
+        materialLadder.keySet().stream().sorted().forEach(level ->
+                flat.addAll(materialLadder.get(level)));
+        return flat.toArray(new String[0]);
+    }
+
+    /** @deprecated Use {@link #setMaterialLadder(Map)} instead. */
+    @Deprecated
+    public static void setMaterialTiers(String[] tiers) {
+        materialLadder.clear();
+        if (tiers != null && tiers.length > 0) {
+            for (int i = 0; i < tiers.length; i++) {
+                if (tiers[i] != null && !tiers[i].isBlank()) {
+                    materialLadder.put(i, new ArrayList<>(List.of(tiers[i].trim().toLowerCase())));
+                }
+            }
+        }
+        if (materialLadder.isEmpty()) initDefaults();
+        save();
+    }
+
+    // ================================================================== //
+    // Helpers                                                             //
+    // ================================================================== //
+
+    private static int getInt(JsonObject json, String key, int def) {
+        return json.has(key) ? json.get(key).getAsInt() : def;
+    }
+
+    private static double getDouble(JsonObject json, String key, double def) {
+        return json.has(key) ? json.get(key).getAsDouble() : def;
+    }
+
+    private static boolean getBool(JsonObject json, String key, boolean def) {
+        return json.has(key) ? json.get(key).getAsBoolean() : def;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Double.isFinite(value) ? Math.max(min, Math.min(max, value)) : min;
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
 }

@@ -1,7 +1,9 @@
 package com.amorairedraws.equipleveling.mixin;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
+import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
+import com.amorairedraws.equipleveling.util.XpCalculator;
 import net.minecraft.entity.projectile.FishingBobberEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -26,7 +28,9 @@ public abstract class FishingBobberEntityMixin {
                 rod = player.getOffHandStack();
             }
             if ("fishing_rod".equals(EquipmentCategory.getCategory(rod))) {
-                int xp = callback.getReturnValue() * 10;
+                int baseXp = callback.getReturnValue() * 10;
+                double srcMult = EquipLevelingConfig.getSourceMultiplier("fishing");
+                int xp = XpCalculator.applyMultipliers(baseXp, srcMult);
                 if (!player.getEntityWorld().isClient() && EquipmentComponent.addXp(rod, xp)) {
                     com.amorairedraws.equipleveling.event.XpDisplay.showForPlayer(player, bobber.getEntityPos(), xp);
                 }
