@@ -113,6 +113,8 @@ public class EquipLevelingConfig {
         baseXp.put("leggings", 400);
         baseXp.put("boots", 350);
         baseXp.put("default", 350);
+        baseXp.put("elytra", 350);
+        baseXp.put("shield", 300);
 
         // Per-source multipliers (all start at 1.0)
         sourceMultipliers.put("mob", 1.0);
@@ -142,6 +144,8 @@ public class EquipLevelingConfig {
         maxSlots.put("leggings", 4);
         maxSlots.put("boots", 4);
         maxSlots.put("default", 4);
+        maxSlots.put("elytra", 4);
+        maxSlots.put("shield", 2);
     }
 
     // ================================================================== //

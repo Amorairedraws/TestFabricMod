@@ -56,6 +56,8 @@ public class EquipmentCategory {
         if (stack.isIn(tag("shovels")) || stack.isIn(ItemTags.SHOVELS)) return "shovel";
         if (stack.isIn(tag("hoes")) || stack.isIn(ItemTags.HOES)) return "hoe";
         if (stack.isIn(tag("fishing_rods")) || stack.getItem() == Items.FISHING_ROD) return "fishing_rod";
+        if (stack.getItem() == Items.ELYTRA) return "elytra";
+        if (stack.getItem() == Items.SHIELD) return "shield";
         if (stack.isIn(tag("bows")) || stack.isIn(ItemTags.BOW_ENCHANTABLE)
                 || stack.getItem() == Items.BOW || stack.getItem() == Items.CROSSBOW) return "bow";
 

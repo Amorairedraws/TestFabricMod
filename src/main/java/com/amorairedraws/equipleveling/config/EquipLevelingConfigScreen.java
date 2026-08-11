@@ -28,7 +28,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 public final class EquipLevelingConfigScreen {
     private static final String[] CATEGORIES = {
             "sword", "axe", "pickaxe", "shovel", "hoe", "fishing_rod", "bow",
-            "helmet", "chestplate", "leggings", "boots"
+            "helmet", "chestplate", "leggings", "boots", "elytra", "shield"
     };
 
     private static final String[] SOURCE_KEYS = {"mob", "livestock", "mining", "farming", "wood", "fishing"};
@@ -309,17 +309,18 @@ public final class EquipLevelingConfigScreen {
             case "hoe" -> 200;
             case "fishing_rod" -> 300;
             case "bow" -> 350;
-            case "helmet", "boots" -> 350;
+            case "helmet", "boots", "elytra" -> 350;
             case "chestplate", "leggings" -> 400;
+            case "shield" -> 300;
             default -> 350;
         };
     }
 
     private static int defaultMaxSlots(String category) {
         return switch (category) {
-            case "sword", "helmet", "chestplate", "leggings", "boots" -> 4;
+            case "sword", "helmet", "chestplate", "leggings", "boots", "elytra" -> 4;
             case "axe", "pickaxe", "fishing_rod", "bow" -> 3;
-            case "shovel", "hoe" -> 2;
+            case "shovel", "hoe", "shield" -> 2;
             default -> 4;
         };
     }

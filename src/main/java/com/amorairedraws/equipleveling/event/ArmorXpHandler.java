@@ -14,26 +14,41 @@ public final class ArmorXpHandler {
 
     /**
      * Fabric calls this after the damage pipeline, so invulnerability frames and
-     * cancelled damage do not award progression. Every worn piece receives the
-     * same reward, as specified by the equipment-leveling rules.
+     * cancelled damage do not award progression.
+     *
+     * <p>Armor pieces (head/chest/legs/feet) receive XP when the player takes
+     * unblocked damage. The offhand item (e.g. shield) receives XP when damage
+     * is successfully blocked — the shield did its job.
      */
     public static void afterDamage(LivingEntity entity, DamageSource source, float attempted,
             float actual, boolean blocked) {
-        if (!(entity instanceof PlayerEntity player) || blocked || actual <= 0.0f) return;
+        if (!(entity instanceof PlayerEntity player) || actual <= 0.0f) return;
 
-        int xp = Math.max(1, (int) Math.ceil(actual * 2.0f));
         // The server owns progression and sends the floating label only after
-        // each eligible armor stack accepts the reward. Client-side prediction
-        // would show duplicate labels on versions that mirror the event.
+        // each eligible stack accepts the reward.
         if (player.getEntityWorld().isClient()) return;
+
         boolean awarded = false;
-        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
-                EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-            ItemStack armor = player.getEquippedStack(slot);
-            if (!armor.isEmpty() && EquipmentCategory.isEquipment(armor)) {
-                awarded |= EquipmentComponent.addXp(armor, xp, player);
+
+        if (blocked) {
+            // Shield (or other offhand equipment) blocked the hit — award XP to it.
+            ItemStack offhand = player.getOffHandStack();
+            if (!offhand.isEmpty() && EquipmentCategory.isEquipment(offhand)) {
+                int xp = Math.max(1, (int) Math.ceil(actual * 2.0f));
+                awarded = EquipmentComponent.addXp(offhand, xp, player);
+                if (awarded) XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
             }
+        } else {
+            // Armor took the hit — award XP to worn equipment.
+            int xp = Math.max(1, (int) Math.ceil(actual * 2.0f));
+            for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
+                    EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+                ItemStack armor = player.getEquippedStack(slot);
+                if (!armor.isEmpty() && EquipmentCategory.isEquipment(armor)) {
+                    awarded |= EquipmentComponent.addXp(armor, xp, player);
+                }
+            }
+            if (awarded) XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
         }
-        if (awarded) XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
     }
 }
