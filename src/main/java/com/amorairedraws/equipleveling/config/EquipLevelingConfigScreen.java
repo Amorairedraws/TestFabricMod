@@ -285,7 +285,10 @@ public final class EquipLevelingConfigScreen {
                         .text(Text.translatable("equip_leveling.config.material_ladder.button"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.material_ladder.tooltip")))
                         .action((yaclScreen, buttonOption) ->
-                                MinecraftClient.getInstance().setScreen(new MaterialLadderScreen(parent)))
+                                // Defer by one tick to avoid "Can only blur once per frame"
+                                // crash from YACL's background blur racing the new screen's blur.
+                                MinecraftClient.getInstance().execute(() ->
+                                        MinecraftClient.getInstance().setScreen(new MaterialLadderScreen(parent))))
                         .available(canEdit)
                         .build())
                 .build());

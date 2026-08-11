@@ -62,8 +62,9 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			lines.add(insertIndex++, Text.literal("  " + mendingName).formatted(Formatting.AQUA));
 		}
 
-		// Standard slots
-		renderSlots(lines, insertIndex, data.slots, context);
+		// Standard slots.  When mending is active the item is at full enchantment
+		// capacity — hide any remaining empty slots (Issue: useless [Empty] rows).
+		renderSlots(lines, insertIndex, data.slots, context, data.mending);
 		insertIndex += data.slots.size() + 1;
 
 		// Bonus slots. Empty bonus slots are hidden entirely (they can never be
@@ -123,7 +124,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 	}
 
 	private void renderSlots(List<Text> lines, int startIndex, List<EquipmentComponent.EquipmentSlot> slots,
-			TooltipContext context) {
+			TooltipContext context, boolean hideEmpty) {
 		if (slots.isEmpty()) {
 			lines.add(startIndex, Text.literal("Enchantments: None").formatted(Formatting.GRAY));
 		} else {
@@ -131,6 +132,11 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 			for (int i = 0; i < slots.size(); i++) {
 				EquipmentComponent.EquipmentSlot slot = slots.get(i);
 				if (slot.isEmpty()) {
+					// When mending is active the item has exhausted every compatible
+					// enchantment (either all standard slots filled, or slotsComplete
+					// because no more enchantments can be added).  Advertising empty
+					// slots is misleading — there are no possible enchantments left.
+					if (hideEmpty) continue;
 					lines.add(startIndex + i + 1, Text.literal("  [Empty]").formatted(Formatting.DARK_GRAY));
 				} else {
 					String enchName = formatEnchantmentName(slot.enchantmentId, slot.enchantmentLevel, context);
