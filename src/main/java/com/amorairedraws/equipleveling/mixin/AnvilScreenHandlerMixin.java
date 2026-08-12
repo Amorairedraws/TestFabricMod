@@ -9,13 +9,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Completely disables the anvil for tracked equipment.
+ * Restricts the anvil to <b>renaming only</b> for tracked equipment.
  *
- * <p>Equipment progression (leveling, enchantment slots, repair) is owned
- * entirely by this mod: the custom enchanting-table offers and the Repair Kit /
- * Diamond Repair Kit recipes. Vanilla anvil interactions \u2014 material repair,
- * combining two items, applying enchanted books, and renaming \u2014 are all
- * turned off so they can never strip or duplicate a tracked item's data.
+ * <p>Equipment progression (leveling, enchantment slots, durability repair) is
+ * owned entirely by this mod: the custom enchanting-table offers and the Repair
+ * Kit / Diamond Repair Kit recipes. Material repair, combining two items, and
+ * applying enchanted books would all strip or duplicate a tracked item's data,
+ * so they are turned off. Renaming is harmless \\u2014 it only writes the vanilla
+ * {@code CUSTOM_NAME} component, which the rest of the mod (leveling, legendary
+ * material promotion, and Repair Kit repair) already preserves verbatim.
  */
 @Mixin(AnvilScreenHandler.class)
 public abstract class AnvilScreenHandlerMixin {
@@ -25,8 +27,11 @@ public abstract class AnvilScreenHandlerMixin {
         ItemStack left = handler.getSlot(0).getStack();
         ItemStack right = handler.getSlot(1).getStack();
 
-        // If either input slot holds tracked equipment, produce no output.
-        if (EquipmentComponent.isTracked(left) || EquipmentComponent.isTracked(right)) {
+        // A tracked item in the second slot is always a material / combine /
+        // enchanted-book source, never a rename. A tracked item in the first slot
+        // is only legal when the second slot is empty (a pure rename).
+        if (EquipmentComponent.isTracked(right)
+                || (EquipmentComponent.isTracked(left) && !right.isEmpty())) {
             handler.getSlot(2).setStack(ItemStack.EMPTY);
             ci.cancel();
         }

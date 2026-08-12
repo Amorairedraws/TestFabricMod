@@ -39,6 +39,10 @@ A comprehensive equipment leveling system for Minecraft Java Edition 1.21.11. Th
 - Items only show enchantment glint when ready to level up
 - Glint disappears immediately after leveling
 
+### Anvil
+- Anvil is **rename-only** for leveled equipment: material repair, combining, and enchanted books are disabled
+- A custom name is preserved through leveling, material promotion, and Repair Kit repairs
+
 ### Loot Integration
 - Enchanted loot spawns with 1-2 bonus slots (gold-prefixed)
 - Bonus slots are upgradeable like standard slots

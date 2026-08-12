@@ -133,9 +133,10 @@ Found enchanted loot is therefore always meaningfully ahead of freshly crafted g
 
 ---
 
-### Anvil: Fully Disabled
-- Tracked equipment cannot be used in the anvil at all: no material repair, no combining, no enchanted-book application, and no renaming (the result slot is always emptied)
-- This keeps the custom data component, level, XP, slots and name authoritative at all times
+### Anvil: Rename Only
+- Material repair, combining two items, and applying enchanted books are all blocked for tracked equipment (the result slot is emptied)
+- Renaming is the only anvil operation allowed, and it only writes the vanilla `CUSTOM_NAME` component
+- The name survives leveling, legendary material promotion, and Repair Kit repair, so a renamed item keeps its name permanently
 
 ### Repair Kits
 - **Repair Kit** (copper + iron + flint + leather): crafting-grid repair that restores a flat amount of durability (default 100, configurable)
