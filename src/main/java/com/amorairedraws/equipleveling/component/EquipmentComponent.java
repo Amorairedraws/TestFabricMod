@@ -219,10 +219,7 @@ public final class EquipmentComponent {
     }
 
     /** Builds the mirrored vanilla ENCHANTMENTS component from the custom slot
-     * data, regardless of the broken flag. Used by the anvil so a broken item
-     * can be repaired (vanilla bails out of updateResult when canHaveEnchantments
-     * is false, which the broken mechanic otherwise makes true by removing the
-     * component). */
+     * data, regardless of the broken flag. */
     private static ItemEnchantmentsComponent buildEnchantmentsComponent(EquipmentData data,
             net.minecraft.registry.RegistryEntryLookup<net.minecraft.enchantment.Enchantment> enchantmentLookup) {
         ItemEnchantmentsComponent.Builder builder = new ItemEnchantmentsComponent.Builder(ItemEnchantmentsComponent.DEFAULT);
@@ -231,17 +228,6 @@ public final class EquipmentComponent {
         if (data.mending) addEnchantment(builder, enchantmentLookup,
                 new EquipmentSlot("minecraft:mending", 1));
         return builder.build();
-    }
-
-    /** Temporarily restores the vanilla ENCHANTMENTS component on a broken item
-     * so vanilla's anvil repair path (which requires canHaveEnchantments() to be
-     * true) can run. We only need the component to be *present* for the repair
-     * branch to be reached; the actual enchantments are rebuilt by onTakeOutput
-     * after the material repair completes. Using an empty component avoids the
-     * need for a registry lookup here. */
-    public static void restoreEnchantmentsForRepair(ItemStack stack) {
-        if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE)) return;
-        stack.set(DataComponentTypes.ENCHANTMENTS, ItemEnchantmentsComponent.DEFAULT);
     }
 
     private static void addEnchantment(ItemEnchantmentsComponent.Builder builder,
@@ -265,27 +251,6 @@ public final class EquipmentComponent {
             stack.remove(DataComponentTypes.ENCHANTMENTS);
             stack.set(EQUIPMENT_TYPE, data);
         }
-    }
-
-    /** Repairs an equipment stack with a material at an anvil. Returns false when
-     * the item is not one of ours or the supplied material is not accepted. */
-    public static boolean repair(ItemStack stack, int restoredDamage) {
-        if (!isTracked(stack) || !stack.contains(EQUIPMENT_TYPE) || !stack.isDamageable()) return false;
-        EquipmentData data = stack.get(EQUIPMENT_TYPE);
-        if (!data.broken && stack.getDamage() <= 0) return false;
-        stack.setDamage(Math.max(0, stack.getDamage() - Math.max(1, restoredDamage)));
-        data.broken = false;
-        data.refresh(EquipmentCategory.getCategory(stack));
-        stack.set(EQUIPMENT_TYPE, data);
-        return true;
-    }
-
-    public static int repairCost(ItemStack stack) {
-        EquipmentData data = stack.get(EQUIPMENT_TYPE);
-        if (data == null) return 0;
-        long cost = (long) EquipLevelingConfig.getAnvilBaseCost()
-                + (long) data.level * EquipLevelingConfig.getAnvilPerLevelCost();
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, cost));
     }
 
     public static final class EquipmentData {

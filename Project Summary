@@ -49,8 +49,8 @@ When a piece of equipment's vanilla durability reaches zero:
 - XP accrual is halted
 - The item name gains a red `[BROKEN]` prefix
 - The item renderer applies a strong red tint to the item sprite via Mixin, making it visually distinct at a glance
-- Tooltip shows "Broken — repair at an Anvil"
-- Repairing at an Anvil with the appropriate material removes the `broken` flag, restores the normal amount of durability, and resumes normal function. Repair cost scales with item level (see Anvil Changes).
+- Tooltip shows "Broken — repair with a Repair Kit"
+- Repairing with a Repair Kit (or Diamond Repair Kit) in a crafting grid removes the `broken` flag, restores durability, and resumes normal function (see Repair Kits).
 
 ---
 
@@ -133,12 +133,15 @@ Found enchanted loot is therefore always meaningfully ahead of freshly crafted g
 
 ---
 
-### Anvil Changes
-- Combining two equipment items is blocked (Mixin returns empty result)
-- Repairing with materials still works
-- Vanilla "too expensive" scaling (prior work penalty) is removed
-- Repair cost instead scales with item level — configurable base cost + flat increase per level
-- Repairing a `broken` item with materials removes the broken state and restores partial durability as normal
+### Anvil: Fully Disabled
+- Tracked equipment cannot be used in the anvil at all: no material repair, no combining, no enchanted-book application, and no renaming (the result slot is always emptied)
+- This keeps the custom data component, level, XP, slots and name authoritative at all times
+
+### Repair Kits
+- **Repair Kit** (copper + iron + flint + leather): crafting-grid repair that restores a flat amount of durability (default 100, configurable)
+- **Diamond Repair Kit** (diamond + iron + flint + leather): restores a percentage of max durability (default 50%, configurable)
+- Combining a kit with any damaged tracked equipment in a crafting grid returns a copy that preserves level, XP, slots, name and enchantments
+- A kit also clears the `broken` flag and rebuilds the mirrored vanilla enchantments
 
 ---
 
@@ -167,7 +170,8 @@ Found enchanted loot is therefore always meaningfully ahead of freshly crafted g
 - Legendary upgrade probability
 - Material tier upgrade ladder (ordered list — default Wood → Stone → Iron → Diamond → Netherite, gold excluded, editable)
 - Enchantment offer weights (upgrade vs new slot probability)
-- Anvil repair base cost and per-level cost increase
+- Repair Kit flat durability restore (default 100)
+- Diamond Repair Kit restore percentage (default 50)
 - Keep Leveled Equipment on Death toggle (default off)
 - Broken item mechanic toggle (default on)
 

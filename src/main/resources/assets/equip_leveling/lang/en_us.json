@@ -40,10 +40,7 @@
   "equip_leveling.config.keep_on_death.tooltip": "When on, leveled equipment stays in your inventory when you die. Other items still drop.",
   "equip_leveling.config.broken_mechanic": "Items break instead of vanishing",
   "equip_leveling.config.broken_mechanic.tooltip": "When an item reaches zero durability it becomes [BROKEN] and stops working instead of disappearing. Repair it at an anvil.",
-  "equip_leveling.config.anvil_base": "Anvil base price",
-  "equip_leveling.config.anvil_base.tooltip": "XP levels charged to repair an item at an anvil, before its level is added.",
-  "equip_leveling.config.anvil_per_level": "Anvil price per item level",
-  "equip_leveling.config.anvil_per_level.tooltip": "Extra XP levels added to the anvil price for every level the item has.",
+
 
   "equip_leveling.config.source_mult.mob": "Mob kills",
   "equip_leveling.config.source_mult.mob.tooltip": "XP multiplier for killing hostile mobs. Uses a danger formula based on health, attack damage, and armor.",

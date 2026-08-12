@@ -83,10 +83,6 @@ public class EquipLevelingConfig {
     private static double newSlotWeight = 0.4;
     private static double legendaryWeight = 0.05;
 
-    // Anvil costs.
-    private static int anvilBaseCost = 1;
-    private static int anvilPerLevelCost = 1;
-
     // Toggles.
     private static boolean keepEquipOnDeath = false;
     private static boolean enableBrokenMechanic = true;
@@ -269,8 +265,7 @@ public class EquipLevelingConfig {
         upgradeWeight = getDouble(json, "upgradeWeight", 0.6);
         newSlotWeight = getDouble(json, "newSlotWeight", 0.4);
         legendaryWeight = getDouble(json, "legendaryWeight", 0.05);
-        anvilBaseCost = getInt(json, "anvilBaseCost", 1);
-        anvilPerLevelCost = getInt(json, "anvilPerLevelCost", 1);
+
         keepEquipOnDeath = getBool(json, "keepEquipOnDeath", false);
         enableBrokenMechanic = getBool(json, "enableBrokenMechanic", true);
 
@@ -345,8 +340,7 @@ public class EquipLevelingConfig {
         upgradeWeight = Math.max(0, upgradeWeight);
         newSlotWeight = Math.max(0, newSlotWeight);
         legendaryWeight = Math.max(0, legendaryWeight);
-        anvilBaseCost = Math.max(0, anvilBaseCost);
-        anvilPerLevelCost = Math.max(0, anvilPerLevelCost);
+
         for (int i = 0; i < rerollCosts.length; i++) rerollCosts[i] = Math.max(0, rerollCosts[i]);
         if (materialLadder.isEmpty()) initDefaults();
         if (maxSlots.isEmpty()) initDefaults();
@@ -403,8 +397,7 @@ public class EquipLevelingConfig {
         json.addProperty("upgradeWeight", upgradeWeight);
         json.addProperty("newSlotWeight", newSlotWeight);
         json.addProperty("legendaryWeight", legendaryWeight);
-        json.addProperty("anvilBaseCost", anvilBaseCost);
-        json.addProperty("anvilPerLevelCost", anvilPerLevelCost);
+
         json.addProperty("keepEquipOnDeath", keepEquipOnDeath);
         json.addProperty("enableBrokenMechanic", enableBrokenMechanic);
 
@@ -554,8 +547,7 @@ public class EquipLevelingConfig {
     public static double getUpgradeWeight() { return upgradeWeight; }
     public static double getNewSlotWeight() { return newSlotWeight; }
     public static double getLegendaryWeight() { return legendaryWeight; }
-    public static int getAnvilBaseCost() { return anvilBaseCost; }
-    public static int getAnvilPerLevelCost() { return anvilPerLevelCost; }
+
     public static boolean isKeepEquipOnDeath() { return keepEquipOnDeath; }
     public static boolean isBrokenMechanicEnabled() { return enableBrokenMechanic; }
 
@@ -647,11 +639,7 @@ public class EquipLevelingConfig {
         save();
     }
 
-    public static void setAnvilCosts(int base, int perLevel) {
-        anvilBaseCost = Math.max(0, base);
-        anvilPerLevelCost = Math.max(0, perLevel);
-        save();
-    }
+
 
     public static void setCustomBlockXp(Map<String, Integer> map) {
         customBlockXp.clear();

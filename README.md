@@ -25,8 +25,7 @@ A comprehensive equipment leveling system for Minecraft Java Edition 1.21.11. Th
 - Items break when durability reaches zero
 - Broken items gain red `[BROKEN]` prefix and red tint
 - Enchantment effects suppressed
-- Repair at Anvil with materials to restore and remove broken state
-- Repair cost scales with item level
+- Repair with a Repair Kit (or Diamond Repair Kit) in a crafting grid to restore and remove broken state
 
 ### Enchanting Interface
 - Custom enchanting table with 3 weighted offers:
@@ -53,7 +52,8 @@ A comprehensive equipment leveling system for Minecraft Java Edition 1.21.11. Th
 - Reroll costs per slot count
 - Material tier ladder
 - Enchantment offer weights
-- Anvil repair costs
+- Repair Kit flat durability restore
+- Diamond Repair Kit restore percentage
 - Keep equipment on death toggle
 - Broken mechanic toggle
 

@@ -78,7 +78,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 
 		// Broken state
 		if (data.broken) {
-			lines.add(insertIndex, Text.literal("Broken \u2014 repair at an Anvil").formatted(Formatting.RED));
+			lines.add(insertIndex, Text.literal("Broken \u2014 repair with a Repair Kit").formatted(Formatting.RED));
 		}
 	}
 

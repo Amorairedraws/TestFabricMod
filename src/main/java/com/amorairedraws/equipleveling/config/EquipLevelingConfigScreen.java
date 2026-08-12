@@ -123,22 +123,6 @@ public final class EquipLevelingConfigScreen {
                         .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(5))
                         .available(canEdit)
                         .build())
-                .option(Option.<Integer>createBuilder()
-                        .name(Text.translatable("equip_leveling.config.anvil_base"))
-                        .description(OptionDescription.of(Text.translatable("equip_leveling.config.anvil_base.tooltip")))
-                        .binding(1, EquipLevelingConfig::getAnvilBaseCost,
-                                v -> EquipLevelingConfig.setAnvilCosts(v, EquipLevelingConfig.getAnvilPerLevelCost()))
-                        .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(0, Integer.MAX_VALUE))
-                        .available(canEdit)
-                        .build())
-                .option(Option.<Integer>createBuilder()
-                        .name(Text.translatable("equip_leveling.config.anvil_per_level"))
-                        .description(OptionDescription.of(Text.translatable("equip_leveling.config.anvil_per_level.tooltip")))
-                        .binding(1, EquipLevelingConfig::getAnvilPerLevelCost,
-                                v -> EquipLevelingConfig.setAnvilCosts(EquipLevelingConfig.getAnvilBaseCost(), v))
-                        .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(0, Integer.MAX_VALUE))
-                        .available(canEdit)
-                        .build())
                 .build();
 
         builder.group(advanced);
