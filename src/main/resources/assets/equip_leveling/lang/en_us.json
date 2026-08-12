@@ -1,4 +1,5 @@
 {
+  "item.equip_leveling.repair_kit": "Repair Kit",
   "equip_leveling.title": "Equip Leveling",
   "equip_leveling.config.title": "Equip Leveling Settings",
   "equip_leveling.config.category.general": "Start Here",
@@ -30,6 +31,8 @@
   "equip_leveling.config.xp_threshold.tooltip": "Only XP gains at or above this number show a floating message. Set to 0 to show everything.",
   "equip_leveling.config.durability_restore": "Durability restored on level up (%)",
   "equip_leveling.config.durability_restore.tooltip": "How much of the item's missing durability is repaired every time it levels up.",
+  "equip_leveling.config.repair_kit_restore": "Repair Kit restores (%)",
+  "equip_leveling.config.repair_kit_restore.tooltip": "How much durability a Repair Kit restores when combined with an item in a crafting grid. 100 = full repair.",
   "equip_leveling.config.keep_on_death": "Keep leveled items on death",
   "equip_leveling.config.keep_on_death.tooltip": "When on, leveled equipment stays in your inventory when you die. Other items still drop.",
   "equip_leveling.config.broken_mechanic": "Items break instead of vanishing",

@@ -110,6 +110,13 @@ public final class EquipLevelingConfigScreen {
                         .available(canEdit)
                         .build())
                 .option(Option.<Integer>createBuilder()
+                        .name(Text.translatable("equip_leveling.config.repair_kit_restore"))
+                        .description(OptionDescription.of(Text.translatable("equip_leveling.config.repair_kit_restore.tooltip")))
+                        .binding(100, EquipLevelingConfig::getRepairKitRestorePercent, EquipLevelingConfig::setRepairKitRestorePercent)
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(5))
+                        .available(canEdit)
+                        .build())
+                .option(Option.<Integer>createBuilder()
                         .name(Text.translatable("equip_leveling.config.anvil_base"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.anvil_base.tooltip")))
                         .binding(1, EquipLevelingConfig::getAnvilBaseCost,

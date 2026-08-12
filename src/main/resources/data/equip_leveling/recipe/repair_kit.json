@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:copper_ingot",
+    "minecraft:iron_ingot",
+    "minecraft:flint"
+  ],
+  "result": {
+    "count": 1,
+    "id": "equip_leveling:repair_kit"
+  }
+}

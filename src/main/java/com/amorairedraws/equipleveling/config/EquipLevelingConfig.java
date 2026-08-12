@@ -60,6 +60,9 @@ public class EquipLevelingConfig {
     // Durability restored on level-up, as a percentage of max durability.
     private static int durabilityRestorePercent = 25;
 
+    // Percentage of max durability restored by a Repair Kit (crafting-grid repair).
+    private static int repairKitRestorePercent = 100;
+
     // Reroll costs indexed by number of filled standard slots (0..4).
     private static int[] rerollCosts = {5, 10, 15, 20, 25};
 
@@ -258,6 +261,7 @@ public class EquipLevelingConfig {
         // Simple fields
         xpDisplayThreshold = getInt(json, "xpDisplayThreshold", 10);
         durabilityRestorePercent = getInt(json, "durabilityRestorePercent", 25);
+        repairKitRestorePercent = getInt(json, "repairKitRestorePercent", 100);
         legendaryUpgradeProbability = getDouble(json, "legendaryUpgradeProbability", 0.05);
         upgradeWeight = getDouble(json, "upgradeWeight", 0.6);
         newSlotWeight = getDouble(json, "newSlotWeight", 0.4);
@@ -332,6 +336,7 @@ public class EquipLevelingConfig {
         globalXpGainMultiplier = clamp(globalXpGainMultiplier, 0.1, 10.0);
         xpDisplayThreshold = Math.max(0, xpDisplayThreshold);
         durabilityRestorePercent = clamp(durabilityRestorePercent, 0, 100);
+        repairKitRestorePercent = clamp(repairKitRestorePercent, 0, 100);
         legendaryUpgradeProbability = clamp(legendaryUpgradeProbability, 0.0, 1.0);
         upgradeWeight = Math.max(0, upgradeWeight);
         newSlotWeight = Math.max(0, newSlotWeight);
@@ -380,6 +385,7 @@ public class EquipLevelingConfig {
 
         json.addProperty("xpDisplayThreshold", xpDisplayThreshold);
         json.addProperty("durabilityRestorePercent", durabilityRestorePercent);
+        json.addProperty("repairKitRestorePercent", repairKitRestorePercent);
         json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
         json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
 
@@ -432,6 +438,7 @@ public class EquipLevelingConfig {
     }
     public static int getXpDisplayThreshold() { return xpDisplayThreshold; }
     public static int getDurabilityRestorePercent() { return durabilityRestorePercent; }
+    public static int getRepairKitRestorePercent() { return repairKitRestorePercent; }
     public static int[] getRerollCosts() { return Arrays.copyOf(rerollCosts, rerollCosts.length); }
     public static double getLegendaryUpgradeProbability() { return legendaryUpgradeProbability; }
 
@@ -589,6 +596,7 @@ public class EquipLevelingConfig {
 
     public static void setXpDisplayThreshold(int v) { xpDisplayThreshold = Math.max(0, v); save(); }
     public static void setDurabilityRestorePercent(int v) { durabilityRestorePercent = clamp(v, 0, 100); save(); }
+    public static void setRepairKitRestorePercent(int v) { repairKitRestorePercent = clamp(v, 0, 100); save(); }
     public static void setKeepEquipOnDeath(boolean v) { keepEquipOnDeath = v; save(); }
     public static void setBrokenMechanicEnabled(boolean v) { enableBrokenMechanic = v; save(); }
 
