@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.item.ModItems;
-import com.amorairedraws.equipleveling.recipe.RepairKitRecipe;
+import com.amorairedraws.equipleveling.recipe.RepairEquipmentRecipe;
 import com.amorairedraws.equipleveling.event.EquipmentXpEvents;
 import com.amorairedraws.equipleveling.event.ArmorXpHandler;
 import com.amorairedraws.equipleveling.event.DeathEventHandler;
@@ -48,7 +48,7 @@ public class EquipLevelingMod implements ModInitializer {
 
         // Register custom items and recipes (repair kit).
         ModItems.init();
-        RepairKitRecipe.init();
+        RepairEquipmentRecipe.init();
 
         // Register config sync packet (S2C).
         PayloadTypeRegistry.playS2C().register(ConfigSyncPacket.ID, ConfigSyncPacket.CODEC);

@@ -10,10 +10,17 @@ import net.minecraft.util.Identifier;
 public final class ModItems {
     /**
      * Repair Kit \u2014 combine with damaged equipment in a crafting grid to
-     * restore durability without touching the item's level, XP, enchantment
-     * slots or any other data.
+     * restore a flat amount of durability without touching the item's level,
+     * XP, enchantment slots or any other data.
      */
     public static final Item REPAIR_KIT = register("repair_kit",
+            new Item(new Item.Settings().maxCount(16)));
+
+    /**
+     * Diamond Repair Kit \u2014 premium variant that restores a percentage of
+     * max durability (50% by default) while preserving all equipment data.
+     */
+    public static final Item DIAMOND_REPAIR_KIT = register("diamond_repair_kit",
             new Item(new Item.Settings().maxCount(16)));
 
     private ModItems() {}

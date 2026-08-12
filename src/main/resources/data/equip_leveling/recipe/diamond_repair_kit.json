@@ -2,13 +2,13 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    "minecraft:copper_ingot",
+    "minecraft:diamond",
     "minecraft:iron_ingot",
     "minecraft:flint",
     "minecraft:leather"
   ],
   "result": {
     "count": 1,
-    "id": "equip_leveling:repair_kit"
+    "id": "equip_leveling:diamond_repair_kit"
   }
 }
