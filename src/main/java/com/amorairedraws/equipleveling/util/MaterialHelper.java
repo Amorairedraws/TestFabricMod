@@ -1,7 +1,6 @@
 package com.amorairedraws.equipleveling.util;
 
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
@@ -62,41 +61,13 @@ public final class MaterialHelper {
     }
 
     /**
-     * Auto-detects a material ladder by scanning all registered equipment items
-     * and extracting their material names. Mining levels are guessed from known
-     * vanilla values; unknown materials get progressively higher levels.
+     * Auto-detects a material ladder. This now returns the <b>effective</b>
+     * ladder: the persisted config ladder merged with the quality-based
+     * auto-derived fallback layer (see {@link MaterialTierDeriver}), so the
+     * editor's "Auto-Detect from Registry" button shows the full picture.
      */
     public static Map<Integer, List<String>> detectMaterialLadder() {
-        Map<Integer, Set<String>> detected = new TreeMap<>();
-
-        for (Item item : Registries.ITEM) {
-            if (!EquipmentCategory.isEquipment(new ItemStack(item))) continue;
-
-            String materialName = extractMaterialName(item);
-            if (materialName == null) continue;
-
-            int miningLevel = guessMiningLevel(materialName);
-            if (miningLevel < 0) {
-                // Unknown material: place in a high level.
-                miningLevel = 99 + detected.size();
-            }
-
-            detected.computeIfAbsent(miningLevel, k -> new LinkedHashSet<>()).add(materialName);
-        }
-
-        // Ensure vanilla levels exist.
-        for (int i = 0; i <= 4; i++) {
-            detected.computeIfAbsent(i, k -> new LinkedHashSet<>());
-        }
-
-        Map<Integer, List<String>> result = new LinkedHashMap<>();
-        for (Map.Entry<Integer, Set<String>> e : detected.entrySet()) {
-            List<String> mats = new ArrayList<>(e.getValue());
-            mats.sort(String::compareToIgnoreCase);
-            result.put(e.getKey(), mats);
-        }
-
-        return result;
+        return com.amorairedraws.equipleveling.config.EquipLevelingConfig.getMaterialLadder();
     }
 
     /** Extracts the material name from an item's registry id.

@@ -134,15 +134,13 @@ public final class MaterialTierUpgrader {
     private static Item itemFor(String category, String tier, Item oldItem) {
         String t = tier == null ? "" : tier.toLowerCase();
 
-        // Try vanilla items first.
-        Item vanilla = vanillaItem(category, t);
-        if (vanilla != null) return vanilla;
-
-        // Try modded: <material>_<suffix> in the same namespace as the old item.
+        // Preserve the old item's subtype: a greatsword stays a greatsword.
+        // Resolve <material>_<suffix> in the old item's own namespace first.
         Identifier oldId = Registries.ITEM.getId(oldItem);
         String path = oldId.getPath();
         int separator = path.indexOf('_');
         String suffix = separator >= 0 ? path.substring(separator + 1) : category;
+
         Identifier candidate = Identifier.of(oldId.getNamespace(), t + "_" + suffix);
         if (Registries.ITEM.containsId(candidate)) return Registries.ITEM.get(candidate);
 
@@ -150,7 +148,8 @@ public final class MaterialTierUpgrader {
         candidate = Identifier.ofVanilla(t + "_" + suffix);
         if (Registries.ITEM.containsId(candidate)) return Registries.ITEM.get(candidate);
 
-        return null;
+        // Vanilla hard-coded fallback (handles wood->wooden, gold->golden, armour).
+        return vanillaItem(category, t);
     }
 
     private static Item vanillaItem(String category, String tier) {

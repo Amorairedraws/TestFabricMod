@@ -69,6 +69,10 @@ public class EquipLevelingConfig {
     // Mining-level → materials map for the material ladder.
     private static Map<Integer, List<String>> materialLadder = new LinkedHashMap<>();
 
+    // Cached effective ladder: the persisted ladder merged with the auto-derived
+    // fallback layer. Rebuilt lazily and dropped whenever either layer changes.
+    private static volatile Map<Integer, List<String>> effectiveLadderCache = null;
+
     // Offer weights for the enchanting table.
     private static double upgradeWeight = 0.6;
     private static double newSlotWeight = 0.4;
@@ -320,6 +324,7 @@ public class EquipLevelingConfig {
 
         // Validate
         validate();
+        invalidateMaterialCache();
     }
 
     private static void validate() {
@@ -430,7 +435,9 @@ public class EquipLevelingConfig {
     public static int[] getRerollCosts() { return Arrays.copyOf(rerollCosts, rerollCosts.length); }
     public static double getLegendaryUpgradeProbability() { return legendaryUpgradeProbability; }
 
-    public static Map<Integer, List<String>> getMaterialLadder() {
+    /** The persisted (config-file) ladder, before any auto-derived fallback is
+     *  merged in. Used by {@code MaterialTierDeriver} to locate anchor levels. */
+    public static Map<Integer, List<String>> getConfiguredMaterialLadder() {
         Map<Integer, List<String>> copy = new LinkedHashMap<>();
         for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
             copy.put(e.getKey(), new ArrayList<>(e.getValue()));
@@ -438,15 +445,27 @@ public class EquipLevelingConfig {
         return copy;
     }
 
+    /** The effective ladder: the persisted ladder merged with the auto-derived
+     *  fallback layer. Config entries always win; derived materials only fill
+     *  levels the config does not already define. */
+    public static Map<Integer, List<String>> getMaterialLadder() {
+        Map<Integer, List<String>> effective = effectiveLadder();
+        Map<Integer, List<String>> copy = new LinkedHashMap<>();
+        for (Map.Entry<Integer, List<String>> e : effective.entrySet()) {
+            copy.put(e.getKey(), new ArrayList<>(e.getValue()));
+        }
+        return copy;
+    }
+
     public static List<String> getMaterialsForLevel(int level) {
-        List<String> mats = materialLadder.get(level);
+        List<String> mats = effectiveLadder().get(level);
         return mats == null ? List.of() : List.copyOf(mats);
     }
 
     public static int getMiningLevel(String material) {
         if (material == null || material.isBlank()) return -1;
         String m = material.trim().toLowerCase();
-        for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
+        for (Map.Entry<Integer, List<String>> e : effectiveLadder().entrySet()) {
             if (e.getValue().stream().anyMatch(s -> s.equalsIgnoreCase(m))) return e.getKey();
         }
         return -1;
@@ -455,9 +474,68 @@ public class EquipLevelingConfig {
     public static List<String> getNextLevelMaterials(String material) {
         int level = getMiningLevel(material);
         if (level < 0) return List.of();
-        Integer nextLevel = materialLadder.keySet().stream()
+        Integer nextLevel = effectiveLadder().keySet().stream()
                 .filter(l -> l > level).min(Integer::compareTo).orElse(null);
         return nextLevel == null ? List.of() : getMaterialsForLevel(nextLevel);
+    }
+
+    // ================================================================== //
+    // Effective ladder (merge)                                             //
+    // ================================================================== //
+
+    /** Merges the persisted ladder with the auto-derived fallback layer. */
+    private static Map<Integer, List<String>> effectiveLadder() {
+        Map<Integer, List<String>> cached = effectiveLadderCache;
+        if (cached == null) {
+            synchronized (EquipLevelingConfig.class) {
+                cached = effectiveLadderCache;
+                if (cached == null) {
+                    cached = mergeLadders(materialLadder,
+                            com.amorairedraws.equipleveling.util.MaterialTierDeriver.getDerivedLadder());
+                    effectiveLadderCache = cached;
+                }
+            }
+        }
+        return cached;
+    }
+
+    private static Map<Integer, List<String>> mergeLadders(
+            Map<Integer, List<String>> config, Map<Integer, List<String>> derived) {
+        Map<Integer, List<String>> merged = new LinkedHashMap<>();
+        Set<String> present = new LinkedHashSet<>();
+
+        // Layer A: persisted config (always wins).
+        for (Map.Entry<Integer, List<String>> e : config.entrySet()) {
+            List<String> mats = new ArrayList<>();
+            for (String m : e.getValue()) {
+                String clean = m.trim().toLowerCase();
+                if (clean.isBlank()) continue;
+                if (present.add(clean)) mats.add(clean);
+            }
+            if (!mats.isEmpty()) merged.put(e.getKey(), mats);
+        }
+
+        // Layer B: auto-derived fallback (only fills gaps).
+        for (Map.Entry<Integer, List<String>> e : derived.entrySet()) {
+            List<String> mats = merged.computeIfAbsent(e.getKey(), k -> new ArrayList<>());
+            for (String m : e.getValue()) {
+                String clean = m.trim().toLowerCase();
+                if (clean.isBlank()) continue;
+                if (present.add(clean)) mats.add(clean);
+            }
+        }
+
+        return merged;
+    }
+
+    /** Drops the cached effective ladder so it is rebuilt from the current
+     *  config + derived layers. Called on config load/edit and by lifecycle
+     *  hooks after the item registry/tags settle. */
+    public static void invalidateMaterialCache() {
+        synchronized (EquipLevelingConfig.class) {
+            effectiveLadderCache = null;
+        }
+        com.amorairedraws.equipleveling.util.MaterialTierDeriver.invalidate();
     }
 
     public static double getUpgradeWeight() { return upgradeWeight; }
@@ -538,6 +616,7 @@ public class EquipLevelingConfig {
             }
         }
         if (materialLadder.isEmpty()) initDefaults();
+        invalidateMaterialCache();
         save();
     }
 
@@ -581,8 +660,9 @@ public class EquipLevelingConfig {
     @Deprecated
     public static String[] getMaterialTiers() {
         List<String> flat = new ArrayList<>();
-        materialLadder.keySet().stream().sorted().forEach(level ->
-                flat.addAll(materialLadder.get(level)));
+        Map<Integer, List<String>> effective = effectiveLadder();
+        effective.keySet().stream().sorted().forEach(level ->
+                flat.addAll(effective.get(level)));
         return flat.toArray(new String[0]);
     }
 
@@ -598,6 +678,7 @@ public class EquipLevelingConfig {
             }
         }
         if (materialLadder.isEmpty()) initDefaults();
+        invalidateMaterialCache();
         save();
     }
 
