@@ -117,7 +117,12 @@ public final class MaterialLadderScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx, mouseX, mouseY, delta);
+        // Draw a plain translucent dim instead of renderBackground(): vanilla's
+        // renderBackground() applies the "menu blur" effect, which throws
+        // "Can only blur once per frame" when YACL's config screen has already
+        // blurred the background this frame (Sodium/Iris + vanilla accessibility
+        // blur). A flat fill gives the same dimming with no blur at all.
+        ctx.fill(0, 0, width, height, 0xC0101010);
         ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFF);
         super.render(ctx, mouseX, mouseY, delta);
 
