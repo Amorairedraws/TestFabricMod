@@ -1,6 +1,7 @@
 package com.amorairedraws.equipleveling;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -34,6 +35,11 @@ public class EquipLevelingMod implements ModInitializer {
 
         // Load config — auto-generates block XP defaults on first run.
         EquipLevelingConfig.load();
+
+        // Recompute the auto-derived material ladder once the item registry and
+        // tags are settled (also covers mid-session datapack /reload).
+        ServerLifecycleEvents.SERVER_STARTING.register(server ->
+                EquipLevelingConfig.invalidateMaterialCache());
 
         // Register data component for equipment tracking.
         EquipmentComponent.register();

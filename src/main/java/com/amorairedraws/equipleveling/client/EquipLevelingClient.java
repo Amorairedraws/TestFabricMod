@@ -7,6 +7,7 @@ import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.network.ConfigSyncPacket;
 import com.amorairedraws.equipleveling.screen.VanillaEnchantingTableLogic;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -25,6 +26,11 @@ public class EquipLevelingClient implements ClientModInitializer {
     public void onInitializeClient() {
         new EquipmentTooltipRenderer().register();
         new BrokenItemRenderer().register();
+
+        // Recompute the auto-derived material ladder once the client registry is
+        // settled (singleplayer: the item registry + tags are ready here).
+        ClientLifecycleEvents.CLIENT_STARTED.register(client ->
+                EquipLevelingConfig.invalidateMaterialCache());
 
         // Receive server config sync. When we join a multiplayer server, the
         // server sends us its config. We switch to a per-server config file so
