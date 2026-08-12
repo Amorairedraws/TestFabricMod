@@ -72,12 +72,34 @@ public final class MaterialHelper {
 
     /** Extracts the material name from an item's registry id.
      *  "minecraft:wooden_sword" → "wood", "modid:bronze_pickaxe" → "bronze". */
+    /** Equipment-category suffixes, longest first so multi-part names strip correctly. */
+    private static final String[] CATEGORY_SUFFIXES = {
+            "fishing_rod", "chestplate", "leggings", "pickaxe", "crossbow",
+            "shovel", "helmet", "boots", "sword", "axe", "hoe", "bow"
+    };
+
     public static String extractMaterialName(Item item) {
+        if (item == null) return null;
         String path = Registries.ITEM.getId(item).getPath();
-        int separator = path.indexOf('_');
-        if (separator < 1) return path;
-        String prefix = path.substring(0, separator);
-        return "wooden".equalsIgnoreCase(prefix) ? "wood" : prefix;
+        String stripped = stripCategorySuffix(path);
+        if (stripped.isEmpty()) return path;
+        return switch (stripped) {
+            case "wooden" -> "wood";
+            case "golden" -> "gold";
+            default -> stripped;
+        };
+    }
+
+    /** Removes a known equipment-category suffix from an item path, if present. */
+    public static String stripCategorySuffix(String path) {
+        if (path == null) return null;
+        for (String suffix : CATEGORY_SUFFIXES) {
+            String marker = "_" + suffix;
+            if (path.endsWith(marker)) {
+                return path.substring(0, path.length() - marker.length());
+            }
+        }
+        return path;
     }
 
     /** Guesses the mining level of a material name using known vanilla values. */

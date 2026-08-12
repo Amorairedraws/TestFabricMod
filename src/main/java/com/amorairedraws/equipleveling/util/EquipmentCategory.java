@@ -2,13 +2,26 @@ package com.amorairedraws.equipleveling.util;
 
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.AttributeModifiersComponent;
+import net.minecraft.component.type.EquippableComponent;
+import net.minecraft.component.type.ToolComponent;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.item.BowItem;
+import net.minecraft.item.CrossbowItem;
+import net.minecraft.item.FishingRodItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.item.RangedWeaponItem;
+import net.minecraft.item.TridentItem;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.registry.tag.TagKey;
+import net.minecraft.block.Block;
 import net.minecraft.util.Identifier;
+
+import java.util.Optional;
 
 /**
  * Maps an item to one of the mod's equipment categories (sword, axe, pickaxe,
@@ -25,9 +38,17 @@ import net.minecraft.util.Identifier;
  *       {@code c:tools/spears}, {@code c:armors}, {@code c:tools}) - these are
  *       the ecosystem-standard tags that most mods add their items to, so a
  *       modded greatsword, battleaxe, hammer or spear is picked up here.</li>
+ *   <li><b>Class/component fallback</b> - 1.21.11 flattened swords, pickaxes and
+ *       armour into plain {@link net.minecraft.item.Item} instances, so there are
+ *       no {@code SwordItem}/{@code PickaxeItem}/{@code ArmorItem} subclasses to
+ *       test. Instead we inspect the item's own data components: the
+ *       {@link ToolComponent} mining rules (which reference {@code BlockTags}
+ *       such as {@code PICKAXE_MINEABLE}), the {@link EquippableComponent} slot,
+ *       and the item class itself for fishing rods / bows / crossbows. This is
+ *       what makes a modded copper, ruby or emerald tool, or a modded fishing
+ *       rod, register as equipment without any hardcoding.</li>
  *   <li>Attribute-based fallback: any item that grants attack damage is a
- *       melee weapon, any item that grants armour is armour.  This catches
- *       items whose mods don't use tags at all.</li>
+ *       melee weapon, any item that grants armour is armour.</li>
  *   <li>The mod's own {@code upgradeable_equipment} tag as a final opt-in.</li>
  * </ol>
  */
@@ -62,26 +83,49 @@ public class EquipmentCategory {
                 || stack.getItem() == Items.BOW || stack.getItem() == Items.CROSSBOW) return "bow";
 
         // ---- 3. Fabric convention tags (modded equipment) ----
-        // Melee weapons: swords, axes, maces, greatswords, battleaxes, hammers...
         if (stack.isIn(cTag("tools/melee_weapons")) || stack.isIn(cTag("tools/melee_weapon"))) return "sword";
-        // Spears are melee weapons too.
         if (stack.isIn(cTag("tools/spears")) || stack.isIn(cTag("tools/spear"))) return "sword";
-        // Mining tools: pickaxes, hammers, drills...
         if (stack.isIn(cTag("tools/mining_tools")) || stack.isIn(cTag("tools/mining_tool"))) return "pickaxe";
-        // Ranged weapons: bows, crossbows, guns...
         if (stack.isIn(cTag("tools/ranged_weapons")) || stack.isIn(cTag("tools/ranged_weapon"))) return "bow";
-        // Generic armour tag.
         if (stack.isIn(cTag("armors")) || stack.isIn(cTag("armor"))) return "helmet";
-        // Any other tool (shears, shields, wrenches, brushes...) - still equipment.
         if (stack.isIn(cTag("tools"))) return "default";
 
-        // ---- 4. Attribute-based fallback ----
-        // Any item that grants attack damage is a melee weapon.
+        // ---- 4. Class/component fallback (modded items that skip tags) ----
+        if (stack.getItem() instanceof FishingRodItem) return "fishing_rod";
+        if (stack.getItem() instanceof TridentItem) return "sword";
+        if (stack.getItem() instanceof BowItem
+                || stack.getItem() instanceof CrossbowItem
+                || stack.getItem() instanceof RangedWeaponItem) return "bow";
+
+        // Armour via the equippable component slot (HEAD/CHEST/LEGS/FEET).
+        EquippableComponent equippable = stack.get(DataComponentTypes.EQUIPPABLE);
+        if (equippable != null) {
+            String armorCategory = switch (equippable.slot()) {
+                case HEAD -> "helmet";
+                case CHEST -> "chestplate";
+                case LEGS -> "leggings";
+                case FEET -> "boots";
+                default -> null;
+            };
+            if (armorCategory != null) return armorCategory;
+        }
+
+        // Tool category via the ToolComponent mining rules.
+        ToolComponent tool = stack.get(DataComponentTypes.TOOL);
+        if (tool != null) {
+            if (hasToolRule(tool, BlockTags.PICKAXE_MINEABLE)) return "pickaxe";
+            if (hasToolRule(tool, BlockTags.AXE_MINEABLE)) return "axe";
+            if (hasToolRule(tool, BlockTags.SHOVEL_MINEABLE)) return "shovel";
+            if (hasToolRule(tool, BlockTags.HOE_MINEABLE)) return "hoe";
+            if (hasToolRule(tool, BlockTags.SWORD_EFFICIENT)
+                    || hasToolRule(tool, BlockTags.SWORD_INSTANTLY_MINES)) return "sword";
+        }
+
+        // ---- 5. Attribute-based fallback ----
         if (hasAttribute(stack, EntityAttributes.ATTACK_DAMAGE)) return "sword";
-        // Any item that grants armour is armour.
         if (hasAttribute(stack, EntityAttributes.ARMOR)) return "helmet";
 
-        // ---- 5. Explicit opt-in tag ----
+        // ---- 6. Explicit opt-in tag ----
         if (stack.isIn(tag("upgradeable_equipment"))) return "default";
 
         return null;
@@ -92,11 +136,20 @@ public class EquipmentCategory {
     }
 
     /** True if the stack carries a modifier for the given attribute. */
-    private static boolean hasAttribute(ItemStack stack, net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.attribute.EntityAttribute> attribute) {
+    private static boolean hasAttribute(ItemStack stack, RegistryEntry<net.minecraft.entity.attribute.EntityAttribute> attribute) {
         AttributeModifiersComponent modifiers = stack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
         if (modifiers == null) return false;
         for (AttributeModifiersComponent.Entry entry : modifiers.modifiers()) {
             if (entry.attribute() == attribute) return true;
+        }
+        return false;
+    }
+
+    /** True if one of the tool's mining rules targets the given block tag. */
+    private static boolean hasToolRule(ToolComponent tool, TagKey<Block> blockTag) {
+        for (ToolComponent.Rule rule : tool.rules()) {
+            Optional<TagKey<Block>> key = rule.blocks().getTagKey();
+            if (key.isPresent() && key.get().equals(blockTag)) return true;
         }
         return false;
     }

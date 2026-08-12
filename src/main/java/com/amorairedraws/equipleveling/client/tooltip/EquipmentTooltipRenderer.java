@@ -20,7 +20,7 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 
 	@Override
 	public void getTooltip(ItemStack stack, TooltipContext context, TooltipType type, List<Text> lines) {
-		if (!EquipmentCategory.isEquipment(stack) || !stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
+		if (!EquipmentCategory.isEquipment(stack)) {
 			return;
 		}
 

@@ -123,11 +123,7 @@ public final class MaterialTierUpgrader {
     }
 
     private static String materialOf(Item item) {
-        String path = Registries.ITEM.getId(item).getPath();
-        int sep = path.indexOf('_');
-        if (sep < 1) return path;
-        String prefix = path.substring(0, sep);
-        return "wooden".equalsIgnoreCase(prefix) ? "wood" : prefix;
+        return MaterialHelper.extractMaterialName(item);
     }
 
     /** Finds the item for a given material + category combination. */

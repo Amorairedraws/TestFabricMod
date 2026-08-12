@@ -31,7 +31,7 @@ public abstract class FishingBobberEntityMixin {
                 int baseXp = callback.getReturnValue() * 10;
                 double srcMult = EquipLevelingConfig.getSourceMultiplier("fishing");
                 int xp = XpCalculator.applyMultipliers(baseXp, srcMult);
-                if (!player.getEntityWorld().isClient() && EquipmentComponent.addXp(rod, xp)) {
+                if (!player.getEntityWorld().isClient() && EquipmentComponent.addXp(rod, xp, player)) {
                     com.amorairedraws.equipleveling.event.XpDisplay.showForPlayer(player, bobber.getEntityPos(), xp);
                 }
             }

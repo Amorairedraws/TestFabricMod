@@ -70,6 +70,11 @@
   "equip_leveling.config.material_ladder": "Material Ladder",
   "equip_leveling.config.material_ladder.button": "Edit Material Ladder...",
   "equip_leveling.config.material_ladder.tooltip": "Opens a dedicated editor where you can group materials by mining level and reorder them.",
+  "equip_leveling.config.material_ladder.title": "Material Ladder",
+  "equip_leveling.config.material_ladder.level": "Level %s",
+  "equip_leveling.config.material_ladder.add_level": "+ Add Level",
+  "equip_leveling.config.material_ladder.add_material": "+ Add Material",
+  "equip_leveling.config.material_ladder.auto_detect": "Auto-Detect from Registry",
 
   "equip_leveling.config.max_slots": "%s",
   "equip_leveling.config.max_slots.tooltip": "Maximum enchantment slots a %s can hold. Raise it to 8 for modded enchantments.",
