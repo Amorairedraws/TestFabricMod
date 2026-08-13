@@ -38,11 +38,12 @@ public class EquipLevelingClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPacket.ID, (payload, context) -> {
             context.client().execute(() -> {
                 var connection = context.client().getNetworkHandler();
-                if (connection != null) {
-                    String address = connection.getServerInfo() != null
-                            ? connection.getServerInfo().address
-                            : "unknown_server";
-                    EquipLevelingConfig.loadServerConfig(address, payload.json());
+                // In singleplayer the integrated server shares the same config instance
+                // as the client; switching to a per-server file would redirect saves away
+                // from config.json and lose changes on restart. Only switch for real
+                // multiplayer servers (which always have a ServerInfo entry).
+                if (connection != null && connection.getServerInfo() != null) {
+                    EquipLevelingConfig.loadServerConfig(connection.getServerInfo().address, payload.json());
                 }
             });
         });
@@ -89,15 +90,6 @@ public class EquipLevelingClient implements ClientModInitializer {
             });
             Screens.getButtons(screen).add(reroll);
             ScreenEvents.afterTick(screen).register(ignored -> reroll.active = canReroll(client, handler));
-        });
-
-        // Persist the config whenever the YACL config screen closes. Options use
-        // instant(true), so in-memory values are always current; saving on close
-        // guarantees the disk file reflects every tab, not just the last one viewed.
-        ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
-            if (screen instanceof dev.isxander.yacl3.gui.YACLScreen) {
-                ScreenEvents.remove(screen).register(s -> EquipLevelingConfig.save());
-            }
         });
     }
 

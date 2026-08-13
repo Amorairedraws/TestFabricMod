@@ -35,8 +35,8 @@ public abstract class CraftingResultSlotMixin {
             }
         }
         if (hasKit) {
-            player.getEntityWorld().playSound(null, player.getBlockPos(),
-                    SoundEvents.BLOCK_SMITHING_TABLE_USE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+            player.getEntityWorld().playSound(null, player.getX(), player.getY(), player.getZ(),
+                    SoundEvents.BLOCK_SMITHING_TABLE_USE, SoundCategory.MASTER, 1.0F, 1.0F);
         }
     }
 }

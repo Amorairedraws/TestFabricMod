@@ -236,9 +236,9 @@ public final class VanillaEnchantingTableLogic {
         // Issue 12: celebratory sound when an enchantment is applied. Played at
         // the player's position on the server so it reaches the client.
         if (player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld) {
-            serverWorld.playSound(null, player.getBlockPos(),
+            serverWorld.playSound(null, player.getX(), player.getY(), player.getZ(),
                     net.minecraft.sound.SoundEvents.ITEM_TRIDENT_RETURN,
-                    net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
+                    net.minecraft.sound.SoundCategory.MASTER, 1.0F, 2.0F);
         }
         // markDirty invokes the handler's regular content-change path, which
         // immediately creates the next server-synchronized set of offers.

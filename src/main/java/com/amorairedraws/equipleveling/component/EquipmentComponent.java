@@ -106,7 +106,7 @@ public final class EquipmentComponent {
         // level up. Only the server owns progression.
         if (!wasReady && data.readyToLevelUp && player != null
                 && player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld) {
-            serverWorld.playSound(null, player.getBlockPos(),
+            serverWorld.playSound(null, player.getX(), player.getY(), player.getZ(),
                     net.minecraft.sound.SoundEvents.BLOCK_AMETHYST_BLOCK_FALL,
                     net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
         }
@@ -272,9 +272,9 @@ public final class EquipmentComponent {
             // Play the vanilla item-break sound at normal pitch the moment the item
             // transitions into the broken state.
             if (player != null && player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld) {
-                serverWorld.playSound(null, player.getBlockPos(),
+                serverWorld.playSound(null, player.getX(), player.getY(), player.getZ(),
                         net.minecraft.sound.SoundEvents.ENTITY_ITEM_BREAK.value(),
-                        net.minecraft.sound.SoundCategory.PLAYERS, 1.0F, 1.0F);
+                        net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
             }
         }
     }
