@@ -6,6 +6,7 @@ import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.network.ConfigSyncPacket;
 import com.amorairedraws.equipleveling.screen.VanillaEnchantingTableLogic;
+import dev.isxander.yacl3.gui.YACLScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -14,6 +15,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.tab.Tab;
 import net.minecraft.client.gui.screen.ingame.EnchantmentScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.registry.RegistryKeys;
@@ -90,6 +92,25 @@ public class EquipLevelingClient implements ClientModInitializer {
             });
             Screens.getButtons(screen).add(reroll);
             ScreenEvents.afterTick(screen).register(ignored -> reroll.active = canReroll(client, handler));
+        });
+
+        // YACL creates a Save/Done (and Cancel/Reset/Undo) button for every config
+        // category (tab), but it only refreshes the *visible* tab's buttons when a
+        // value changes. Other tabs' buttons go stale, so "Save and Done" looks like
+        // it belongs to each tab individually. The pending-changes flag is actually
+        // global, so sync every tab's buttons each tick to keep them consistent.
+        ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
+            if (!(screen instanceof YACLScreen yacl)) return;
+            ScreenEvents.afterTick(screen).register(s -> {
+                // Don't overwrite YACL's transient "save before exit" reminder (shown
+                // after pressing ESC with unsaved changes) with a regular button label.
+                if (yacl.saveButtonMessage != null) return;
+                for (Tab tab : yacl.tabNavigationBar.getTabs()) {
+                    if (tab instanceof YACLScreen.CategoryTab categoryTab) {
+                        categoryTab.updateButtons();
+                    }
+                }
+            });
         });
     }
 
