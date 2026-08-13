@@ -62,11 +62,11 @@ public final class MaterialLadderScreen extends Screen {
                 .dimensions(14, footerY, 140, 20).build();
         addDrawableChild(addLevel);
 
-        ButtonWidget autoDetect = ButtonWidget.builder(
-                Text.translatable("equip_leveling.config.material_ladder.auto_detect"),
-                btn -> autoDetect())
+        ButtonWidget reload = ButtonWidget.builder(
+                Text.translatable("equip_leveling.config.material_ladder.reload"),
+                btn -> reloadMaterials())
                 .dimensions(164, footerY, 150, 20).build();
-        addDrawableChild(autoDetect);
+        addDrawableChild(reload);
 
         contentBottomY += 26;
 
@@ -106,7 +106,7 @@ public final class MaterialLadderScreen extends Screen {
         workingLadder.clear();
         workingLadder.putAll(cleaned);
         if (workingLadder.isEmpty()) {
-            workingLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+            workingLadder.put(0, new ArrayList<>(List.of("wood")));
             workingLadder.put(1, new ArrayList<>(List.of("stone")));
             workingLadder.put(2, new ArrayList<>(List.of("iron")));
             workingLadder.put(3, new ArrayList<>(List.of("diamond")));
@@ -122,7 +122,12 @@ public final class MaterialLadderScreen extends Screen {
         rebuild();
     }
 
-    private void autoDetect() {
+    /** Re-scans the item registry and repopulates the ladder from the freshly
+     *  derived material list. Drops both caches first so newly added/removed
+     *  materials are picked up immediately. */
+    private void reloadMaterials() {
+        com.amorairedraws.equipleveling.util.MaterialTierDeriver.invalidate();
+        EquipLevelingConfig.invalidateMaterialCache();
         var detected = com.amorairedraws.equipleveling.util.MaterialHelper.detectMaterialLadder();
         workingLadder.clear();
         workingLadder.putAll(detected);

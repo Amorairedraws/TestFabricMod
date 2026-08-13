@@ -66,6 +66,7 @@ public final class VanillaEnchantingTableLogic {
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
         if (data.maxed || data.broken || !data.readyToLevelUp) {
             handler.sendContentUpdates();
+            forceSyncInput(handler, player);
             return;
         }
 
@@ -131,6 +132,7 @@ public final class VanillaEnchantingTableLogic {
 
         applyOffersToHandler(handler, offers);
         handler.sendContentUpdates();
+        forceSyncInput(handler, player);
     }
 
     /** Restores previously persisted offers into the handler arrays. Returns true
@@ -472,6 +474,23 @@ public final class VanillaEnchantingTableLogic {
         Arrays.fill(handler.enchantmentPower, 0);
         Arrays.fill(handler.enchantmentId, -1);
         Arrays.fill(handler.enchantmentLevel, -1);
+    }
+
+    /**
+     * Pushes the enchanting table's input slot directly to the client. The
+     * handler's own sendContentUpdates() uses a hash-based change detector that
+     * does not reliably notice a change to our custom data component, so the
+     * client's copy of the item can be missing its {@code equipment} component
+     * even though offers are visible. That leaves the reroll button permanently
+     * disabled (its affordability check reads the component). Sending the slot
+     * update explicitly keeps the client's stack in sync.
+     */
+    private static void forceSyncInput(EnchantmentScreenHandler handler, PlayerEntity player) {
+        if (!(player instanceof net.minecraft.server.network.ServerPlayerEntity sp)) return;
+        ItemStack stack = handler.getSlot(0).getStack();
+        if (stack.isEmpty()) return;
+        sp.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
+                handler.syncId, handler.nextRevision(), 0, stack));
     }
 
     private record GeneratedOffer(int enchantmentRawId, int encodedLevel) { }

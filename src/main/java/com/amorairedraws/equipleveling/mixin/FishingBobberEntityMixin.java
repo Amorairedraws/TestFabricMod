@@ -15,12 +15,18 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Awards XP only when the vanilla reel operation actually caught something. */
+/**
+ * Awards XP only when the vanilla reel operation actually caught a fish.
+ * {@code FishingBobberEntity#use} returns: 0 = nothing, 1/2 = a fish was caught
+ * (bobber in air vs on ground), 3 = a hooked item, 5 = a hooked mob. Hooking an
+ * entity or an item must never grant fishing XP.
+ */
 @Mixin(FishingBobberEntity.class)
 public abstract class FishingBobberEntityMixin {
     @Inject(method = "use", at = @At("RETURN"))
     private void equipLeveling$awardReelXp(CallbackInfoReturnable<Integer> callback) {
-        if (callback.getReturnValue() <= 0) return;
+        int result = callback.getReturnValue();
+        if (result != 1 && result != 2) return;
         FishingBobberEntity bobber = (FishingBobberEntity) (Object) this;
         if (bobber.getOwner() instanceof PlayerEntity player) {
             var rod = player.getMainHandStack();
@@ -28,7 +34,7 @@ public abstract class FishingBobberEntityMixin {
                 rod = player.getOffHandStack();
             }
             if ("fishing_rod".equals(EquipmentCategory.getCategory(rod))) {
-                int baseXp = callback.getReturnValue() * 10;
+                int baseXp = 10; // flat XP per caught fish
                 double srcMult = EquipLevelingConfig.getSourceMultiplier("fishing");
                 int xp = XpCalculator.applyMultipliers(baseXp, srcMult);
                 if (!player.getEntityWorld().isClient() && EquipmentComponent.addXp(rod, xp, player)) {

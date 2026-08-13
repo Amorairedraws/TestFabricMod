@@ -98,8 +98,18 @@ public class EquipLevelingClient implements ClientModInitializer {
             EnchantmentScreenHandler handler) {
         if (client.player == null || client.world == null) return false;
         var stack = handler.getSlot(0).getStack();
+        // Offers are only generated once the item is ready to level up, so their
+        // presence alone is enough to enable the reroll button. This also avoids
+        // a dead button when the custom component has not synced to the client.
+        boolean hasOffers = VanillaEnchantingTableLogic.getOfferKind(handler, 0)
+                    != VanillaEnchantingTableLogic.OfferKind.NONE
+                || VanillaEnchantingTableLogic.getOfferKind(handler, 1)
+                    != VanillaEnchantingTableLogic.OfferKind.NONE
+                || VanillaEnchantingTableLogic.getOfferKind(handler, 2)
+                    != VanillaEnchantingTableLogic.OfferKind.NONE;
+        if (!hasOffers) return false;
         var data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
-        if (data == null || !data.readyToLevelUp || data.broken || data.maxed) return false;
+        if (data != null && (data.broken || data.maxed)) return false;
         int cost = VanillaEnchantingTableLogic.getRerollCost(stack, handler,
                 client.world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT));
         return client.player.isInCreativeMode() || client.player.experienceLevel >= cost;

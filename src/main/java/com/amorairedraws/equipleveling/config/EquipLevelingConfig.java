@@ -129,8 +129,10 @@ public class EquipLevelingConfig {
         sourceMultipliers.put("wood", 1.0);
         sourceMultipliers.put("fishing", 1.0);
 
-        // Material ladder defaults
-        materialLadder.put(0, new ArrayList<>(List.of("wood", "gold")));
+        // Material ladder defaults. Gold and copper are intentionally NOT listed:
+        // they are auto-derived from the item registry (gold \u2192 wood tier, copper
+        // \u2192 stone tier) so they are recognised without being hard-coded.
+        materialLadder.put(0, new ArrayList<>(List.of("wood")));
         materialLadder.put(1, new ArrayList<>(List.of("stone")));
         materialLadder.put(2, new ArrayList<>(List.of("iron")));
         materialLadder.put(3, new ArrayList<>(List.of("diamond")));

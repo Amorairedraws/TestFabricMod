@@ -1,6 +1,7 @@
 package com.amorairedraws.equipleveling.util;
 
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
+import net.minecraft.block.Blocks;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.AttributeModifiersComponent;
 import net.minecraft.component.type.ToolComponent;
@@ -20,24 +21,20 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Automatically derives a material ladder for <b>modded</b> materials by
- * inspecting the qualities of the items each material defines.
+ * Automatically derives a material ladder by inspecting the item registry.
  *
- * <p>The vanilla materials (wood, stone, iron, diamond, netherite) act as fixed
- * anchors. Every other (modded) material is given a single "power score" from
- * the median of its equipment, then either:
+ * <p>Every registered item is grouped by its material name (the registry path
+ * with the category suffix stripped). A material's tier is decided by the
+ * <b>mining level of its pickaxe</b> (the authoritative tier signal in 1.21.x),
+ * falling back to a power-score comparison with the vanilla anchors only for
+ * materials that have no pickaxe (armour/weapon-only sets).</p>
  *
- * <ul>
- *   <li><b>grouped</b> with the nearest vanilla anchor (so it shares that
- *       anchor's level and upgrades into the same next tier), or</li>
- *   <li><b>extended</b> to a new level above netherite, spaced by the actual
- *       score gap between diamond and netherite (one "high tier" step).</li>
- * </ul>
- *
- * <p>This layer is intentionally kept <em>separate</em> from the persisted
- * config ladder. {@link EquipLevelingConfig} merges the two at read time so
- * manual edits always win and the derived layer acts as a fallback that is
- * recomputed each session (auto-pruning removed mods, auto-adding new ones).
+ * <p>Vanilla materials are no longer skipped: since "The Copper Age" (1.21.9)
+ * vanilla gained copper tools/armour, and gold has always been vanilla. Both are
+ * auto-detected here (gold \u2192 wood tier, copper \u2192 stone tier) rather than being
+ * hard-coded into the config. The five anchors (wood, stone, iron, diamond,
+ * netherite) remain in the persisted config and are simply never emitted by the
+ * derived layer.</p>
  */
 public final class MaterialTierDeriver {
 
@@ -73,24 +70,35 @@ public final class MaterialTierDeriver {
 
     /** Computes a fresh derived ladder from the current item registry. */
     public static Map<Integer, List<String>> derive() {
-        // ---- 1. Anchor scores from vanilla items (deterministic, always present). ----
+        Map<String, Integer> anchorLevels = anchorLevelsFromConfig();
+        int woodLevel = anchorLevels.getOrDefault("wood", 0);
+        int stoneLevel = anchorLevels.getOrDefault("stone", 1);
+        int ironLevel = anchorLevels.getOrDefault("iron", 2);
+        int diamondLevel = anchorLevels.getOrDefault("diamond", 3);
+
+        // Map an authoritative mining level (0..3) onto the ladder level of the
+        // matching vanilla anchor. Netherite is excluded: it shares diamond's
+        // mining level but is a smithing upgrade, not a distinct mining tier.
+        Map<Integer, Integer> miningToLadder = new HashMap<>();
+        miningToLadder.put(0, woodLevel);
+        miningToLadder.put(1, stoneLevel);
+        miningToLadder.put(2, ironLevel);
+        miningToLadder.put(3, diamondLevel);
+
+        // Anchor scores are only used for the no-pickaxe fallback below.
         double woodScore = anchorScore("wood");
         double stoneScore = anchorScore("stone");
         double ironScore = anchorScore("iron");
         double diamondScore = anchorScore("diamond");
         double netheriteScore = anchorScore("netherite");
-
         double gap = netheriteScore - diamondScore;
         if (gap < 1.0) gap = 100.0;
 
-        Map<String, Integer> anchorLevels = anchorLevelsFromConfig();
-
-        // ---- 2. Group non-vanilla equipment by material + categories. ----
         Map<String, List<Item>> materialItems = new LinkedHashMap<>();
         Map<String, Set<String>> materialCategories = new LinkedHashMap<>();
+        Map<String, Integer> materialMiningLevel = new LinkedHashMap<>();
+
         for (Item item : Registries.ITEM) {
-            Identifier id = Registries.ITEM.getId(item);
-            if ("minecraft".equals(id.getNamespace())) continue;
             String material = MaterialHelper.extractMaterialName(item);
             if (material == null || material.isBlank()) continue;
             ItemStack stack = new ItemStack(item);
@@ -98,9 +106,12 @@ public final class MaterialTierDeriver {
             if (category == null) continue;
             materialItems.computeIfAbsent(material, k -> new ArrayList<>()).add(item);
             materialCategories.computeIfAbsent(material, k -> new LinkedHashSet<>()).add(category);
+            if ("pickaxe".equals(category)) {
+                int ml = pickaxeMiningLevel(stack);
+                materialMiningLevel.merge(material, ml, Math::max);
+            }
         }
 
-        // ---- 3. Score each tiered material and assign a level. ----
         Map<Integer, List<String>> result = new java.util.TreeMap<>();
         for (Map.Entry<String, List<Item>> e : materialItems.entrySet()) {
             String material = e.getKey();
@@ -111,11 +122,17 @@ public final class MaterialTierDeriver {
             // Never emit vanilla anchor names (they live in the config layer).
             if (isAnchor(material)) continue;
 
-            Double score = materialScore(e.getValue());
-            if (score == null) continue;
-
-            int level = assignLevel(score, anchorLevels,
-                    woodScore, stoneScore, ironScore, diamondScore, netheriteScore, gap);
+            int level;
+            int ml = materialMiningLevel.getOrDefault(material, -1);
+            if (ml >= 0) {
+                level = miningToLadder.getOrDefault(ml, stoneLevel);
+            } else {
+                // No pickaxe (armour/weapon-only material): fall back to a
+                // power-score comparison with the vanilla anchors.
+                Double score = materialScore(e.getValue());
+                level = score == null ? stoneLevel : assignLevel(score, anchorLevels,
+                        woodScore, stoneScore, ironScore, diamondScore, netheriteScore, gap);
+            }
             result.computeIfAbsent(level, k -> new ArrayList<>()).add(material);
         }
 
@@ -124,7 +141,29 @@ public final class MaterialTierDeriver {
     }
 
     // ================================================================== //
-    // Scoring                                                             //
+    // Mining level                                                         //
+    // ================================================================== //
+
+    /**
+     * Determines a pickaxe's mining level by testing whether it can correctly
+     * harvest the standard tier-gate ores. This is the authoritative signal in
+     * 1.21.x (the numeric mining level was replaced by "incorrect for X tool"
+     * tags, which the tool component's rules encode as {@code correctForDrops}).
+     */
+    private static int pickaxeMiningLevel(ItemStack stack) {
+        ToolComponent tool = stack.get(DataComponentTypes.TOOL);
+        if (tool == null) return -1;
+        if (tool.isCorrectForDrops(Blocks.OBSIDIAN.getDefaultState())
+                || tool.isCorrectForDrops(Blocks.ANCIENT_DEBRIS.getDefaultState())) return 3;
+        if (tool.isCorrectForDrops(Blocks.DIAMOND_ORE.getDefaultState())
+                || tool.isCorrectForDrops(Blocks.DEEPSLATE_DIAMOND_ORE.getDefaultState())) return 2;
+        if (tool.isCorrectForDrops(Blocks.IRON_ORE.getDefaultState())
+                || tool.isCorrectForDrops(Blocks.DEEPSLATE_IRON_ORE.getDefaultState())) return 1;
+        return 0;
+    }
+
+    // ================================================================== //
+    // Scoring (fallback for materials without a pickaxe)                   //
     // ================================================================== //
 
     /** Composite power score for one item, dominated by durability with
@@ -177,8 +216,6 @@ public final class MaterialTierDeriver {
             if (s > 0) scores.add(s);
         }
         if (scores.isEmpty()) {
-            // Defensive fallback (vanilla anchors always exist, so this is
-            // effectively dead code): preserve canonical ordering.
             return switch (material) {
                 case "wood" -> 1; case "stone" -> 2; case "iron" -> 3;
                 case "diamond" -> 4; default -> 5; // netherite
@@ -195,9 +232,6 @@ public final class MaterialTierDeriver {
         double q3 = percentile(values, 75);
         double iqr = q3 - q1;
 
-        // When scores are tightly clustered (iqr == 0), any deviation is
-        // suspicious; use a relative threshold instead. This drops a lone
-        // "14" sitting among a material whose real tools all score 5-7.
         double threshold = iqr > 0 ? 2.5 * iqr : Math.abs(median) * 0.6;
 
         List<Double> pruned = new ArrayList<>();
@@ -224,14 +258,12 @@ public final class MaterialTierDeriver {
             double wood, double stone, double iron, double diamond, double netherite, double gap) {
         int netheriteLevel = anchorLevels.getOrDefault("netherite", 4);
 
-        // Genuinely above netherite: extend the ladder by actual score gaps.
         if (score >= netherite + 0.5 * gap) {
             int steps = (int) Math.round((score - netherite) / gap);
             if (steps < 1) steps = 1;
             return netheriteLevel + steps;
         }
 
-        // Otherwise group with the nearest vanilla anchor.
         int bestLevel = anchorLevels.getOrDefault("wood", 0);
         double bestDist = Double.MAX_VALUE;
         double[][] anchors = {

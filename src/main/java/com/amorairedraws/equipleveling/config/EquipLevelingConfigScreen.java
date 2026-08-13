@@ -71,6 +71,7 @@ public final class EquipLevelingConfigScreen {
                 .binding(Binding.generic(1.2f,
                         () -> (float) EquipLevelingConfig.getLevelRequirementGrowth(),
                         v -> EquipLevelingConfig.setLevelRequirementGrowth(v)))
+                .instant(true)
                 .controller(opt -> FloatSliderControllerBuilder.create(opt).range(1.0f, 10.0f).step(0.1f))
                 .available(canEdit)
                 .build());
@@ -80,6 +81,7 @@ public final class EquipLevelingConfigScreen {
                 .name(Text.translatable("equip_leveling.config.keep_on_death"))
                 .description(OptionDescription.of(Text.translatable("equip_leveling.config.keep_on_death.tooltip")))
                 .binding(false, EquipLevelingConfig::isKeepEquipOnDeath, EquipLevelingConfig::setKeepEquipOnDeath)
+                .instant(true)
                 .controller(TickBoxControllerBuilder::create)
                 .available(canEdit)
                 .build())
@@ -87,6 +89,7 @@ public final class EquipLevelingConfigScreen {
                 .name(Text.translatable("equip_leveling.config.broken_mechanic"))
                 .description(OptionDescription.of(Text.translatable("equip_leveling.config.broken_mechanic.tooltip")))
                 .binding(true, EquipLevelingConfig::isBrokenMechanicEnabled, EquipLevelingConfig::setBrokenMechanicEnabled)
+                .instant(true)
                 .controller(TickBoxControllerBuilder::create)
                 .available(canEdit)
                 .build());
@@ -99,6 +102,7 @@ public final class EquipLevelingConfigScreen {
                         .name(Text.translatable("equip_leveling.config.xp_threshold"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.xp_threshold.tooltip")))
                         .binding(10, EquipLevelingConfig::getXpDisplayThreshold, EquipLevelingConfig::setXpDisplayThreshold)
+                        .instant(true)
                         .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(1))
                         .available(canEdit)
                         .build())
@@ -106,6 +110,7 @@ public final class EquipLevelingConfigScreen {
                         .name(Text.translatable("equip_leveling.config.durability_restore"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.durability_restore.tooltip")))
                         .binding(25, EquipLevelingConfig::getDurabilityRestorePercent, EquipLevelingConfig::setDurabilityRestorePercent)
+                        .instant(true)
                         .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(5))
                         .available(canEdit)
                         .build())
@@ -113,6 +118,7 @@ public final class EquipLevelingConfigScreen {
                         .name(Text.translatable("equip_leveling.config.repair_kit_restore_amount"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.repair_kit_restore_amount.tooltip")))
                         .binding(100, EquipLevelingConfig::getRepairKitRestoreAmount, EquipLevelingConfig::setRepairKitRestoreAmount)
+                        .instant(true)
                         .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 1000).step(25))
                         .available(canEdit)
                         .build())
@@ -120,6 +126,7 @@ public final class EquipLevelingConfigScreen {
                         .name(Text.translatable("equip_leveling.config.diamond_repair_kit_restore"))
                         .description(OptionDescription.of(Text.translatable("equip_leveling.config.diamond_repair_kit_restore.tooltip")))
                         .binding(50, EquipLevelingConfig::getDiamondRepairKitRestorePercent, EquipLevelingConfig::setDiamondRepairKitRestorePercent)
+                        .instant(true)
                         .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(5))
                         .available(canEdit)
                         .build())
@@ -145,6 +152,7 @@ public final class EquipLevelingConfigScreen {
                 .binding(Binding.generic(1.0f,
                         () -> (float) EquipLevelingConfig.getGlobalXpGainMultiplier(),
                         v -> EquipLevelingConfig.setGlobalXpGainMultiplier(v)))
+                .instant(true)
                 .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.1f, 10.0f).step(0.1f))
                 .available(canEdit)
                 .build());
@@ -161,6 +169,7 @@ public final class EquipLevelingConfigScreen {
                     .binding(1.0f,
                             () -> (float) EquipLevelingConfig.getSourceMultiplier(key),
                             v -> EquipLevelingConfig.setSourceMultiplier(key, v))
+                    .instant(true)
                     .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 10.0f).step(0.1f))
                     .available(canEdit)
                     .build());
@@ -180,6 +189,7 @@ public final class EquipLevelingConfigScreen {
                     .binding(defaultBaseXp(cat),
                             () -> EquipLevelingConfig.getBaseXpForCategory(category),
                             v -> EquipLevelingConfig.setBaseXpForCategory(category, v))
+                    .instant(true)
                     .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(1, Integer.MAX_VALUE))
                     .available(canEdit)
                     .build());
@@ -198,6 +208,7 @@ public final class EquipLevelingConfigScreen {
                     .binding(defaultMaxSlots(cat),
                             () -> EquipLevelingConfig.getMaxSlotsForCategory(category),
                             v -> EquipLevelingConfig.setMaxSlotsForCategory(category, v))
+                    .instant(true)
                     .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(1, 8).step(1))
                     .available(canEdit)
                     .build());
@@ -227,6 +238,7 @@ public final class EquipLevelingConfigScreen {
                         .binding(0.6f,
                                 () -> (float) EquipLevelingConfig.getUpgradeWeight(),
                                 v -> EquipLevelingConfig.setOfferWeights(v, (float) EquipLevelingConfig.getNewSlotWeight()))
+                        .instant(true)
                         .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 10.0f).step(0.05f))
                         .available(canEdit)
                         .build())
@@ -236,6 +248,7 @@ public final class EquipLevelingConfigScreen {
                         .binding(0.4f,
                                 () -> (float) EquipLevelingConfig.getNewSlotWeight(),
                                 v -> EquipLevelingConfig.setOfferWeights((float) EquipLevelingConfig.getUpgradeWeight(), v))
+                        .instant(true)
                         .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.0f, 10.0f).step(0.05f))
                         .available(canEdit)
                         .build())
@@ -245,6 +258,7 @@ public final class EquipLevelingConfigScreen {
                         .binding(5,
                                 () -> (int) Math.round(EquipLevelingConfig.getLegendaryUpgradeProbability() * 100),
                                 v -> EquipLevelingConfig.setLegendaryUpgradeProbability(v / 100.0))
+                        .instant(true)
                         .controller(opt -> IntegerSliderControllerBuilder.create(opt).range(0, 100).step(1))
                         .available(canEdit)
                         .build())
@@ -269,6 +283,7 @@ public final class EquipLevelingConfigScreen {
                                 updated[slotCount] = value;
                                 EquipLevelingConfig.setRerollCosts(updated);
                             })
+                    .instant(true)
                     .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(0, Integer.MAX_VALUE))
                     .available(canEdit)
                     .build());

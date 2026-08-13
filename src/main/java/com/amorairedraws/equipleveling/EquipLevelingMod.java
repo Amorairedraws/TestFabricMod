@@ -27,9 +27,31 @@ import com.amorairedraws.equipleveling.util.AutoXpConfigGenerator;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.recipe.Recipe;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.Identifier;
+
+import java.util.List;
+
 public class EquipLevelingMod implements ModInitializer {
     public static final String MOD_ID = "equip_leveling";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+
+    // Recipe-book unlock targets. A repair kit should be discoverable as soon as
+    // the player has any of its ingredients; the diamond kit once they have a diamond.
+    private static final RegistryKey<Recipe<?>> REPAIR_KIT_RECIPE =
+            RegistryKey.of(RegistryKeys.RECIPE, Identifier.of(MOD_ID, "repair_kit"));
+    private static final RegistryKey<Recipe<?>> DIAMOND_REPAIR_KIT_RECIPE =
+            RegistryKey.of(RegistryKeys.RECIPE, Identifier.of(MOD_ID, "diamond_repair_kit"));
+    private static final Item[] REPAIR_KIT_INGREDIENTS = {
+            Items.COPPER_INGOT, Items.IRON_INGOT, Items.FLINT, Items.LEATHER
+    };
+    private static int recipeUnlockTick;
 
     @Override
     public void onInitialize() {
@@ -113,8 +135,10 @@ public class EquipLevelingMod implements ModInitializer {
         // Attack observation (no mutation — reward is from AFTER_DEATH).
         AttackEntityCallback.EVENT.register(new EquipmentXpEvents.EntityKillXpHandler());
 
-        // Per-tick inventory reconciliation.
+        // Per-tick inventory reconciliation + recipe-book unlock.
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+            boolean checkUnlocks = ++recipeUnlockTick >= 20;
+            if (checkUnlocks) recipeUnlockTick = 0;
             for (var player : server.getPlayerManager().getPlayerList()) {
                 for (int i = 0; i < player.getInventory().size(); i++) {
                     var stack = player.getInventory().getStack(i);
@@ -124,10 +148,37 @@ public class EquipLevelingMod implements ModInitializer {
                         EquipmentComponent.markBrokenIfNecessary(stack);
                     }
                 }
+                if (checkUnlocks) checkRecipeUnlocks(player);
             }
         });
 
         // Armor XP from damage.
         ServerLivingEntityEvents.AFTER_DAMAGE.register(ArmorXpHandler::afterDamage);
+    }
+
+    /**
+     * Unlocks the repair-kit recipes in the player's recipe book as soon as they
+     * own any of the required ingredients, so the recipes are discoverable early.
+     */
+    private static void checkRecipeUnlocks(ServerPlayerEntity player) {
+        var book = player.getRecipeBook();
+        if (!book.isUnlocked(REPAIR_KIT_RECIPE)) {
+            for (Item ingredient : REPAIR_KIT_INGREDIENTS) {
+                if (hasItem(player, ingredient)) {
+                    player.unlockRecipes(List.of(REPAIR_KIT_RECIPE));
+                    break;
+                }
+            }
+        }
+        if (!book.isUnlocked(DIAMOND_REPAIR_KIT_RECIPE) && hasItem(player, Items.DIAMOND)) {
+            player.unlockRecipes(List.of(DIAMOND_REPAIR_KIT_RECIPE));
+        }
+    }
+
+    private static boolean hasItem(ServerPlayerEntity player, Item item) {
+        for (int i = 0; i < player.getInventory().size(); i++) {
+            if (player.getInventory().getStack(i).isOf(item)) return true;
+        }
+        return false;
     }
 }
