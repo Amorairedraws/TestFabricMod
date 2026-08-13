@@ -3,6 +3,7 @@ package com.amorairedraws.equipleveling.screen;
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
+import com.amorairedraws.equipleveling.util.MaterialHelper;
 import com.amorairedraws.equipleveling.util.MaterialTierUpgrader;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.player.PlayerEntity;
@@ -111,7 +112,9 @@ public final class VanillaEnchantingTableLogic {
                 EquipLevelingConfig.getMaterialTiers());
         if (canLegendary && !offers.isEmpty()
                 && random.nextDouble() < EquipLevelingConfig.getLegendaryUpgradeProbability()) {
-            offers.set(random.nextInt(offers.size()), new GeneratedOffer(-1, LEGENDARY));
+            String target = MaterialTierUpgrader.pickTargetMaterial(stack,
+                    EquipmentCategory.getCategory(stack));
+            offers.set(random.nextInt(offers.size()), new GeneratedOffer(-1, LEGENDARY, target));
         }
 
         // Issue 2: shuffle the offer positions so it's random which slot holds
@@ -126,7 +129,11 @@ public final class VanillaEnchantingTableLogic {
                     ? enchantments.getEntry(offer.enchantmentRawId)
                             .flatMap(e -> e.getKey().map(k -> k.getValue().toString())).orElse(null)
                     : null;
-            data.offers.add(new EquipmentComponent.StoredOffer(id, offer.encodedLevel));
+            // For legendary (material upgrade) offers, persist the chosen target
+            // material in the id field so the client can advertise it and the
+            // promotion applies exactly that material.
+            String storedId = offer.encodedLevel == LEGENDARY ? offer.material : id;
+            data.offers.add(new EquipmentComponent.StoredOffer(storedId, offer.encodedLevel));
         }
         stack.set(EquipmentComponent.EQUIPMENT_TYPE, data);
 
@@ -152,7 +159,7 @@ public final class VanillaEnchantingTableLogic {
             // Legendary (material upgrade) offers have a null enchantment id and
             // the special LEGENDARY encoded level. Restore them as-is.
             if (stored.encodedLevel == LEGENDARY) {
-                offers.add(new GeneratedOffer(-1, LEGENDARY));
+                offers.add(new GeneratedOffer(-1, LEGENDARY, stored.enchantmentId));
                 continue;
             }
             if (stored.enchantmentId == null) continue;
@@ -199,7 +206,7 @@ public final class VanillaEnchantingTableLogic {
             case NEW_ENCHANTMENT -> addNewSlot(data, idAt(handler, index, enchantments));
             case UPGRADE -> upgradeSlot(data, idAt(handler, index, enchantments),
                     getUpgradeTargetLevel(handler, index), registries);
-            case LEGENDARY -> promote(handler, stack);
+            case LEGENDARY -> promote(handler, stack, index);
             case NONE -> false;
         };
         if (!applied) return false;
@@ -231,7 +238,7 @@ public final class VanillaEnchantingTableLogic {
         if (player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld) {
             serverWorld.playSound(null, player.getBlockPos(),
                     net.minecraft.sound.SoundEvents.ITEM_TRIDENT_RETURN,
-                    net.minecraft.sound.SoundCategory.MASTER, 1.0F, 2.0F);
+                    net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
         }
         // markDirty invokes the handler's regular content-change path, which
         // immediately creates the next server-synchronized set of offers.
@@ -320,19 +327,25 @@ public final class VanillaEnchantingTableLogic {
             net.minecraft.item.ItemStack stack) {
         OfferKind kind = getOfferKind(handler, index);
         if (kind == OfferKind.LEGENDARY) {
-            // Look up what this item would upgrade to.
-            String category = EquipmentCategory.getCategory(stack);
-            String currentMaterial = MaterialTierUpgrader.materialNameOf(stack.getItem());
-            List<String> nextMaterials = EquipLevelingConfig.getNextLevelMaterials(currentMaterial);
-            if (!nextMaterials.isEmpty()) {
-                String target = nextMaterials.get(0);
-                return "Upgrade \u2192 " + (target.isEmpty() ? "???" : target);
+            // Advertise the exact material that was rolled when the offer was
+            // generated (persisted on the item), rather than the first entry of
+            // the next tier which may differ from the material actually applied.
+            String target = legendaryTargetAt(stack, index);
+            if (target != null && !target.isEmpty()) {
+                return "Upgrade \u2192 " + MaterialHelper.displayName(target);
             }
             return "Legendary Upgrade";
         }
         if (kind == OfferKind.UPGRADE) return "Upgrade Enchantment";
         if (kind == OfferKind.NEW_ENCHANTMENT) return "New Enchantment";
         return "";
+    }
+
+    private static String legendaryTargetAt(net.minecraft.item.ItemStack stack, int index) {
+        EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+        if (data == null || data.offers == null || index < 0 || index >= data.offers.size()) return null;
+        EquipmentComponent.StoredOffer offer = data.offers.get(index);
+        return offer.encodedLevel == LEGENDARY ? offer.enchantmentId : null;
     }
 
     private static GeneratedOffer generateOffer(EquipmentComponent.EquipmentData data, ItemStack stack,
@@ -443,9 +456,14 @@ public final class VanillaEnchantingTableLogic {
         return false;
     }
 
-    private static boolean promote(EnchantmentScreenHandler handler, ItemStack stack) {
-        ItemStack promoted = MaterialTierUpgrader.promote(stack, EquipmentCategory.getCategory(stack),
-                EquipLevelingConfig.getMaterialTiers());
+    private static boolean promote(EnchantmentScreenHandler handler, ItemStack stack, int index) {
+        String target = null;
+        EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+        if (data != null && data.offers != null && index >= 0 && index < data.offers.size()) {
+            EquipmentComponent.StoredOffer offer = data.offers.get(index);
+            if (offer.encodedLevel == LEGENDARY) target = offer.enchantmentId;
+        }
+        ItemStack promoted = MaterialTierUpgrader.promoteTo(stack, EquipmentCategory.getCategory(stack), target);
         if (promoted == stack) return false;
         handler.getSlot(0).setStack(promoted);
         return true;
@@ -493,5 +511,9 @@ public final class VanillaEnchantingTableLogic {
                 handler.syncId, handler.nextRevision(), 0, stack));
     }
 
-    private record GeneratedOffer(int enchantmentRawId, int encodedLevel) { }
+    private record GeneratedOffer(int enchantmentRawId, int encodedLevel, String material) {
+        GeneratedOffer(int enchantmentRawId, int encodedLevel) {
+            this(enchantmentRawId, encodedLevel, null);
+        }
+    }
 }

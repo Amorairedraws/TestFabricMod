@@ -90,6 +90,15 @@ public class EquipLevelingClient implements ClientModInitializer {
             Screens.getButtons(screen).add(reroll);
             ScreenEvents.afterTick(screen).register(ignored -> reroll.active = canReroll(client, handler));
         });
+
+        // Persist the config whenever the YACL config screen closes. Options use
+        // instant(true), so in-memory values are always current; saving on close
+        // guarantees the disk file reflects every tab, not just the last one viewed.
+        ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
+            if (screen instanceof dev.isxander.yacl3.gui.YACLScreen) {
+                ScreenEvents.remove(screen).register(s -> EquipLevelingConfig.save());
+            }
+        });
     }
 
     private static int equipLeveling$tickCounter = 0;

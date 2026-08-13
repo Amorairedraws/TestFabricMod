@@ -51,7 +51,7 @@ public class ItemStackMixin {
         int actualDamage = EnchantmentHelper.getItemDamage(serverPlayer.getEntityWorld(), stack, amount);
         if (actualDamage > 0 && (long) stack.getDamage() + actualDamage >= stack.getMaxDamage()) {
             stack.setDamage(stack.getMaxDamage());
-            EquipmentComponent.markBrokenIfNecessary(stack);
+            EquipmentComponent.markBrokenIfNecessary(stack, serverPlayer);
             ci.cancel();
         }
     }
@@ -69,7 +69,7 @@ public class ItemStackMixin {
                 || !EquipmentComponent.isTracked(stack)) return;
         if (stack.isDamageable() && damage >= stack.getMaxDamage()) {
             stack.setDamage(stack.getMaxDamage());
-            EquipmentComponent.markBrokenIfNecessary(stack);
+            EquipmentComponent.markBrokenIfNecessary(stack, player);
             ci.cancel();
         }
     }

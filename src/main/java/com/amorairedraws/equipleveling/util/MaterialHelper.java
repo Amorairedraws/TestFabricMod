@@ -108,4 +108,16 @@ public final class MaterialHelper {
         Integer known = VANILLA_MINING_LEVELS.get(materialName.trim().toLowerCase());
         return known != null ? known : -1;
     }
+
+    /** Formats a material name for display: "rose_gold" -> "Rose Gold", "copper" -> "Copper". */
+    public static String displayName(String material) {
+        if (material == null || material.isBlank()) return material;
+        StringBuilder sb = new StringBuilder();
+        for (String word : material.trim().toLowerCase().split("_")) {
+            if (word.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return sb.toString();
+    }
 }

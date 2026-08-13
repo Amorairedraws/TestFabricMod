@@ -446,7 +446,7 @@ public class EquipmentEnchantingScreenHandler extends ScreenHandler {
 		if (!wasMending && data.mending && !player.getEntityWorld().isClient()) {
 			player.getEntityWorld().playSound(null, player.getX(), player.getY(), player.getZ(),
 					net.minecraft.sound.SoundEvents.ITEM_TRIDENT_THUNDER,
-					net.minecraft.sound.SoundCategory.MASTER, 1.0F, 2.0F);
+					net.minecraft.sound.SoundCategory.MASTER, 1.0F, 1.0F);
 		}
 
 		// Keep the custom slot data authoritative, but also apply its effects as

@@ -7,6 +7,7 @@ import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -27,15 +28,7 @@ public final class MaterialTierUpgrader {
 
     /** Returns whether this item can be promoted to a higher material tier. */
     public static boolean canPromote(ItemStack old, String category) {
-        if (old.isEmpty() || category == null) return false;
-        String material = materialOf(old.getItem());
-        List<String> nextMaterials = EquipLevelingConfig.getNextLevelMaterials(material);
-        if (nextMaterials.isEmpty()) return false;
-        // Check at least one next-level material has a corresponding item.
-        for (String nextMat : nextMaterials) {
-            if (itemFor(category, nextMat, old.getItem()) != null) return true;
-        }
-        return false;
+        return !attainableMaterials(old, category).isEmpty();
     }
 
     /**
@@ -73,23 +66,24 @@ public final class MaterialTierUpgrader {
      * Returns the old stack unchanged if no promotion is possible.
      */
     public static ItemStack promote(ItemStack old, String category) {
-        if (!canPromote(old, category)) return old;
+        return promoteTo(old, category, null);
+    }
 
-        String material = materialOf(old.getItem());
-        List<String> nextMaterials = EquipLevelingConfig.getNextLevelMaterials(material);
-        if (nextMaterials.isEmpty()) return old;
-
-        // Build a list of actually attainable items.
-        List<Item> attainable = nextMaterials.stream()
-                .map(m -> itemFor(category, m, old.getItem()))
-                .filter(it -> it != null)
-                .distinct()
-                .toList();
-
+    /**
+     * Promotes to a specific target material (or a random one when the target is
+     * null or no longer attainable). Used by the enchanting table so the offer
+     * subtitle can advertise the exact material the promotion will apply.
+     */
+    public static ItemStack promoteTo(ItemStack old, String category, String targetMaterial) {
+        List<String> attainable = attainableMaterials(old, category);
         if (attainable.isEmpty()) return old;
 
-        // Random selection with even chance.
-        Item next = attainable.get(RNG.nextInt(attainable.size()));
+        String chosen = targetMaterial;
+        if (chosen == null || !attainable.contains(chosen)) {
+            chosen = attainable.get(RNG.nextInt(attainable.size()));
+        }
+        Item next = itemFor(category, chosen, old.getItem());
+        if (next == null) return old;
 
         // Build the new item from pristine defaults, copying only progression data.
         ItemStack result = new ItemStack(next, old.getCount());
@@ -107,6 +101,25 @@ public final class MaterialTierUpgrader {
         }
         if (result.isDamageable()) result.setDamage(0);
         return result;
+    }
+
+    /** Picks a random attainable material from the next tier, or null if none. */
+    public static String pickTargetMaterial(ItemStack old, String category) {
+        List<String> attainable = attainableMaterials(old, category);
+        return attainable.isEmpty() ? null : attainable.get(RNG.nextInt(attainable.size()));
+    }
+
+    /** Materials in the next tier that have a corresponding item for this category. */
+    private static List<String> attainableMaterials(ItemStack old, String category) {
+        if (old == null || old.isEmpty() || category == null) return List.of();
+        String material = materialOf(old.getItem());
+        if (material == null) return List.of();
+        List<String> nextMaterials = EquipLevelingConfig.getNextLevelMaterials(material);
+        List<String> attainable = new ArrayList<>();
+        for (String m : nextMaterials) {
+            if (itemFor(category, m, old.getItem()) != null) attainable.add(m);
+        }
+        return attainable;
     }
 
     /** @deprecated Kept for backward compat with old callers. */
@@ -143,6 +156,18 @@ public final class MaterialTierUpgrader {
         // Also try in the minecraft namespace (some mods register items there).
         candidate = Identifier.ofVanilla(t + "_" + suffix);
         if (Registries.ITEM.containsId(candidate)) return Registries.ITEM.get(candidate);
+
+        // Registry scan: modded materials live in their own namespace, so the fast
+        // paths above (old namespace + minecraft) miss them. Match by material name
+        // and category instead, so a "rosegold" axe is found even when it is
+        // registered as some_mod:rosegold_axe.
+        for (Item item : Registries.ITEM) {
+            if (item == Items.AIR) continue;
+            if (t.equals(MaterialHelper.extractMaterialName(item))
+                    && category.equals(EquipmentCategory.getCategory(new ItemStack(item)))) {
+                return item;
+            }
+        }
 
         // Vanilla hard-coded fallback (handles wood->wooden, gold->golden, armour).
         return vanillaItem(category, t);

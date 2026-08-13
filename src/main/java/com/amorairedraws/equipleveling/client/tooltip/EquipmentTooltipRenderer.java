@@ -20,6 +20,16 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 
 	@Override
 	public void getTooltip(ItemStack stack, TooltipContext context, TooltipType type, List<Text> lines) {
+		// Only render on the client's render thread. Polymer (and other server-side
+		// item tooltip sync systems) call getTooltip on the integrated-server thread
+		// to bake a snapshot into the synced lore; adding our lines there makes them
+		// appear twice (one static copy + one live copy). Guarding on the render
+		// thread keeps the tooltip single and live.
+		var client = net.minecraft.client.MinecraftClient.getInstance();
+		if (client == null || !client.isOnThread()) {
+			return;
+		}
+
 		if (!EquipmentCategory.isEquipment(stack)) {
 			return;
 		}

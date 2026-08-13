@@ -72,6 +72,9 @@ public class EquipLevelingMod implements ModInitializer {
         ModItems.init();
         RepairEquipmentRecipe.init();
 
+        // Register the /elxp command (admin/testing XP control).
+        com.amorairedraws.equipleveling.command.ElxpCommand.register();
+
         // Register config sync packet (S2C).
         PayloadTypeRegistry.playS2C().register(ConfigSyncPacket.ID, ConfigSyncPacket.CODEC);
 
@@ -145,7 +148,7 @@ public class EquipLevelingMod implements ModInitializer {
                     if (EquipmentComponent.isTracked(stack)) {
                         EquipmentComponent.getOrCreate(stack);
                         EquipmentComponent.restoreEnchantments(stack, player.getEntityWorld().getRegistryManager());
-                        EquipmentComponent.markBrokenIfNecessary(stack);
+                        EquipmentComponent.markBrokenIfNecessary(stack, player);
                     }
                 }
                 if (checkUnlocks) checkRecipeUnlocks(player);

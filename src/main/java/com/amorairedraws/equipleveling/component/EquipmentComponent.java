@@ -125,6 +125,20 @@ public final class EquipmentComponent {
         return data.xp != before;
     }
 
+    /** Sets the progression XP of a tracked item directly (used by the /elxp command). */
+    public static boolean setXp(ItemStack stack, int amount, net.minecraft.entity.player.PlayerEntity player) {
+        if (!isTracked(stack)) return false;
+        EquipmentData data = getOrCreate(stack);
+        int clamped = Math.max(0, Math.min(amount, data.xpRequired));
+        data.xp = clamped;
+        data.readyToLevelUp = data.xp >= data.xpRequired;
+        stack.set(EQUIPMENT_TYPE, data);
+        if (player != null && !player.getEntityWorld().isClient()) {
+            forceClientSync((net.minecraft.server.network.ServerPlayerEntity) player, stack);
+        }
+        return true;
+    }
+
     /**
      * Reliably pushes an item's slot to the client. Unlike sendContentUpdates(),
      * which only emits a packet when its change detector decides the slot differs
@@ -241,15 +255,27 @@ public final class EquipmentComponent {
     }
 
     public static void markBrokenIfNecessary(ItemStack stack) {
+        markBrokenIfNecessary(stack, null);
+    }
+
+    public static void markBrokenIfNecessary(ItemStack stack, net.minecraft.entity.player.PlayerEntity player) {
         if (EquipLevelingConfig.isBrokenMechanicEnabled() && stack.isDamageable()
                 && stack.getDamage() >= stack.getMaxDamage() && isTracked(stack)) {
             EquipmentData data = getOrCreate(stack);
+            if (data.broken) return; // already broken — don't re-fire the break sound
             data.broken = true;
             // Remove the mirrored vanilla component immediately.  The mixin also
             // guards enchantment reads, but removing the data prevents other mods
             // that inspect components directly from applying an effect.
             stack.remove(DataComponentTypes.ENCHANTMENTS);
             stack.set(EQUIPMENT_TYPE, data);
+            // Play the vanilla item-break sound at normal pitch the moment the item
+            // transitions into the broken state.
+            if (player != null && player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld) {
+                serverWorld.playSound(null, player.getBlockPos(),
+                        net.minecraft.sound.SoundEvents.ENTITY_ITEM_BREAK.value(),
+                        net.minecraft.sound.SoundCategory.PLAYERS, 1.0F, 1.0F);
+            }
         }
     }
 
