@@ -4,6 +4,6 @@
   "package": "com.amorairedraws.equipleveling.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": ["ItemStackMixin", "PlayerEntityMixin", "ScreenHandlerMixin", "FishingBobberEntityMixin", "AnvilScreenHandlerMixin", "GrindstoneScreenHandlerMixin", "TradeOfferMixin", "EnchantmentScreenHandlerMixin", "HoeItemMixin", "EnchantmentLapisSlotMixin", "BrokenWeaponDamageMixin", "ExperienceDroppingBlockAccessor", "BlockItemPlaceMixin", "CraftingResultSlotMixin"],
-  "client": ["ItemRenderStateMixin", "ItemModelManagerMixin", "ItemRenderLayerMixin", "EnchantmentScreenMixin"],
+  "client": ["ItemRenderStateMixin", "ItemModelManagerMixin", "ItemRenderLayerMixin", "EnchantmentScreenMixin", "YACLScreenCategoryTabMixin"],
   "injectors": { "defaultRequire": 1 }
 }

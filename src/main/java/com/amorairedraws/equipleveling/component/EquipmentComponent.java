@@ -154,16 +154,27 @@ public final class EquipmentComponent {
         // armor), so sync it through the survival inventory screen handler (syncId 0).
         net.minecraft.screen.PlayerScreenHandler handler = player.playerScreenHandler;
         if (handler == null) return;
+        // Match by reference first, then by content equality, so a stack copy
+        // introduced by another mod still resolves to the right slot.
+        int slotIndex = -1;
         for (int i = 0; i < handler.slots.size(); i++) {
             net.minecraft.screen.slot.Slot slot = handler.slots.get(i);
-            if (slot != null && slot.getStack() == stack) {
-                int revision = handler.nextRevision();
-                player.networkHandler.sendPacket(
-                    new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
-                        handler.syncId, revision, i, stack));
-                return;
+            if (slot == null || slot.getStack().isEmpty()) continue;
+            if (slot.getStack() == stack || ItemStack.areEqual(slot.getStack(), stack)) {
+                slotIndex = i;
+                break;
             }
         }
+        if (slotIndex != -1) {
+            int revision = handler.nextRevision();
+            player.networkHandler.sendPacket(
+                new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
+                    handler.syncId, revision, slotIndex, stack));
+        }
+        // Belt-and-suspenders: also mark the inventory dirty so vanilla's own
+        // per-tick content sync re-sends the affected slots. This covers any case
+        // where the direct slot packet above is dropped or reordered.
+        player.getInventory().markDirty();
     }
 
     /** Rehydrates vanilla's enchantment component from custom slot IDs. Loot

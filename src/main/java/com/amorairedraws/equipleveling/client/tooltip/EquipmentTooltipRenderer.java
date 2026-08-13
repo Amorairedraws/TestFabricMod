@@ -36,12 +36,19 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 
 		// Read-only: the tooltip must never mutate the stack (a stack.set() here
 		// re-enters the render pipeline and can draw the tooltip twice). Read the
-		// stored component directly; if it is absent (a freshly obtained modded
-		// item the server has not reconciled yet) render a transient default so
-		// the tooltip still appears instead of flickering out.
+		// stored component; if it is absent (a freshly obtained modded item the
+		// server has not reconciled yet) render a transient default so the tooltip
+		// still appears instead of flickering out.
 		EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		if (data == null) {
 			data = EquipmentComponent.EquipmentData.create(EquipmentCategory.getCategory(stack));
+		} else {
+			// Recompute derived state (readyToLevelUp, mending, maxed, xpRequired)
+			// on a defensive copy. This restores the live progress display that was
+			// lost when the tooltip stopped recomputing derived state, without ever
+			// writing back to the stack (which is what caused the double tooltip).
+			data = data.copy();
+			data.refresh(EquipmentCategory.getCategory(stack));
 		}
 
 		// Insert at the top (after the item name)
