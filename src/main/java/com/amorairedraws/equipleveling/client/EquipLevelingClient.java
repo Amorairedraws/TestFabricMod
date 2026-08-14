@@ -62,6 +62,12 @@ public class EquipLevelingClient implements ClientModInitializer {
                 EquipLevelingConfig.invalidateMaterialCache());
 
         // Periodically refresh component state on the client (every 2 seconds).
+        // Refresh only components that already exist. getOrCreate() fabricates a
+        // default component when one is absent, which is correct on the server but
+        // wrong on the client: server-side-only items (Polymer / Gone Fishing rods)
+        // never sync their real component, so creating a default here stamps a
+        // frozen "Level 1, 0 XP" copy onto the client stack and produces the
+        // static, never-updating tooltip above the server-baked one.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
             if (++equipLeveling$tickCounter < 40) return;
@@ -70,7 +76,7 @@ public class EquipLevelingClient implements ClientModInitializer {
             var inventory = client.player.getInventory();
             for (int i = 0; i < inventory.size(); i++) {
                 var stack = inventory.getStack(i);
-                if (EquipmentComponent.isTracked(stack)) {
+                if (EquipmentComponent.isTracked(stack) && stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
                     EquipmentComponent.getOrCreate(stack, lookup);
                 }
             }
@@ -79,7 +85,7 @@ public class EquipLevelingClient implements ClientModInitializer {
                     net.minecraft.entity.EquipmentSlot.LEGS, net.minecraft.entity.EquipmentSlot.FEET,
                     net.minecraft.entity.EquipmentSlot.OFFHAND}) {
                 var equippedStack = client.player.getEquippedStack(slot);
-                if (EquipmentComponent.isTracked(equippedStack)) {
+                if (EquipmentComponent.isTracked(equippedStack) && equippedStack.contains(EquipmentComponent.EQUIPMENT_TYPE)) {
                     EquipmentComponent.getOrCreate(equippedStack, lookup);
                 }
             }
