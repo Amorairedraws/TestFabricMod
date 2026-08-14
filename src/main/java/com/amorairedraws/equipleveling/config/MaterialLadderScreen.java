@@ -128,7 +128,7 @@ public final class MaterialLadderScreen extends Screen {
     private void reloadMaterials() {
         com.amorairedraws.equipleveling.util.MaterialTierDeriver.invalidate();
         EquipLevelingConfig.invalidateMaterialCache();
-        var detected = com.amorairedraws.equipleveling.util.MaterialHelper.detectMaterialLadder();
+        var detected = EquipLevelingConfig.getMaterialLadder();
         workingLadder.clear();
         workingLadder.putAll(detected);
         rebuild();

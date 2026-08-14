@@ -58,7 +58,8 @@ public final class XpCalculator {
         return (int) Math.round(0.45 * Math.pow(danger, 0.9));
     }
 
-    private static boolean isLivestock(LivingEntity entity) {
+    /** True for passive farm animals that use the "livestock" XP multiplier. */
+    public static boolean isLivestock(LivingEntity entity) {
         return entity instanceof CowEntity || entity instanceof PigEntity
                 || entity instanceof SheepEntity || entity instanceof ChickenEntity
                 || entity instanceof RabbitEntity || entity instanceof GoatEntity

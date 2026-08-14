@@ -2,7 +2,7 @@ package com.amorairedraws.equipleveling.mixin;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
-import com.amorairedraws.equipleveling.event.XpDisplay;
+import com.amorairedraws.equipleveling.event.XpFeedback;
 import com.amorairedraws.equipleveling.util.EquipmentCategory;
 import com.amorairedraws.equipleveling.util.XpCalculator;
 import net.minecraft.block.Block;
@@ -18,7 +18,6 @@ import net.minecraft.item.ItemUsageContext;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -71,7 +70,7 @@ public abstract class HoeItemMixin {
                 double srcMult = EquipLevelingConfig.getSourceMultiplier("farming");
                 int xp = XpCalculator.applyMultipliers(baseXp, srcMult);
                 if (EquipmentComponent.addXp(hoe, xp, player)) {
-                    XpDisplay.showForPlayer(player, Vec3d.ofCenter(pos), xp);
+                    XpFeedback.showForPlayer(player, xp);
                 }
             }
         }
@@ -96,7 +95,7 @@ public abstract class HoeItemMixin {
 
         int xp = 3;
         if (EquipmentComponent.addXp(hoe, xp, player)) {
-            XpDisplay.showForPlayer(player, Vec3d.ofCenter(context.getBlockPos()), xp);
+            XpFeedback.showForPlayer(player, xp);
         }
     }
 

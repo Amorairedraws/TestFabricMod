@@ -41,7 +41,7 @@ public final class EquipLevelingConfigScreen {
         return YetAnotherConfigLib.createBuilder()
                 .title(Text.translatable("equip_leveling.config.title"))
                 .save(() -> {
-                    EquipLevelingConfig.save();
+                    ConfigSerializer.save();
                 })
                 .category(buildGeneral(canEdit))
                 .category(buildXpAndLeveling(canEdit))

@@ -1,40 +1,40 @@
 package com.amorairedraws.equipleveling.mixin;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
-import net.minecraft.registry.tag.EnchantmentTags;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.registry.tag.EnchantmentTags;
 import net.minecraft.screen.GrindstoneScreenHandler;
 import net.minecraft.util.Identifier;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Adds the custom grindstone XP payout at the result-slot take hook. */
+/**
+ * Adds the custom grindstone XP payout for tracked equipment whose custom
+ * enchantment slots have not yet been mirrored into vanilla's enchantment
+ * component (a short window right after an item is obtained).
+ *
+ * <p>The anonymous result slot stores its parent handler in a synthetic field;
+ * reaching it through {@link Shadow} is the intended approach and avoids
+ * iterating over {@code getDeclaredFields()} with reflection.</p>
+ */
 @Mixin(targets = "net.minecraft.screen.GrindstoneScreenHandler$4")
-public abstract class ScreenHandlerMixin {
+public abstract class GrindstoneResultSlotMixin {
+    @Shadow @Final GrindstoneScreenHandler field_16780;
+
     @Inject(method = "onTakeItem", at = @At("HEAD"))
     private void equipLeveling$grindstoneXp(PlayerEntity player, ItemStack output, CallbackInfo ci) {
-        GrindstoneScreenHandler handler = null;
-        // The anonymous result slot stores its parent handler in a synthetic
-        // field. Looking it up avoids depending on that compiler-generated name.
-        for (java.lang.reflect.Field field : this.getClass().getDeclaredFields()) {
-            if (GrindstoneScreenHandler.class.isAssignableFrom(field.getType())) {
-                try {
-                    field.setAccessible(true);
-                    handler = (GrindstoneScreenHandler) field.get(this);
-                } catch (ReflectiveOperationException ignored) { }
-                break;
-            }
-        }
-        if (handler == null) return;
+        if (player == null || player.getEntityWorld().isClient()) return;
         RegistryWrapper.WrapperLookup lookup = player.getEntityWorld().getRegistryManager();
-        int totalEnchantmentPower = getExperience(handler.getSlot(0).getStack(), lookup)
-                + getExperience(handler.getSlot(1).getStack(), lookup);
+        int totalEnchantmentPower = getExperience(field_16780.getSlot(0).getStack(), lookup)
+                + getExperience(field_16780.getSlot(1).getStack(), lookup);
         if (totalEnchantmentPower > 0) {
             // Match GrindstoneScreenHandler's vanilla payout: ceil(total / 2)
             // plus a random value in [0, ceil(total / 2)).
@@ -46,11 +46,10 @@ public abstract class ScreenHandlerMixin {
 
     private static int getExperience(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
         if (!stack.contains(EquipmentComponent.EQUIPMENT_TYPE)) return 0;
-        // The common tick synchronizer mirrors custom slots into vanilla's
-        // enchantment component. In that case vanilla's result-slot hook already
-        // awards the normal grindstone XP; adding it here would double the payout.
-        // This fallback is only for a freshly-created component that has not yet
-        // been mirrored (for example, an item inserted immediately after login).
+        // The periodic synchronizer mirrors custom slots into vanilla's enchantment
+        // component. In that case vanilla's result-slot hook already awards the normal
+        // grindstone XP; adding it here would double the payout. This fallback only
+        // fires for a freshly-created component that has not yet been mirrored.
         if (!stack.getEnchantments().getEnchantmentEntries().isEmpty()) return 0;
         EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
         int xp = 0;

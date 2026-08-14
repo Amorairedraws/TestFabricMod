@@ -9,6 +9,7 @@ import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.item.BowItem;
 import net.minecraft.item.CrossbowItem;
 import net.minecraft.item.FishingRodItem;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.RangedWeaponItem;
@@ -22,6 +23,8 @@ import net.minecraft.block.Block;
 import net.minecraft.util.Identifier;
 
 import java.util.Optional;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Maps an item to one of the mod's equipment categories (sword, axe, pickaxe,
@@ -53,6 +56,10 @@ import java.util.Optional;
  * </ol>
  */
 public class EquipmentCategory {
+    /** Per-item category cache. The empty string is a sentinel for "not equipment"
+     *  (ConcurrentHashMap rejects null values). Dropped on {@link #invalidateCache()}. */
+    private static final Map<Item, String> CATEGORY_CACHE = new ConcurrentHashMap<>();
+
     private static TagKey<net.minecraft.item.Item> tag(String path) {
         return TagKey.of(Registries.ITEM.getKey(), Identifier.of("equip_leveling", path));
     }
@@ -63,6 +70,22 @@ public class EquipmentCategory {
 
     public static String getCategory(ItemStack stack) {
         if (stack.isEmpty()) return null;
+        // Category depends only on the item type (tags, class and the item's own
+        // default components), so cache per item to avoid re-running the multi-layer
+        // fallback on every tooltip frame and server tick.
+        String cached = CATEGORY_CACHE.get(stack.getItem());
+        if (cached != null) return cached.isEmpty() ? null : cached;
+        String category = computeCategory(stack);
+        CATEGORY_CACHE.put(stack.getItem(), category == null ? "" : category);
+        return category;
+    }
+
+    /** Drops the cached categories. Call after the item registry or tags change. */
+    public static void invalidateCache() {
+        CATEGORY_CACHE.clear();
+    }
+
+    private static String computeCategory(ItemStack stack) {
 
         // ---- 1. Armour (vanilla tags) ----
         if (stack.isIn(ItemTags.HEAD_ARMOR)) return "helmet";

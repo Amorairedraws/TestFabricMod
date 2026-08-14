@@ -13,12 +13,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
+import com.amorairedraws.equipleveling.config.ConfigSerializer;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.item.ModItems;
 import com.amorairedraws.equipleveling.recipe.RepairEquipmentRecipe;
 import com.amorairedraws.equipleveling.event.EquipmentXpEvents;
 import com.amorairedraws.equipleveling.event.ArmorXpHandler;
-import com.amorairedraws.equipleveling.event.DeathEventHandler;
 import com.amorairedraws.equipleveling.loot.EquipmentLootModifier;
 import com.amorairedraws.equipleveling.network.ConfigSyncPacket;
 import com.amorairedraws.equipleveling.util.PlayerBlockTracker;
@@ -52,17 +52,20 @@ public class EquipLevelingMod implements ModInitializer {
             Items.COPPER_INGOT, Items.IRON_INGOT, Items.FLINT, Items.LEATHER
     };
     private static int recipeUnlockTick;
+    private static int reconciliationTick;
 
     @Override
     public void onInitialize() {
         LOGGER.info("Initializing Equip Leveling!");
 
         // Load config — auto-generates block XP defaults on first run.
-        EquipLevelingConfig.load();
+        ConfigSerializer.load();
 
         // Recompute the auto-derived material ladder once the item registry and
         // tags are settled (also covers mid-session datapack /reload).
         ServerLifecycleEvents.SERVER_STARTING.register(server ->
+                EquipLevelingConfig.invalidateMaterialCache());
+        ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resourceManager, success) ->
                 EquipLevelingConfig.invalidateMaterialCache());
 
         // Register data component for equipment tracking.
@@ -80,7 +83,7 @@ public class EquipLevelingMod implements ModInitializer {
 
         // When a player joins a multiplayer server, sync the server config to them.
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            String configJson = EquipLevelingConfig.toJsonString();
+            String configJson = ConfigSerializer.toJsonString();
             ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPacket(configJson));
             LOGGER.debug("Synced config to {}", handler.getPlayer().getName().getString());
         });
@@ -92,7 +95,11 @@ public class EquipLevelingMod implements ModInitializer {
         // Server config changes take effect on next reload or player join.
         // (The server → client sync packet at join already handles the common case.)
 
-        // Keep leveled equipment on death (if enabled).
+        // Keep leveled equipment on death (if enabled). This works in two parts:
+        // 1. PlayerEntityMixin#dropInventory hides tracked items so vanilla doesn't
+        //    drop them as entities, then restores them to the dead player's inventory.
+        // 2. Vanilla's copyFrom skips the inventory for a death respawn (alive=false),
+        //    so this handler copies the restored tracked items onto the new player.
         ServerPlayerEvents.COPY_FROM.register((oldPlayer, newPlayer, alive) -> {
             if (!EquipLevelingConfig.isKeepEquipOnDeath() || alive) return;
             for (int i = 0; i < oldPlayer.getInventory().size(); i++) {
@@ -116,16 +123,15 @@ public class EquipLevelingMod implements ModInitializer {
             }
         });
 
-        // Kill XP: award on actual death, not on hit.
+        // Kill XP: award on actual death, not on hit. Player deaths are skipped
+        // here (equipment-keeping on death is handled by PlayerEntityMixin plus
+        // the COPY_FROM handler above).
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-            if (entity instanceof net.minecraft.entity.player.PlayerEntity dead) {
-                DeathEventHandler.handlePlayerDeath(dead);
-            } else {
-                net.minecraft.entity.player.PlayerEntity killer = null;
-                if (source.getSource() instanceof net.minecraft.entity.player.PlayerEntity p) killer = p;
-                else if (source.getAttacker() instanceof net.minecraft.entity.player.PlayerEntity p) killer = p;
-                if (killer != null) EquipmentXpEvents.awardKillXp(killer, entity, source);
-            }
+            if (entity instanceof net.minecraft.entity.player.PlayerEntity) return;
+            net.minecraft.entity.player.PlayerEntity killer = null;
+            if (source.getSource() instanceof net.minecraft.entity.player.PlayerEntity p) killer = p;
+            else if (source.getAttacker() instanceof net.minecraft.entity.player.PlayerEntity p) killer = p;
+            if (killer != null) EquipmentXpEvents.awardKillXp(killer, entity, source);
         });
 
         LOGGER.info("Equip Leveling initialized successfully!");
@@ -138,17 +144,25 @@ public class EquipLevelingMod implements ModInitializer {
         // Attack observation (no mutation — reward is from AFTER_DEATH).
         AttackEntityCallback.EVENT.register(new EquipmentXpEvents.EntityKillXpHandler());
 
-        // Per-tick inventory reconciliation + recipe-book unlock.
+        // Inventory reconciliation + recipe-book unlock. Reconciliation is throttled
+        // to every 40 ticks (2 s) to match the client, since it only exists to catch
+        // tracked items obtained outside the normal award paths (creative, commands,
+        // /give) and to mirror custom slots into vanilla enchantments; neither needs
+        // to run every tick.
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             boolean checkUnlocks = ++recipeUnlockTick >= 20;
             if (checkUnlocks) recipeUnlockTick = 0;
+            boolean reconcile = ++reconciliationTick >= 40;
+            if (reconcile) reconciliationTick = 0;
             for (var player : server.getPlayerManager().getPlayerList()) {
-                for (int i = 0; i < player.getInventory().size(); i++) {
-                    var stack = player.getInventory().getStack(i);
-                    if (EquipmentComponent.isTracked(stack)) {
-                        EquipmentComponent.getOrCreate(stack);
-                        EquipmentComponent.restoreEnchantments(stack, player.getEntityWorld().getRegistryManager());
-                        EquipmentComponent.markBrokenIfNecessary(stack, player);
+                if (reconcile) {
+                    for (int i = 0; i < player.getInventory().size(); i++) {
+                        var stack = player.getInventory().getStack(i);
+                        if (EquipmentComponent.isTracked(stack)) {
+                            EquipmentComponent.getOrCreate(stack);
+                            EquipmentComponent.restoreEnchantments(stack, player.getEntityWorld().getRegistryManager());
+                            EquipmentComponent.markBrokenIfNecessary(stack, player);
+                        }
                     }
                 }
                 if (checkUnlocks) checkRecipeUnlocks(player);

@@ -3,6 +3,7 @@ package com.amorairedraws.equipleveling.client;
 import com.amorairedraws.equipleveling.client.render.BrokenItemRenderer;
 import com.amorairedraws.equipleveling.client.tooltip.EquipmentTooltipRenderer;
 import com.amorairedraws.equipleveling.component.EquipmentComponent;
+import com.amorairedraws.equipleveling.config.ConfigSerializer;
 import com.amorairedraws.equipleveling.config.EquipLevelingConfig;
 import com.amorairedraws.equipleveling.network.ConfigSyncPacket;
 import com.amorairedraws.equipleveling.screen.VanillaEnchantingTableLogic;
@@ -45,15 +46,20 @@ public class EquipLevelingClient implements ClientModInitializer {
                 // from config.json and lose changes on restart. Only switch for real
                 // multiplayer servers (which always have a ServerInfo entry).
                 if (connection != null && connection.getServerInfo() != null) {
-                    EquipLevelingConfig.loadServerConfig(connection.getServerInfo().address, payload.json());
+                    ConfigSerializer.loadServerConfig(connection.getServerInfo().address, payload.json());
                 }
             });
         });
 
         // When disconnecting from a server, restore our personal config.
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            EquipLevelingConfig.restorePersonalConfig();
+            ConfigSerializer.restorePersonalConfig();
         });
+
+        // Item tags can differ per server (datapacks/mods), so drop the cached
+        // material ladder and per-item category cache when play starts.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+                EquipLevelingConfig.invalidateMaterialCache());
 
         // Periodically refresh component state on the client (every 2 seconds).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

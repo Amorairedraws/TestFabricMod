@@ -45,12 +45,6 @@ public final class MaterialTierUpgrader {
 
     /** @deprecated Kept for backward compat with old callers passing a ladder array. */
     @Deprecated
-    public static boolean isAtMaxTier(ItemStack stack, String[] ignoredLadder) {
-        return isAtMaxTier(stack);
-    }
-
-    /** @deprecated Kept for backward compat. */
-    @Deprecated
     public static boolean canPromote(ItemStack old, String category, String[] ignoredLadder) {
         return canPromote(old, category);
     }
@@ -129,11 +123,6 @@ public final class MaterialTierUpgrader {
     }
 
     // ---- private helpers ----
-
-    /** Extracts material name from an item: "wooden_sword" 2192 "wood".  Public for UI. */
-    public static String materialNameOf(Item item) {
-        return materialOf(item);
-    }
 
     private static String materialOf(Item item) {
         return MaterialHelper.extractMaterialName(item);

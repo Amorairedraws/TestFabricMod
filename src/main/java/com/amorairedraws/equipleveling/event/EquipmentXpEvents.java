@@ -53,14 +53,14 @@ public class EquipmentXpEvents {
         if (baseXp <= 0) return;
 
         // Use livestock multiplier for passive animals, mob multiplier for everything else.
-        boolean isLivestock = XpCalculator.calculateEntityKillXp(entity) == 5;
+        boolean isLivestock = XpCalculator.isLivestock(entity);
         double srcMult = isLivestock
                 ? EquipLevelingConfig.getSourceMultiplier("livestock")
                 : EquipLevelingConfig.getSourceMultiplier("mob");
 
         int xp = XpCalculator.applyMultipliers(baseXp, srcMult);
         if (EquipmentComponent.addXp(held, xp, player)) {
-            XpDisplay.showForPlayer(player, entity.getEntityPos(), xp);
+            XpFeedback.showForPlayer(player, xp);
         }
     }
 
@@ -126,7 +126,7 @@ public class EquipmentXpEvents {
                 double srcMult = EquipLevelingConfig.getSourceMultiplier(sourceKey);
                 int xp = XpCalculator.applyMultipliers(baseXp, srcMult);
                 if (EquipmentComponent.addXp(heldItem, xp, player)) {
-                    XpDisplay.showForPlayer(player, net.minecraft.util.math.Vec3d.ofCenter(pos), xp);
+                    XpFeedback.showForPlayer(player, xp);
                 }
             }
         }

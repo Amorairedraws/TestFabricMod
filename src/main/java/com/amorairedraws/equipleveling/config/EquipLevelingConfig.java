@@ -1,100 +1,75 @@
 package com.amorairedraws.equipleveling.config;
 
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-
-import net.fabricmc.loader.api.FabricLoader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
- * Central configuration for the Equip Leveling mod.
+ * Central configuration values for the Equip Leveling mod.
  *
- * <h3>Config file locations</h3>
- * <ul>
- *   <li>Singleplayer / personal: {@code config/equip_leveling/config.json}</li>
- *   <li>Per-server (multiplayer): {@code config/equip_leveling/servers/&lt;address&gt;.json}</li>
- * </ul>
+ * <p>This class holds the values (with getters/setters and validation); all
+ * file/JSON handling lives in {@link ConfigSerializer}.</p>
  *
  * <h3>Multiplier hierarchy</h3>
  * <pre>
- *   effectiveXp = baseXp × globalGainMultiplier × sourceMultiplier[mob|mining|farming|wood|fishing]
- *   levelRequirement(n) = levelRequirement(n-1) × levelRequirementGrowth
+ *   effectiveXp = baseXp &#215; globalGainMultiplier &#215; sourceMultiplier[mob|mining|farming|wood|fishing]
+ *   levelRequirement(n) = levelRequirement(n-1) &#215; levelRequirementGrowth
  * </pre>
  */
 public class EquipLevelingConfig {
-    private static final Logger LOGGER = LoggerFactory.getLogger("equip_leveling/config");
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("equip_leveling");
-    private static final Path SERVERS_DIR = CONFIG_DIR.resolve("servers");
-    private static Path activeConfigFile = CONFIG_DIR.resolve("config.json");
 
     // ================================================================== //
     // Fields                                                              //
     // ================================================================== //
 
     // Base XP per category (how much total XP an item needs for its first level-up)
-    private static Map<String, Integer> baseXp = new LinkedHashMap<>();
+    static Map<String, Integer> baseXp = new LinkedHashMap<>();
 
     // Level-up requirement growth (was "xpMultiplier" in older versions).
-    // Each level requires this many times the previous level's XP.
-    private static double levelRequirementGrowth = 1.2;
+    static double levelRequirementGrowth = 1.2;
 
     // Global XP gain multiplier — multiplies ALL XP from ALL sources.
-    private static double globalXpGainMultiplier = 1.0;
+    static double globalXpGainMultiplier = 1.0;
 
-    // Per-source XP multipliers. Keys: mob, mining, farming, wood, fishing.
-    private static Map<String, Double> sourceMultipliers = new LinkedHashMap<>();
+    // Per-source XP multipliers. Keys: mob, livestock, mining, farming, wood, fishing.
+    static Map<String, Double> sourceMultipliers = new LinkedHashMap<>();
 
-    // Display threshold — floating XP numbers only appear for gains >= this.
-    private static int xpDisplayThreshold = 10;
+    // Display threshold — the XP message only appears for gains >= this.
+    static int xpDisplayThreshold = 10;
 
     // Durability restored on level-up, as a percentage of max durability.
-    private static int durabilityRestorePercent = 25;
+    static int durabilityRestorePercent = 25;
 
     // Flat durability restored by a regular Repair Kit (crafting-grid repair).
-    private static int repairKitRestoreAmount = 100;
+    static int repairKitRestoreAmount = 100;
     // Percentage of max durability restored by a Diamond Repair Kit.
-    private static int diamondRepairKitRestorePercent = 50;
+    static int diamondRepairKitRestorePercent = 50;
 
     // Reroll costs indexed by number of filled standard slots (0..4).
-    private static int[] rerollCosts = {5, 10, 15, 20, 25};
+    static int[] rerollCosts = {5, 10, 15, 20, 25};
 
     // Probability a visit to the enchanting table offers a legendary upgrade.
-    private static double legendaryUpgradeProbability = 0.05;
+    static double legendaryUpgradeProbability = 0.05;
 
     // Mining-level → materials map for the material ladder.
-    private static Map<Integer, List<String>> materialLadder = new LinkedHashMap<>();
+    static Map<Integer, List<String>> materialLadder = new LinkedHashMap<>();
 
     // Cached effective ladder: the persisted ladder merged with the auto-derived
     // fallback layer. Rebuilt lazily and dropped whenever either layer changes.
-    private static volatile Map<Integer, List<String>> effectiveLadderCache = null;
+    static volatile Map<Integer, List<String>> effectiveLadderCache = null;
 
     // Offer weights for the enchanting table.
-    private static double upgradeWeight = 0.6;
-    private static double newSlotWeight = 0.4;
-    private static double legendaryWeight = 0.05;
+    static double upgradeWeight = 0.6;
+    static double newSlotWeight = 0.4;
+    static double legendaryWeight = 0.05;
 
     // Toggles.
-    private static boolean keepEquipOnDeath = false;
-    private static boolean enableBrokenMechanic = true;
+    static boolean keepEquipOnDeath = false;
+    static boolean enableBrokenMechanic = true;
 
     // Custom block ID → XP overrides (takes priority over formula).
-    private static Map<String, Integer> customBlockXp = new LinkedHashMap<>();
+    static Map<String, Integer> customBlockXp = new LinkedHashMap<>();
 
     // Max enchantment slots per category.
-    private static Map<String, Integer> maxSlots = new LinkedHashMap<>();
-
-    // Whether we're currently using a server-synced config (multiplayer).
-    private static boolean usingServerConfig = false;
+    static Map<String, Integer> maxSlots = new LinkedHashMap<>();
 
     // ================================================================== //
     // Static initialiser                                                  //
@@ -104,7 +79,7 @@ public class EquipLevelingConfig {
         initDefaults();
     }
 
-    private static void initDefaults() {
+    static void initDefaults() {
         // Base XP per category
         baseXp.put("sword", 400);
         baseXp.put("axe", 450);
@@ -130,8 +105,8 @@ public class EquipLevelingConfig {
         sourceMultipliers.put("fishing", 1.0);
 
         // Material ladder defaults. Gold and copper are intentionally NOT listed:
-        // they are auto-derived from the item registry (gold \u2192 wood tier, copper
-        // \u2192 stone tier) so they are recognised without being hard-coded.
+        // they are auto-derived from the item registry (gold → wood tier, copper
+        // → stone tier) so they are recognised without being hard-coded.
         materialLadder.put(0, new ArrayList<>(List.of("wood")));
         materialLadder.put(1, new ArrayList<>(List.of("stone")));
         materialLadder.put(2, new ArrayList<>(List.of("iron")));
@@ -156,182 +131,10 @@ public class EquipLevelingConfig {
     }
 
     // ================================================================== //
-    // Loading                                                             //
+    // Validation                                                          //
     // ================================================================== //
 
-    /** Loads the personal config file. Called on mod init. */
-    public static void load() {
-        activeConfigFile = CONFIG_DIR.resolve("config.json");
-        usingServerConfig = false;
-        loadFrom(activeConfigFile);
-    }
-
-    /**
-     * Switches to a server-specific config file, creating it from the server's
-     * synced JSON if needed. Called when the client receives a ConfigSyncPacket.
-     *
-     * @param serverAddress  the server address (e.g. "mc.example.com:25565")
-     * @param serverJson     the JSON config from the server
-     */
-    public static void loadServerConfig(String serverAddress, String serverJson) {
-        try {
-            Files.createDirectories(SERVERS_DIR);
-            String safeName = serverAddress.replaceAll("[^a-zA-Z0-9._-]", "_");
-            activeConfigFile = SERVERS_DIR.resolve(safeName + ".json");
-
-            // Write the server's config to disk so it persists across restarts.
-            Files.writeString(activeConfigFile, serverJson);
-
-            usingServerConfig = true;
-            loadFrom(activeConfigFile);
-            LOGGER.info("Switched to server config: {}", activeConfigFile);
-        } catch (IOException e) {
-            LOGGER.error("Failed to save server config", e);
-        }
-    }
-
-    /** Restores the personal config after disconnecting from a server. */
-    public static void restorePersonalConfig() {
-        activeConfigFile = CONFIG_DIR.resolve("config.json");
-        usingServerConfig = false;
-        loadFrom(activeConfigFile);
-        LOGGER.info("Restored personal config");
-    }
-
-    public static boolean isUsingServerConfig() {
-        return usingServerConfig;
-    }
-
-    /** Returns the full config as a JSON string (for syncing to clients). */
-    public static String toJsonString() {
-        return GSON.toJson(buildJson());
-    }
-
-    /** Replaces all config values from a JSON string (used by client sync). */
-    public static void fromJsonString(String json) {
-        try {
-            JsonObject obj = GSON.fromJson(json, JsonObject.class);
-            parseJson(obj);
-            save();
-        } catch (Exception e) {
-            LOGGER.error("Failed to parse synced config", e);
-        }
-    }
-
-    private static void loadFrom(Path file) {
-        try {
-            Files.createDirectories(CONFIG_DIR);
-            if (Files.exists(file)) {
-                try (FileReader reader = new FileReader(file.toFile())) {
-                    JsonObject json = GSON.fromJson(reader, JsonObject.class);
-                    parseJson(json);
-                }
-            } else {
-                save();
-            }
-        } catch (IOException | RuntimeException e) {
-            LOGGER.error("Failed to load config; using defaults", e);
-            save(); // write valid defaults so the broken file is replaced
-        }
-    }
-
-    @SuppressWarnings("deprecation")
-    private static void parseJson(JsonObject json) {
-        // Base XP
-        if (json.has("baseXp")) {
-            baseXp.clear();
-            json.getAsJsonObject("baseXp").entrySet().forEach(e ->
-                    baseXp.put(e.getKey(), e.getValue().getAsInt()));
-        }
-
-        // Level requirement growth (backward compat: was "xpMultiplier")
-        levelRequirementGrowth = getDouble(json, "levelRequirementGrowth",
-                getDouble(json, "xpMultiplier", 1.2));
-
-        // Global XP gain multiplier (new)
-        globalXpGainMultiplier = getDouble(json, "globalXpGainMultiplier", 1.0);
-
-        // Per-source multipliers
-        if (json.has("sourceMultipliers")) {
-            sourceMultipliers.clear();
-            json.getAsJsonObject("sourceMultipliers").entrySet().forEach(e ->
-                    sourceMultipliers.put(e.getKey(), e.getValue().getAsDouble()));
-        }
-
-        // Simple fields
-        xpDisplayThreshold = getInt(json, "xpDisplayThreshold", 10);
-        durabilityRestorePercent = getInt(json, "durabilityRestorePercent", 25);
-        repairKitRestoreAmount = getInt(json, "repairKitRestoreAmount", 100);
-        diamondRepairKitRestorePercent = getInt(json, "diamondRepairKitRestorePercent", 50);
-        legendaryUpgradeProbability = getDouble(json, "legendaryUpgradeProbability", 0.05);
-        upgradeWeight = getDouble(json, "upgradeWeight", 0.6);
-        newSlotWeight = getDouble(json, "newSlotWeight", 0.4);
-        legendaryWeight = getDouble(json, "legendaryWeight", 0.05);
-
-        keepEquipOnDeath = getBool(json, "keepEquipOnDeath", false);
-        enableBrokenMechanic = getBool(json, "enableBrokenMechanic", true);
-
-        // Reroll costs
-        if (json.has("rerollCosts")) {
-            int[] loaded = GSON.fromJson(json.get("rerollCosts"), int[].class);
-            if (loaded != null && loaded.length == 5) rerollCosts = loaded;
-        }
-
-        // Material ladder
-        if (json.has("materialLadder")) {
-            materialLadder.clear();
-            JsonObject ladderObj = json.getAsJsonObject("materialLadder");
-            for (Map.Entry<String, com.google.gson.JsonElement> entry : ladderObj.entrySet()) {
-                try {
-                    int level = Integer.parseInt(entry.getKey());
-                    List<String> mats = new ArrayList<>();
-                    for (com.google.gson.JsonElement e : entry.getValue().getAsJsonArray()) {
-                        String mat = e.getAsString().trim().toLowerCase();
-                        if (!mat.isBlank()) mats.add(mat);
-                    }
-                    if (!mats.isEmpty()) materialLadder.put(level, mats);
-                } catch (NumberFormatException ignored) {}
-            }
-        } else if (json.has("materialTiers")) {
-            // Migrate old flat array
-            String[] old = GSON.fromJson(json.get("materialTiers"), String[].class);
-            if (old != null && old.length > 0) {
-                materialLadder.clear();
-                for (int i = 0; i < old.length; i++) {
-                    String mat = old[i].trim().toLowerCase();
-                    if (!mat.isBlank()) materialLadder.put(i, new ArrayList<>(List.of(mat)));
-                }
-            }
-        }
-
-        // Custom block XP
-        customBlockXp.clear();
-        if (json.has("customBlockXp") && json.get("customBlockXp").isJsonObject()) {
-            json.getAsJsonObject("customBlockXp").entrySet().forEach(entry -> {
-                try {
-                    int v = entry.getValue().getAsInt();
-                    if (v > 0) customBlockXp.put(entry.getKey(), v);
-                } catch (RuntimeException ignored) {}
-            });
-        }
-
-        // Max slots
-        if (json.has("maxSlots")) {
-            maxSlots.clear();
-            json.getAsJsonObject("maxSlots").entrySet().forEach(entry -> {
-                try {
-                    int v = entry.getValue().getAsInt();
-                    if (v >= 1 && v <= 8) maxSlots.put(entry.getKey(), v);
-                } catch (RuntimeException ignored) {}
-            });
-        }
-
-        // Validate
-        validate();
-        invalidateMaterialCache();
-    }
-
-    private static void validate() {
+    static void validate() {
         levelRequirementGrowth = clamp(levelRequirementGrowth, 1.0, 10.0);
         globalXpGainMultiplier = clamp(globalXpGainMultiplier, 0.1, 10.0);
         xpDisplayThreshold = Math.max(0, xpDisplayThreshold);
@@ -352,66 +155,6 @@ public class EquipLevelingConfig {
             sourceMultipliers.putIfAbsent(key, 1.0);
             sourceMultipliers.put(key, clamp(sourceMultipliers.get(key), 0.0, 100.0));
         }
-    }
-
-    // ================================================================== //
-    // Saving                                                              //
-    // ================================================================== //
-
-    public static void save() {
-        try {
-            Files.createDirectories(activeConfigFile.getParent());
-            try (FileWriter writer = new FileWriter(activeConfigFile.toFile())) {
-                GSON.toJson(buildJson(), writer);
-            }
-        } catch (IOException e) {
-            LOGGER.error("Failed to save config", e);
-        }
-    }
-
-    private static JsonObject buildJson() {
-        JsonObject json = new JsonObject();
-
-        JsonObject xpObj = new JsonObject();
-        baseXp.forEach(xpObj::addProperty);
-        json.add("baseXp", xpObj);
-
-        json.addProperty("levelRequirementGrowth", levelRequirementGrowth);
-        json.addProperty("globalXpGainMultiplier", globalXpGainMultiplier);
-
-        JsonObject srcMult = new JsonObject();
-        sourceMultipliers.forEach(srcMult::addProperty);
-        json.add("sourceMultipliers", srcMult);
-
-        json.addProperty("xpDisplayThreshold", xpDisplayThreshold);
-        json.addProperty("durabilityRestorePercent", durabilityRestorePercent);
-        json.addProperty("repairKitRestoreAmount", repairKitRestoreAmount);
-        json.addProperty("diamondRepairKitRestorePercent", diamondRepairKitRestorePercent);
-        json.add("rerollCosts", GSON.toJsonTree(rerollCosts));
-        json.addProperty("legendaryUpgradeProbability", legendaryUpgradeProbability);
-
-        JsonObject ladderJson = new JsonObject();
-        for (Map.Entry<Integer, List<String>> e : materialLadder.entrySet()) {
-            ladderJson.add(e.getKey().toString(), GSON.toJsonTree(e.getValue()));
-        }
-        json.add("materialLadder", ladderJson);
-
-        json.addProperty("upgradeWeight", upgradeWeight);
-        json.addProperty("newSlotWeight", newSlotWeight);
-        json.addProperty("legendaryWeight", legendaryWeight);
-
-        json.addProperty("keepEquipOnDeath", keepEquipOnDeath);
-        json.addProperty("enableBrokenMechanic", enableBrokenMechanic);
-
-        JsonObject custom = new JsonObject();
-        customBlockXp.forEach(custom::addProperty);
-        json.add("customBlockXp", custom);
-
-        JsonObject ms = new JsonObject();
-        maxSlots.forEach(ms::addProperty);
-        json.add("maxSlots", ms);
-
-        return json;
     }
 
     // ================================================================== //
@@ -544,6 +287,7 @@ public class EquipLevelingConfig {
             effectiveLadderCache = null;
         }
         com.amorairedraws.equipleveling.util.MaterialTierDeriver.invalidate();
+        com.amorairedraws.equipleveling.util.EquipmentCategory.invalidateCache();
     }
 
     public static double getUpgradeWeight() { return upgradeWeight; }
@@ -570,7 +314,7 @@ public class EquipLevelingConfig {
     public static void setBaseXpForCategory(String category, int xp) {
         if (category == null || category.isBlank()) return;
         baseXp.put(category.toLowerCase(), Math.max(1, xp));
-        save();
+        ConfigSerializer.save();
     }
 
     @Deprecated
@@ -579,38 +323,38 @@ public class EquipLevelingConfig {
     public static void setLevelRequirementGrowth(double v) {
         if (!Double.isFinite(v)) return;
         levelRequirementGrowth = clamp(v, 1.0, 10.0);
-        save();
+        ConfigSerializer.save();
     }
 
     public static void setGlobalXpGainMultiplier(double v) {
         if (!Double.isFinite(v)) return;
         globalXpGainMultiplier = clamp(v, 0.1, 10.0);
-        save();
+        ConfigSerializer.save();
     }
 
     public static void setSourceMultiplier(String key, double v) {
         if (!Double.isFinite(v)) return;
         sourceMultipliers.put(key, clamp(v, 0.0, 100.0));
-        save();
+        ConfigSerializer.save();
     }
 
-    public static void setXpDisplayThreshold(int v) { xpDisplayThreshold = Math.max(0, v); save(); }
-    public static void setDurabilityRestorePercent(int v) { durabilityRestorePercent = clamp(v, 0, 100); save(); }
-    public static void setRepairKitRestoreAmount(int v) { repairKitRestoreAmount = clamp(v, 0, 10000); save(); }
-    public static void setDiamondRepairKitRestorePercent(int v) { diamondRepairKitRestorePercent = clamp(v, 0, 100); save(); }
-    public static void setKeepEquipOnDeath(boolean v) { keepEquipOnDeath = v; save(); }
-    public static void setBrokenMechanicEnabled(boolean v) { enableBrokenMechanic = v; save(); }
+    public static void setXpDisplayThreshold(int v) { xpDisplayThreshold = Math.max(0, v); ConfigSerializer.save(); }
+    public static void setDurabilityRestorePercent(int v) { durabilityRestorePercent = clamp(v, 0, 100); ConfigSerializer.save(); }
+    public static void setRepairKitRestoreAmount(int v) { repairKitRestoreAmount = clamp(v, 0, 10000); ConfigSerializer.save(); }
+    public static void setDiamondRepairKitRestorePercent(int v) { diamondRepairKitRestorePercent = clamp(v, 0, 100); ConfigSerializer.save(); }
+    public static void setKeepEquipOnDeath(boolean v) { keepEquipOnDeath = v; ConfigSerializer.save(); }
+    public static void setBrokenMechanicEnabled(boolean v) { enableBrokenMechanic = v; ConfigSerializer.save(); }
 
     public static void setRerollCosts(int[] costs) {
         if (costs == null || costs.length != 5) return;
         rerollCosts = Arrays.stream(costs).map(v -> Math.max(0, v)).toArray();
-        save();
+        ConfigSerializer.save();
     }
 
     public static void setLegendaryUpgradeProbability(double v) {
         if (!Double.isFinite(v)) return;
         legendaryUpgradeProbability = clamp(v, 0.0, 1.0);
-        save();
+        ConfigSerializer.save();
     }
 
     public static void setMaterialLadder(Map<Integer, List<String>> ladder) {
@@ -626,7 +370,7 @@ public class EquipLevelingConfig {
         }
         if (materialLadder.isEmpty()) initDefaults();
         invalidateMaterialCache();
-        save();
+        ConfigSerializer.save();
     }
 
     public static void setOfferWeights(double upgrade, double newSlot) {
@@ -638,10 +382,8 @@ public class EquipLevelingConfig {
         upgradeWeight = Math.max(0, upgrade);
         newSlotWeight = Math.max(0, newSlot);
         legendaryWeight = Math.max(0, legendary);
-        save();
+        ConfigSerializer.save();
     }
-
-
 
     public static void setCustomBlockXp(Map<String, Integer> map) {
         customBlockXp.clear();
@@ -652,13 +394,13 @@ public class EquipLevelingConfig {
                 }
             });
         }
-        save();
+        ConfigSerializer.save();
     }
 
     public static void setMaxSlotsForCategory(String category, int slots) {
         if (category == null || category.isBlank()) return;
         maxSlots.put(category.toLowerCase(), Math.min(8, Math.max(1, slots)));
-        save();
+        ConfigSerializer.save();
     }
 
     /** @deprecated Use {@link #getMaterialLadder()} instead. */
@@ -684,30 +426,18 @@ public class EquipLevelingConfig {
         }
         if (materialLadder.isEmpty()) initDefaults();
         invalidateMaterialCache();
-        save();
+        ConfigSerializer.save();
     }
 
     // ================================================================== //
     // Helpers                                                             //
     // ================================================================== //
 
-    private static int getInt(JsonObject json, String key, int def) {
-        return json.has(key) ? json.get(key).getAsInt() : def;
-    }
-
-    private static double getDouble(JsonObject json, String key, double def) {
-        return json.has(key) ? json.get(key).getAsDouble() : def;
-    }
-
-    private static boolean getBool(JsonObject json, String key, boolean def) {
-        return json.has(key) ? json.get(key).getAsBoolean() : def;
-    }
-
-    private static double clamp(double value, double min, double max) {
+    static double clamp(double value, double min, double max) {
         return Double.isFinite(value) ? Math.max(min, Math.min(max, value)) : min;
     }
 
-    private static int clamp(int value, int min, int max) {
+    static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
     }
 }

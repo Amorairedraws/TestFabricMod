@@ -36,7 +36,7 @@ public final class ArmorXpHandler {
             if (!offhand.isEmpty() && EquipmentCategory.isEquipment(offhand)) {
                 int xp = Math.max(1, (int) Math.ceil(actual * 2.0f));
                 awarded = EquipmentComponent.addXp(offhand, xp, player);
-                if (awarded) XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
+                if (awarded) XpFeedback.showForPlayer(player, xp);
             }
         } else {
             // Armor took the hit — award XP to worn equipment.
@@ -48,7 +48,7 @@ public final class ArmorXpHandler {
                     awarded |= EquipmentComponent.addXp(armor, xp, player);
                 }
             }
-            if (awarded) XpDisplay.showForPlayer(player, player.getEntityPos(), xp);
+            if (awarded) XpFeedback.showForPlayer(player, xp);
         }
     }
 }
