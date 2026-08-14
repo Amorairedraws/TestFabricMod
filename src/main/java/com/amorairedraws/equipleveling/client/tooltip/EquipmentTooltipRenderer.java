@@ -20,13 +20,23 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 
 	@Override
 	public void getTooltip(ItemStack stack, TooltipContext context, TooltipType type, List<Text> lines) {
-		// Only render on the client's render thread. Polymer (and other server-side
-		// item tooltip sync systems) call getTooltip on the integrated-server thread
-		// to bake a snapshot into the synced lore; adding our lines there makes them
-		// appear twice (one static copy + one live copy). Guarding on the render
-		// thread keeps the tooltip single and live.
 		var client = net.minecraft.client.MinecraftClient.getInstance();
-		if (client == null || !client.isOnThread()) {
+		boolean renderThread = client != null && client.isOnThread();
+
+		// Progression is server-authoritative. Server-side item tooltip sync
+		// systems (Polymer and similar) bake the tooltip on the integrated-server
+		// thread and ship the resulting lore to the client, while the item's own
+		// custom data components never reach the client. For those items the
+		// server's stack is the only copy that holds the real XP/level, so the
+		// lines must be added here for the bake to capture them.
+		//
+		// On the client render thread we add the live copy only when the client
+		// actually holds the component. When it is missing there, the baked lore
+		// already carries the correct lines and emitting a default/stale duplicate
+		// is exactly what produced the old doubled tooltip (one correct copy baked
+		// from the server, one stale copy drawn from the empty client component).
+		EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
+		if (renderThread && data == null) {
 			return;
 		}
 
@@ -39,7 +49,6 @@ public class EquipmentTooltipRenderer implements ItemTooltipCallback {
 		// stored component; if it is absent (a freshly obtained modded item the
 		// server has not reconciled yet) render a transient default so the tooltip
 		// still appears instead of flickering out.
-		EquipmentComponent.EquipmentData data = stack.get(EquipmentComponent.EQUIPMENT_TYPE);
 		if (data == null) {
 			data = EquipmentComponent.EquipmentData.create(EquipmentCategory.getCategory(stack));
 		} else {
